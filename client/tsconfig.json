@@ -1,0 +1,32 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  /**
+   * This solution file compiles nothing — `tsconfig.app.json` is what type
+   * checks `src`, and it carries its own copy of these paths.
+   *
+   * They are duplicated here because tooling that reads only `tsconfig.json`
+   * cannot follow project references. The shadcn CLI is the one that matters:
+   * without this it fails with "Could not resolve the following aliases".
+   * Keep the three lists (here, tsconfig.app.json, vite.config.ts) in sync.
+   */
+  "compilerOptions": {
+    "paths": {
+      "@api/*": ["./src/api/*"],
+      "@constants/*": ["./src/constants/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@providers/*": ["./src/providers/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@shared/*": ["./src/modules/shared/*"],
+      "@stores/*": ["./src/stores/*"],
+      "@styles/*": ["./src/styles/*"],
+      "@typings/*": ["./src/types/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@/*": ["./src/*"]
+    }
+  }
+}

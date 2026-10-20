@@ -1,0 +1,97 @@
+{{ define "preheader" }}Confirm your email address to finish setting up optikí.{{ end }}
+
+{{ define "content" }}
+<h1
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    color: #020618;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 0;
+    margin-bottom: 12px;
+  "
+>
+  Verify your email address
+</h1>
+<p
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+    margin-bottom: 16px;
+  "
+>
+  Hi {{ .Name }}, confirm this is your email address so we can secure your
+  optikí account.
+</p>
+
+{{ template "cta" . }}
+
+<p
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: #62748e;
+    line-height: 1.6;
+    margin: 0;
+    margin-bottom: 8px;
+  "
+>
+  If the button doesn't work, paste this link into your browser:
+</p>
+<p
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+    margin: 0;
+    margin-bottom: 16px;
+    word-break: break-all;
+  "
+>
+  <a
+    href="{{ .ActionURL }}"
+    target="_blank"
+    style="color: #0b7285; text-decoration: underline"
+    >{{ .ActionURL }}</a
+  >
+</p>
+<p
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+    margin-bottom: 16px;
+  "
+>
+  This link is valid for 60 minutes. After that you can request a new one from
+  the verification page in optikí.
+</p>
+<p
+  style="
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: #62748e;
+    line-height: 1.6;
+    margin: 0;
+  "
+>
+  If you didn't create a optikí account, you can safely ignore this email.
+</p>
+{{ end }}

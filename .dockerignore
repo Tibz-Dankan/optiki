@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+deploy
+scripts
+*.md
+**/.env
+**/*.env
+**/node_modules
+client/dist
+server/bin
+server/public
