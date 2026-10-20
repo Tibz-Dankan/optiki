@@ -1,0 +1,14 @@
+# pnpm settings for the client (single-package project — no `packages:` needed).
+# `allowBuilds` replaces the removed `onlyBuiltDependencies` setting (pnpm v11+).
+# It records which dependencies may run install/build scripts, resolving
+# ERR_PNPM_IGNORED_BUILDS in CI. Managed via `pnpm approve-builds`.
+allowBuilds:
+  '@tailwindcss/oxide': true # Tailwind v4 native (Rust) binary — required to emit CSS
+  esbuild: true # Vite's bundler native binary — required for `vite build`
+
+minimumReleaseAge: 240 # 1440 minutes
+# minimumReleaseAgeExclude:
+#   - rolldown
+#   - "@rolldown/*"
+#   - nanoid
+#   - "@nanoid/*"

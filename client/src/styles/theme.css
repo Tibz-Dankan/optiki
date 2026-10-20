@@ -1,0 +1,156 @@
+/**
+ * optikí design tokens.
+ *
+ * Light-mode neutrals are shadcn/ui's `slate` base scale. Dark mode uses its own
+ * near-neutral charcoal ramp — hue 261.51, chroma ~0.016 — anchored at
+ * `--background: oklch(0.1723 0.016 261.51)` (#0c1017), with each surface stepped
+ * up in lightness: card 0.2077 → popover 0.24 → secondary/muted/accent 0.295.
+ *
+ * The brand tokens (`--primary`, `--ring`, `--chart-1`) are optikí teal
+ * #0b7285 → oklch(0.509 0.087 215.1), 5.6:1 against white text. Dark mode lifts
+ * it to #3bc9db → oklch(0.77 0.119 207.6) so it stays legible on the dark
+ * surface, and flips `--primary-foreground` to the dark card tone (8.3:1).
+ *
+ * `@theme inline` below bridges these CSS variables to Tailwind v4 utility
+ * names (bg-primary, text-muted-foreground, …). Adding a token means adding it
+ * in BOTH `:root`/`.dark` and the `@theme inline` block.
+ */
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.509 0.087 215.1); /* #0b7285 */
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.627 0.17 149.2);
+  --warning: oklch(0.705 0.17 62);
+  --pen: oklch(0.55 0.21 27);
+  --paper: oklch(0.965 0.012 90);
+  --paper-rule: oklch(0.82 0.04 240 / 55%);
+  --ink: oklch(0.36 0.12 262);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.509 0.087 215.1);
+  --chart-1: oklch(0.509 0.087 215.1);
+  --chart-2: oklch(0.671 0.175 40.64);
+  --chart-3: oklch(0.669 0.141 162.11);
+  --chart-4: oklch(0.764 0.161 75.12);
+  --chart-5: oklch(0.716 0.141 357.39);
+  --chart-6: oklch(0.529 0.18 142.5);
+  --chart-completed: oklch(0.48 0.12 152);
+  --chart-partial: oklch(0.76 0.16 70);
+  --chart-failed: oklch(0.577 0.245 27.325);
+
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+@media screen {
+  .dark {
+    --background: oklch(0.1723 0.016 261.51); /* #0c1017 */
+    --foreground: oklch(0.984 0.003 247.858);
+    --card: oklch(0.2077 0.0155 261.51);
+    --card-foreground: oklch(0.984 0.003 247.858);
+    --popover: oklch(0.24 0.016 261.51);
+    --popover-foreground: oklch(0.984 0.003 247.858);
+    --primary: oklch(0.77 0.119 207.6); /* #3bc9db */
+    --primary-foreground: oklch(0.2077 0.0155 261.51);
+    --secondary: oklch(0.295 0.0156 261.51);
+    --secondary-foreground: oklch(0.984 0.003 247.858);
+    --muted: oklch(0.295 0.0156 261.51);
+    --muted-foreground: oklch(0.704 0.015 261.51);
+    --accent: oklch(0.295 0.0156 261.51);
+    --accent-foreground: oklch(0.984 0.003 247.858);
+    --destructive: oklch(0.704 0.191 22.216);
+    --success: oklch(0.723 0.15 149.2);
+    --warning: oklch(0.795 0.15 70);
+    --pen: oklch(0.55 0.21 27);
+    --paper: oklch(0.965 0.012 90);
+    --paper-rule: oklch(0.82 0.04 240 / 55%);
+    --ink: oklch(0.36 0.12 262);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 18%);
+    --ring: oklch(0.77 0.119 207.6);
+    --chart-1: oklch(0.72 0.119 211.2);
+    --chart-2: oklch(0.622 0.173 40.11);
+    --chart-3: oklch(0.621 0.128 163.11);
+    --chart-4: oklch(0.67 0.143 73.23);
+    --chart-5: oklch(0.622 0.171 0.84);
+    --chart-6: oklch(0.529 0.18 142.5);
+    --chart-completed: oklch(0.5 0.12 152);
+    --chart-partial: oklch(0.665 0.15 75);
+    --chart-failed: oklch(0.56 0.19 24);
+  }
+}
+
+@theme inline {
+  --font-inter: 'Inter', 'sans-serif';
+  --font-manrope: 'Manrope', 'sans-serif';
+  --font-hand: 'Caveat', cursive;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-pen: var(--pen);
+  --color-paper: var(--paper);
+  --color-paper-rule: var(--paper-rule);
+  --color-ink: var(--ink);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-completed: var(--chart-completed);
+  --color-chart-partial: var(--chart-partial);
+  --color-chart-failed: var(--chart-failed);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}

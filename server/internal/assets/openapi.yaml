@@ -1,0 +1,423 @@
+openapi: 3.1.0
+info:
+  title: optikí API
+  version: 0.1.0
+  description: >-
+    optikí scans web pages for problems that stop AI agents and screen readers
+    from using them. Sessions are httpOnly cookies (`accessToken`,
+    `refreshToken`) set by sign-up, sign-in and reset-password; send them back
+    on every call. Errors share one envelope: `status` is `fail` (4xx) or
+    `error` (5xx), `error` is a reason code or the HTTP status name, and
+    `message` is human-readable.
+servers:
+  - url: /
+tags:
+  - name: Auth
+  - name: Appearance
+  - name: Operations
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+  schemas:
+    Error:
+      type: object
+      required: [status, error, message]
+      properties:
+        status: { type: string, enum: [fail, error] }
+        error:
+          type: string
+          description: Reason code (e.g. EMAIL_NOT_VERIFIED) or HTTP status name (e.g. BAD_REQUEST).
+        message: { type: string }
+    Message:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, const: success }
+        message: { type: string }
+    SessionData:
+      type: object
+      required: [userID, accessTokenExpiresAt, refreshTokenExpiresAt]
+      properties:
+        userID: { type: string, format: uuid }
+        accessTokenExpiresAt: { type: string, format: date-time }
+        refreshTokenExpiresAt: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [status, message, session, redirectToPath]
+      properties:
+        status: { type: string, const: success }
+        message: { type: string }
+        session: { $ref: '#/components/schemas/SessionData' }
+        redirectToPath: { type: string, example: /u/dashboard }
+    User:
+      type: object
+      required: [id, name, email, role, emailVerified]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [USER] }
+        emailVerified: { type: boolean }
+        emailVerifiedAt: { type: [string, 'null'], format: date-time }
+        profileBgColor: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ActiveSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        generatedVia: { type: string, enum: [SIGN_UP, SIGN_IN, RESET_PASSWORD] }
+        userAgent: { type: string }
+        ip: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        refreshTokenExpiresAt: { type: string, format: date-time }
+        isCurrentSession: { type: boolean }
+    Pagination:
+      type: object
+      required: [limit, nextCursor, hasNextItems, count]
+      properties:
+        limit: { type: number }
+        nextCursor: { type: string }
+        hasNextItems: { type: boolean }
+        count: { type: integer }
+    Appearance:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userID: { type: string, format: uuid }
+        theme: { type: string, enum: [light, dark, system] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+  responses:
+    BadRequest:
+      description: Invalid input
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Not signed in, or the session expired or was revoked
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Not permitted, or EMAIL_NOT_VERIFIED
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Not found (also returned for resources owned by someone else)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    TooManyRequests:
+      description: Rate limited; see the RateLimit-* and Retry-After headers
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+paths:
+  /api/v1/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Create an account; the email starts unverified and a verification link is emailed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201': { description: Signed up and signed in, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/signin:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Signed in, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/signout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current session and clear the cookies
+      responses:
+        '200': { description: Signed out, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+  /api/v1/auth/signout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke every session of the signed-in user
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Signed out everywhere, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Issue a new access token from the refresh-token cookie
+      responses:
+        '200': { description: Refreshed, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: The signed-in user and session (works before email verification)
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  user: { $ref: '#/components/schemas/User' }
+                  session: { $ref: '#/components/schemas/SessionData' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Email a 6-digit reset code; the response is identical whether or not the account exists
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string, format: email } } } } }
+      responses:
+        '200': { description: Generic confirmation, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/verify-otp:
+    patch:
+      tags: [Auth]
+      summary: Verify a reset code; five wrong guesses burn the code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email: { type: string, format: email }
+                otp: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200': { description: Code verified }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/reset-password/{otp}:
+    patch:
+      tags: [Auth]
+      summary: Set a new password with a verified code; revokes other sessions and signs in
+      parameters:
+        - { name: otp, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200': { description: Password reset, content: { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/verify-email/initiate:
+    post:
+      tags: [Auth]
+      summary: Re-send the verification link (one per minute)
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Sent, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/v1/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify an email with the token from the emailed link (no session needed)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } }
+      responses:
+        '200':
+          description: Verified (or already verified)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  alreadyVerified: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v1/auth/user/change-email:
+    patch:
+      tags: [Auth]
+      summary: Change the email of an unverified account and re-send the link
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string, format: email } } } } }
+      responses:
+        '200': { description: Changed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/user/session:
+    get:
+      tags: [Auth]
+      summary: List the signed-in user's active sessions (cursor pagination)
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/ActiveSession' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/auth/user/session/{sessionID}/revoke:
+    patch:
+      tags: [Auth]
+      summary: Revoke one of the signed-in user's sessions
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: sessionID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Revoked }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/auth/user/{id}/change-password:
+    patch:
+      tags: [Auth]
+      summary: Change the signed-in user's password
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200': { description: Changed, content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/auth/user/{id}:
+    patch:
+      tags: [Auth]
+      summary: Update the signed-in user's name
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string } } } } }
+      responses:
+        '200': { description: Updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/appearance/:
+    post:
+      tags: [Appearance]
+      summary: Create the signed-in user's theme preference
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { theme: { type: string, enum: [light, dark, system] } } } } }
+      responses:
+        '201': { description: Created }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Already exists, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/v1/appearance/me:
+    get:
+      tags: [Appearance]
+      summary: The signed-in user's theme preference
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Preference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/Appearance' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/appearance/{id}:
+    patch:
+      tags: [Appearance]
+      summary: Update the signed-in user's theme preference
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [theme], properties: { theme: { type: string, enum: [light, dark, system] } } } } }
+      responses:
+        '200': { description: Updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/openapi.yaml:
+    get:
+      tags: [Operations]
+      summary: This document
+      responses:
+        '200': { description: OpenAPI 3.1 document, content: { application/yaml: {} } }
+  /health:
+    get:
+      tags: [Operations]
+      summary: Liveness, the deployed commit and the env tag
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, const: ok }
+                      commit: { type: string }
+                      env: { type: string }
+  /status:
+    get:
+      tags: [Operations]
+      summary: Uptime
+      responses:
+        '200': { description: Up }

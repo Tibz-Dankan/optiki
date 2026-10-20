@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+
+# Secrets live on the VPS and in the TestSprite portal, never in git
+.env
+*.env
