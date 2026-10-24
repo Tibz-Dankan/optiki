@@ -34,8 +34,8 @@ func startSession(c *fiber.Ctx, user models.User, generatedVia string) (fiber.Ma
 
 	if _, err := session.Create(models.Session{
 		UserID:                user.ID,
-		AccessTokenHash:       pkg.EncodeToHexString(accessToken),
-		RefreshTokenHash:      pkg.EncodeToHexString(refreshToken),
+		AccessToken:           accessToken,
+		RefreshToken:          refreshToken,
 		GeneratedVia:          generatedVia,
 		UserAgent:             userAgent,
 		IP:                    clientIP,

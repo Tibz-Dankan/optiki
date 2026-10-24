@@ -6,9 +6,8 @@ var db = Db()
 
 type User struct {
 	ID              string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	Env             string     `gorm:"column:env;not null;index;uniqueIndex:idx_users_env_email" json:"-"`
 	Name            string     `gorm:"column:name;not null" json:"name"`
-	Email           string     `gorm:"column:email;not null;uniqueIndex:idx_users_env_email" json:"email"`
+	Email           string     `gorm:"column:email;not null;unique;index" json:"email"`
 	Password        string     `gorm:"column:password;not null" json:"-"`
 	Role            string     `gorm:"column:role;default:'USER';not null;index" json:"role"` // USER
 	EmailVerified   bool       `gorm:"column:emailVerified;default:false" json:"emailVerified"`
@@ -25,10 +24,9 @@ type User struct {
 
 type Session struct {
 	ID                    string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	Env                   string    `gorm:"column:env;not null;index" json:"-"`
 	UserID                string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
-	AccessTokenHash       string    `gorm:"column:accessTokenHash;not null;uniqueIndex" json:"-"`
-	RefreshTokenHash      string    `gorm:"column:refreshTokenHash;not null;uniqueIndex" json:"-"`
+	AccessToken           string    `gorm:"column:accessToken;not null;index" json:"-"`
+	RefreshToken          string    `gorm:"column:refreshToken;not null;index" json:"-"`
 	GeneratedVia          string    `gorm:"column:generatedVia;not null;index" json:"generatedVia"` // SIGN_UP, SIGN_IN, RESET_PASSWORD
 	UserAgent             string    `gorm:"column:userAgent;default:null" json:"userAgent"`
 	IP                    string    `gorm:"column:ip;default:null" json:"ip"`
@@ -44,7 +42,6 @@ type Session struct {
 
 type OTP struct {
 	ID         string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	Env        string    `gorm:"column:env;not null;index" json:"-"`
 	UserID     string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
 	OTP        string    `gorm:"column:OTP;not null;index" json:"-"`
 	Type       string    `gorm:"column:type;not null;index" json:"type"` // RESET_PASSWORD, VERIFY_EMAIL
@@ -61,8 +58,7 @@ type OTP struct {
 
 type Appearance struct {
 	ID        string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	Env       string    `gorm:"column:env;not null;index" json:"-"`
-	UserID    string    `gorm:"column:userID;type:uuid;not null;uniqueIndex" json:"userID"`
+	UserID    string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
 	Theme     string    `gorm:"column:theme;default:'system';not null" json:"theme"` // light, dark, system
 	CreatedAt time.Time `gorm:"column:createdAt;index" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
