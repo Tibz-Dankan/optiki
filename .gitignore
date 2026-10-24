@@ -4,3 +4,5 @@ node_modules/
 # Secrets live on the VPS and in the TestSprite portal, never in git
 .env
 *.env
+accessibility-rules.md
+features.md
