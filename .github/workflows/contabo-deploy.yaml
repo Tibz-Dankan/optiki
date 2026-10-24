@@ -30,8 +30,8 @@ jobs:
           push: true
           build-args: GIT_SHA=${{ github.sha }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:${{ github.sha }}, ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy to Server
