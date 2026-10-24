@@ -1,17 +1,22 @@
 # optikí: see your app the way an AI agent does
 
 > Working spec for **TestSprite Hackathon Season 4**, "One week. One loop. Every PR." This is idea 9 ("Agent Lighthouse") from `S3-winners-analysis-and-S4-ideas.md`, renamed.
-> Submissions close **Thu Oct 22, 11:59 PM PT**. Stack: Go + React/TypeScript. Builder: solo, near full-time. Today: Mon Oct 19.
+> Submissions close **Mon Oct 26, 11:59 PM PT** (extended from Thu Oct 22). Stack: Go + React/TypeScript. Builder: solo. Last revised Sat Oct 24.
 
 ## Context
 
 - **The problem.** AI agents act on a page through its accessibility tree. That includes TestSprite's cloud test runner, browser agents and assistive tech. When a control is hidden, unnamed, masked or ambiguous, the agent can't act on it. The test run then comes back `blocked` or `failed` even though the app works for people with a mouse.
   - The S3 winners hit this again and again. Ouroboros wrote 8 lessons about it (L1–L8). Timeora rebuilt its calendar's DOM contract. Nora rewrote ambiguous plans and lost runs to "agent ran out of runway".
-- **What optikí does.** It scans pages for agent-legibility problems, scores them in four categories, shows the exact fix, and runs on every pull request, so a change that makes the app harder for agents is caught before merge.
-- **Name.** *optikí* comes from Greek οπτική, "optics; point of view". The display name is **optikí**. Use **`optiki`** (ASCII) for the repo, CLI binary, Go module, domain and file names.
+- **What optikí does.** It scans pages for agent-legibility problems, scores them in four categories, and shows the exact fix. Anyone can scan from the browser. Signed-in users and API tokens get the full rule set and real-browser rendering. An API token lets CI scan every pull request, so a change that makes the app harder for agents is caught before merge.
+- **Name.** *optikí* comes from Greek οπτική, "optics; point of view". The display name is **optikí**. Use **`optiki`** (ASCII) for the repo, Go module, domain and file names.
 - **Decisions made:**
-  - A legibility scanner plus PR gate (no test-plan pre-flight), with a Go engine and a Go CLI using chromedp for rendered scans.
-  - Hosting is a Contabo VPS: one Docker container per PR behind Traefik, all sharing **one Postgres database** whose rows carry an `env` tag.
+  - A legibility scanner with a hosted engine: static scans for everyone; rendered scans (Chromium on the server) for verified users and API tokens. There is no CLI.
+  - Hosting:
+    - The API is on the shared Contabo server: a Docker Swarm service behind tuliime's Traefik, at `https://optikiapi.tuliime.com`.
+    - The client is on Netlify, at `https://optikii.netlify.app`.
+    - One production Postgres database.
+    - **No per-PR previews.**
+  - API tokens belong to users and carry gradescript-style permissions. Projects are optional groupings of scans.
   - The repo structure follows the gradescript project (`client/` + `server/`); §17 lists where optikí departs from it.
   - Accounts use email + password, email verification, and password reset by emailed code.
 
@@ -19,32 +24,31 @@
 
 ## 1. Pitch
 
-**One line:** optikí tells you, on every PR, whether your app just got harder for AI agents to use, and how to fix it.
+**One line:** optikí tells you whether your app just got harder for AI agents to use, and how to fix it, on every PR.
 
 **Positioning against Google Lighthouse's Agentic Browsing category** (Chrome 150, June 2026). Judges may know it, so say this plainly in the README.
 
 | | Google Lighthouse, Agentic Browsing | optikí |
 |---|---|---|
-| Scope (per its docs) | One page load: a subset of accessibility audits (names/labels, tree integrity, interactive content hidden from the tree), layout shift (CLS), `llms.txt`, WebMCP tools and schemas | Your key routes, on every PR |
-| Output | Informational pass ratio; "experimental", "unbenchmarked" | 0–100 score per category plus overall, with element-level findings and before/after fixes |
+| Scope (per its docs) | One page load: a subset of accessibility audits (names/labels, tree integrity, interactive content hidden from the tree), layout shift (CLS), `llms.txt`, WebMCP tools and schemas | Any page, from the browser or from CI with an API token |
+| Output | Informational pass ratio; "experimental", "unbenchmarked" | 0–100 score per category plus overall, with element-level findings and before/after fixes, stored and shareable |
 | Focus | Standards readiness (WebMCP, `llms.txt`) | Failure modes logged in real AI test runs: same-name controls with different actions, clickable things that aren't controls, `aria-label` masking visible text, content carried only by SVG/canvas, controls that only appear after an entrance animation, text too small for screenshot-reading agents |
-| Workflow | Run it and read it | **PR-native:** compare base vs. PR preview, list new and fixed findings, post a sticky PR comment, fail the required check on regressions |
+| Workflow | Run it and read it | **PR-native:** CI scans each PR with an API token; base vs head compare by finding fingerprint (the GitHub Action comes after the core features) |
 
 **Use both:** Lighthouse for WebMCP/`llms.txt`, optikí for flow-breaking legibility problems and PR gating. Don't claim optikí covers what it hasn't measured.
 
 **How it scores on the S4 rubric**
 
 - **Project quality (40):** a polished, instantly understandable tool.
-  - Paste HTML or a URL, or pick a demo page, and get a scored report in seconds.
+  - Paste HTML or a URL, or pick a demo page, and get a scored report in seconds — no account needed.
   - The Gym (intentionally broken vs. fixed pages) makes every rule tangible.
 - **Tests that run themselves (40):**
   - The engine is deterministic, so assertions are exact (rule IDs, counts, scores).
-  - There's a rich security surface to test: SSRF, rate limits, auth, token scoping.
-  - **Two gates on every PR:** TestSprite tests optikí, and optikí audits its own preview.
+  - There's a rich security surface to test: SSRF (including a rendered browser), rate limits, auth, token permissions, ownership.
 - **Innovation (20):**
   - The rules are distilled from real agent-test failures.
-  - The PR-delta gate is novel.
-  - Dogfooding: the agent-legibility tool must itself stay agent-legible, or its own PR is blocked.
+  - Rule tiers by caller and a token API built for CI.
+  - Dogfooding: optikí's own UI must pass optikí's rules.
 
 ---
 
@@ -52,21 +56,30 @@
 
 | Tier | What | Why it's in this tier |
 |---|---|---|
-| **Done (PR #1)** | Accounts: sign-up, sign-in, email verification, password reset by emailed code, sessions, theme · per-PR previews on the VPS · CI + gitleaks | The pipeline and the auth surface exist before any feature |
-| **Must** | Static engine + 9 P0 rules + scoring · Playground (HTML / URL / Gym) + report page + share links · Rules catalog · Gym pages · SSRF-safe URL fetch + per-IP rate limit (in memory) · CLI rendered scan + `optiki diff` · GitHub Action (PR comment, fails closed) · TestSprite PR gating · README "What the suite covers" | The demo, the deep tests and the PR story |
-| **Should** | Projects + API tokens + `/client/v1/ingest` + trend + compare UI · P1 static rules (105, 205, 402, 403) · rendered-only rules (204, 301, 302) | Auth-boundary tests (high value) and a dashboard |
-| **Could** | Hosted rendered scans (Chromium is in the image from PR #7) · README badge · `data-optiki-ignore` suppressions with a required reason · calibration study (TestSprite runs on broken vs. fixed Gym pages, published on `/evidence`) · OPT-107 | Extra polish and evidence, only if ahead |
+| **Done** | Accounts: sign-up, sign-in, email verification, password reset by emailed code, sessions, theme. Deploys: the API to Contabo and the client to Netlify, from `main` | The pipeline and the auth surface exist before any feature |
+| **Must** | Static engine + the 9 P0 rules (`CORE`) + scoring · scan storage and CRUD · playground (HTML / URL / Gym) open to anonymous users · report page + share links · scan history · rules catalog · Gym pages · SSRF-safe URL fetch + per-IP/user/token rate limits · API tokens with permissions + `/client/v1/scan` · TestSprite suite · README "What the suite covers" | The demo, the deep tests, and what CI needs |
+| **Should** | Projects (dashboard and token API) · the 8 optional rules (`FULL`): static P1 105, 205, 402, 403 and P2 107; rendered-only 204, 301, 302 on server-side Chromium for verified users and tokens | Grouping and the complete rule set |
+| **Later** | The optikí GitHub Action (scans each PR with an API token, sticky comment, fails closed) · base-vs-head compare and trend · README badge · `data-optiki-ignore` suppressions · calibration study · anonymous-scan retention | After the core is solid |
 
-**Cut rule:** if you're behind at **Wed Oct 21, 12:00 PT**, drop all of Should except token-scoped ingest. Never cut tests, the README or the PR gating.
+**Cut rule:** if behind on Sun Oct 25 evening, drop rendered rules before projects, and projects before tokens. Never cut tests, the README or token-scoped scanning.
 
 ---
 
 ## 3. Rule catalog (v1)
 
-- **S** = works on static HTML (hosted engine). **R** = needs a rendered page (CLI with Chrome).
+- **S** = works on static HTML. **R** = needs a rendered page (the server's Chromium).
 - Severity weights: critical 10, serious 7, moderate 3, minor 1.
 - **P0** is Must, **P1** is Should, **P2** is Could.
 - *Baseline* rules overlap standard accessibility checkers. *Agent-failure* rules come from logged AI-test failures.
+
+**Rule sets by caller.** The handler picks the set; the engine just runs it.
+
+| Set | Rules | Who gets it |
+|---|---|---|
+| `CORE` | the 9 P0 rules | anonymous visitors (no session, or an unverified one) |
+| `FULL` | all 17 | verified signed-in users and API tokens |
+
+URL scans in `FULL` are rendered, so the 3 rendered-only rules apply. HTML and Gym input stay static, and those 3 show "needs rendered scan".
 
 **Operable: can an agent act?**
 
@@ -109,92 +122,88 @@
 
 ## 4. Scoring
 
-- **Audit result per rule:**
+- **Audit result per rule in the set:**
   - **pass:** zero findings.
   - **fail:** one or more findings.
-  - **n/a:** nothing applicable, or the rule needs a rendered scan. n/a is shown as "needs rendered scan", never as pass.
-- **Category score** = 100 × (weight of passing applicable audits) ÷ (weight of applicable audits), as a binary per audit like Lighthouse accessibility, so it's easy to explain. A category with no applicable audits shows "—".
+  - **n/a:** nothing applicable.
+  - **needs rendered scan:** the rule is rendered-only and the scan was static. Never shown as a pass.
+- **Category score** = 100 × (weight of passing applicable audits) ÷ (weight of applicable audits), rounded to an integer. It is binary per audit like Lighthouse accessibility, so it's easy to explain. A category with no applicable audits shows "—".
 - **Overall score** = weighted mean of the categories present (Operable 40, Perceivable 30, Stable 15, Discoverable 15), re-normalized over the categories that apply. Static scans say so on the report.
-- **Gate options (CLI/Action):**
-  - `--min-score 90`
-  - `--fail-on critical|serious`
-  - `--no-new serious`, which is the PR-delta gate: fail if the PR adds findings at or above that severity versus base.
 - **Finding fingerprint** (stable across commits, for new/fixed deltas): `sha256(ruleID + route + selectorPath + role + normalizedName)`. `selectorPath` is a tag:nth-of-type chain from the nearest ancestor with an `id`.
 - **Determinism:**
   - Findings are sorted by (rule ID, document order).
-  - Each report carries `engineVersion` and `rulesetHash`.
-  - The same input gives byte-identical JSON and the same report hash. A test enforces this.
+  - Each report carries `engineVersion`, `ruleSet`, `rulesetHash` and `reportHash`.
+  - The same snapshot and rule set give byte-identical JSON and the same report hash. A test enforces this.
+  - Reports compare only when their `rulesetHash` matches.
+- **Gate options** for the future GitHub Action: `--min-score 90`, `--fail-on critical|serious`, `--no-new serious` (fail if the PR adds findings at or above that severity versus its base scan).
 
 ---
 
 ## 5. Architecture
 
 ```
-                 Contabo VPS ── Traefik v3 (only ingress, Let's Encrypt, Host() routing)
-                       │
-   https://pr-<n>.<domain> ──→ container optiki-pr-<n>   OPTIKI_ENV=pr-<n>      :8001
-   https://<domain>        ──→ container optiki-prod     OPTIKI_ENV=production  :8001
-                       │        one image: Fiber API (/api/v1, /client/v1, /health)
-                       │                 + built React SPA (./public, SPA fallback)
-                       │                 + /gym/pages/*.html (embedded fixtures)
-                       │
-                 Postgres 17 (internal network) ── ONE database `optiki`;
-                 every user-data row carries env = pr-<n> | production | local
+  Browser ──https──► https://optikii.netlify.app      Netlify: static React build (client/), SPA fallback via _redirects
+     │
+     │  fetch(credentials: 'include')  — cross-site, so cookies are SameSite=None; Secure
+     ▼
+  https://optikiapi.tuliime.com  ──► Contabo server, tuliime's Traefik (only ingress, Let's Encrypt)
+     │                                     │
+     │                                     ▼
+     │                        Docker Swarm stack app-stack → service optiki-backend :8001
+     │                        one image: Fiber API  /api/v1 (session cookies)
+     │                                              /client/v1 (Bearer opt_… API tokens)
+     │                                              /gym/pages/*.html, /health, /status
+     │                                   + Chromium + an in-process SSRF-safe forward proxy (rendered scans)
+     │                                     │
+     │                                     ▼
+     │                        external Postgres (OPTIKI_PROD_DSN) — one production database
+     │
+  CI / scripts ──Bearer opt_<prefix>_<token>──► /client/v1/scan, /client/v1/project
 
-PR opened/pushed → workflow "Preview": build image → push to GHCR → SSH to VPS
-  → scripts/deploy-preview.sh → wait until /health reports the PR's commit
-  ├─ TestSprite GitHub App (trigger: "Preview" completed) → UI + API suite vs
-  │  https://pr-{pr}.<domain> → bot comment → blocks merge
-  └─ Action "optiki-gate" (PR #7): build CLI from the PR's commit → rendered scan of
-     base (production) and head (preview) routes → `optiki diff` → sticky PR comment
-     → exit code: 0 pass · 1 gate failed · 2 error (fails closed)
-PR closed → "Preview cleanup": remove the container, `purge pr-<n>` deletes its rows
-Push to main → "Deploy production" → same image → optiki-prod
+Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) → Docker Hub → SSH →
+               scripts/optiki-deploy.sh → docker stack deploy → wait for 1/1 and :8001
+             → "Deploy Optiki Client to Netlify": pnpm build → Netlify
 ```
 
 **Key choices and why**
 
-- **One container per PR behind Traefik.** Each PR gets `https://pr-<n>.<domain>`, which maps directly onto TestSprite's `{pr}` Target URL placeholder. UI and API share one origin, so cookies are `SameSite=Lax` and there's no CORS in production.
-- **One shared database with `env`-tagged rows** instead of a database per PR (the user's call: fewer moving parts on one VPS).
-  - `OPTIKI_ENV` names the environment. Every model query goes through one scope helper, and every insert is stamped with it.
-  - Uniqueness is per environment (`env` + `email`), so the same TestSprite account exists in every preview.
-  - Every container runs AutoMigrate against the same schema, behind a Postgres advisory lock. **Migrations are additive only** (new nullable or defaulted columns, new tables). Renames, retypes and drops are manual migrations after merge.
-  - Closing a PR runs `purge pr-<n>`; the purge binary refuses `production`.
-- **Rendered scans run in the CLI first.** GitHub's `ubuntu-latest` runners ship with Chrome, so the gate needs nothing hosted.
-  - The hosted app scans static HTML and labels results "static scan".
-  - Client-rendered pages (an empty shell after fetch) get a banner: "This page renders in the browser — run `optiki scan` for a full audit."
-  - Because the server is a long-lived container (not serverless), Chromium can join the image later for hosted rendered scans *(Could)*.
-- **The deploy waits for the commit.** `/health` returns `{status, commit, env}`. The workflow finishes only when the public preview URL reports the PR's head SHA, so TestSprite never tests a stale deploy.
+- **Client and API on different sites.**
+  - The client is a static build on Netlify; the API is a long-lived container on the shared Contabo server.
+  - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows exactly `APP_BASE_URL` (the Netlify origin) with credentials.
+  - Browsers that block third-party cookies (Safari) won't keep the session. The fix is a `*.tuliime.com` custom domain for the client (§15).
+- **No per-PR previews and no environment tags.** One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
+- **Rendered scans on the server.**
+  - The image already ships Chromium. Verified users' and tokens' URL scans render there, with every request Chrome makes forced through an in-process forward proxy that only dials public addresses.
+  - Static scans need no browser and serve anonymous visitors.
+  - At most 2 renders at once, to fit the service's 2-CPU limit.
+- **Tokens for CI.** A token acts as its user with only the permissions it was given. The future GitHub Action uses one to scan each PR; nothing else is needed on the runner.
 
 **Repo layout** (gradescript-shaped; see §17)
 
 ```
 optiki/
 ├─ optiki.md  README.md  Dockerfile  .dockerignore  .gitignore
-├─ .claude/skills/{backend,frontend,engine,testsprite}/SKILL.md   (+ frontend/references/*.md)
-├─ .github/workflows/{ci,preview,preview-cleanup,deploy-prod}.yml  (+ optiki-gate.yml in PR #7)
-├─ .github/pull_request_template.md
-├─ deploy/{compose.yml,.env.example,preview.env.example,prod.env.example}   # Traefik + Postgres
-├─ scripts/{lib,deploy-preview,destroy-preview,deploy-prod}.sh
-├─ action/action.yml                            # reusable "optiki-gate" composite action (PR #7)
+├─ .claude/skills/{backend,frontend,engine,testsprite}/SKILL.md   (+ references/*.md per skill)
+├─ .github/workflows/{contabo-deploy,netlify-deploy}.yaml
+├─ scripts/optiki-deploy.sh                     # run on the server by contabo-deploy
 ├─ server/                                      # Go 1.26 · Fiber v2 · GORM · module github.com/Tibz-Dankan/optiki
-│  ├─ cmd/main.go   cmd/purge/main.go           # + cmd/optiki/ (CLI: scan · diff · upload · rules) in PR #7
+│  ├─ cmd/main.go
 │  └─ internal/
-│     ├─ routes/ handlers/<domain>/ middlewares/ models/ pkg/ constants/ templates/email/ assets/
-│     ├─ engine/                                # PURE: model, roles, accname, rules, score — no I/O (PR #2)
+│     ├─ routes/ handlers/<domain>/ middlewares/ models/ pkg/ constants/ data/ templates/email/ assets/
+│     ├─ engine/                                # PURE: model, roles, accname, rule sets, rules, score — no I/O
 │     │  ├─ rules/opt101HiddenControl.go …      # one file per rule + _test.go
 │     │  └─ testdata/golden/*.json
-│     ├─ gym/pages/*.html  gym/gym.go           # fixtures, //go:embed, served at /gym/pages/ (PR #3)
+│     ├─ gym/pages/*.html  gym/gym.go           # fixtures, //go:embed, served at /gym/pages/
 │     └─ snapshot/{static,rendered}/            # x/net/html and chromedp → engine.Snapshot
 └─ client/                                      # React 19 · Vite · TS · TanStack Query · zustand · Tailwind v4 · shadcn
-   └─ src/{api,constants,hooks,modules/{auth,home,dashboard,settings,shared},providers,routes,stores,styles,types,utils}
+   └─ src/{api,constants,hooks,modules/{auth,home,dashboard,settings,shared,…},providers,routes,stores,styles,types,utils}
 ```
 
 ---
 
 ## 6. Engine design (Go)
 
-The engine lives in `server/internal/engine/`. It is pure: it never imports `models`, `handlers` or `pkg`, and does no I/O. Each rule gets one lowerCamelCase file, as elsewhere in the server, plus a test (`rules/opt101HiddenControl.go` and `rules/opt101HiddenControl_test.go`). `.claude/skills/engine/SKILL.md` has the recipe.
+The engine lives in `server/internal/engine/`. It is pure: it never imports `models`, `handlers` or `pkg`, and does no I/O. Each rule gets one lowerCamelCase file plus a test (`rules/opt101HiddenControl.go` and `rules/opt101HiddenControl_test.go`). `.claude/skills/engine/SKILL.md` has the recipe.
 
 ```go
 type Node struct {
@@ -204,16 +213,17 @@ type Node struct {
     Attrs       map[string]string
     Text        string   // own text, whitespace-normalized
     Role, Name  string   // computed (static approximation, or Chrome's in rendered mode)
-    NameFrom    string   // "aria-labelledby" | "aria-label" | "native" | "content" | "title" | "placeholder"
+    NameFrom    string   // ARIA_LABELLEDBY | ARIA_LABEL | NATIVE | CONTENT | TITLE | PLACEHOLDER
     Interactive bool
     Exposed     bool     // present (not ignored) in the accessibility tree
     Path        string   // stable selector path
     // rendered-only; nil in static mode
-    Visible *bool; FontPx *float64; Cursor *string; FirstSeenMs *int
+    Visible *bool; FontPx *float64; Cursor *string; FirstSeenMs *int; Box *Rect
 }
-type Snapshot struct { URL, Route, Mode string; Title string; Nodes []Node; CLS *float64 }
+type Snapshot struct { URL, Route, Mode string; Title, Lang string; Nodes []Node; CLS *float64; Dialogs []string }
+type Options  struct { RuleSet string } // CORE, FULL
 type Rule interface {
-    Meta() RuleMeta                              // ID, category, severity, modes, docs
+    Meta() RuleMeta                              // ID, category, severity, modes, priority, docs
     Check(s *Snapshot) (findings []Finding, applicable bool)
 }
 ```
@@ -231,63 +241,69 @@ type Rule interface {
   6. `placeholder`, which is flagged by OPT-106
 - **Interactive:** native controls, `[tabindex>=0]`, ARIA widget roles, `[contenteditable]`.
 
-**Rendered snapshot** (chromedp; CLI only)
+**Rendered snapshot** (chromedp, in the API container)
 
-1. Inject a CLS observer before navigation (`page.AddScriptToEvaluateOnNewDocument`).
-2. Navigate, then wait for network idle + 500 ms.
-3. Run one collector script that returns every element's tag, attributes, text, computed `cursor`/`font-size`/visibility and bounding box.
-4. Fetch Chrome's real tree with `accessibility.GetFullAXTree` (cdproto) and merge by backend node ID. Chrome's role, name and "ignored" flag are authoritative.
-5. Sample controls at 500, 1,000 and 3,000 ms for OPT-301.
+1. Each scan gets a fresh incognito browser context, viewport 1280×800. All traffic goes through the SSRF-safe proxy.
+2. Inject a CLS observer, a dialog recorder and a first-visibility stamper before navigation (`page.AddScriptToEvaluateOnNewDocument`).
+3. Navigate, then wait for network idle + 500 ms.
+4. Sample controls at 500, 1,000 and 3,000 ms for OPT-301.
+5. Run one collector script that returns every element's tag, attributes, text, computed `cursor`/`font-size`/visibility and bounding box.
+6. Fetch Chrome's real tree with `accessibility.GetFullAXTree` (cdproto) and merge by backend node ID. Chrome's role, name and "ignored" flag are authoritative.
 
-Verify the exact cdproto call on day 2.
-
-**Rendered beats static:** the hosted static engine is an approximation, and every report shows its `mode`.
+The details are in `.claude/skills/engine/references/rendered-snapshot.md`. **Rendered beats static:** the static engine is an approximation, and every report shows its `mode`.
 
 ---
 
 ## 7. API
 
-The browser API is under `/api/v1`; the token API for the CLI and Action is under `/client/v1`. A hand-written OpenAPI 3.1 document is served at `/api/v1/openapi.yaml` (TestSprite's API mode reads it). It is embedded from `server/internal/assets/openapi.yaml`, and each PR that adds an endpoint updates it.
+The browser API is under `/api/v1` (session cookies); the token API for scripts and CI is under `/client/v1` (`Authorization: Bearer opt_<prefix>_<token>`). A hand-written OpenAPI 3.1 document is served at `/api/v1/openapi.yaml` (TestSprite's API mode reads it). It is embedded from `server/internal/assets/openapi.yaml`, and each PR that adds an endpoint updates it.
 
 | Method · Path | Auth | Purpose |
 |---|---|---|
-| `POST /api/v1/scan` | public, rate-limited | Body has exactly one of `{html}`, `{url}`, `{gym}`, plus optional `save`. Returns the report; `save:true` also returns a `shareID` |
-| `GET /api/v1/scan/share/:shareID` | public (unguessable ID) | Saved report |
-| `GET /api/v1/rules`, `GET /api/v1/rules/:id` | public | Catalog with rationale, fix and origin |
-| `GET /api/v1/gym` | public | List of fixture pairs |
-| `/api/v1/auth/*`: `signup` · `signin` · `signout` · `signout-all` · `refresh` · `me` · `forgot-password` · `verify-otp` · `reset-password/:otp` · `verify-email/initiate` · `verify-email` · `user/change-email` · `user/session` (+ `/:sessionID/revoke`) · `user/:id/change-password` · `user/:id` | mixed | Email + password accounts. **Done in PR #1** |
-| `POST /api/v1/appearance`, `GET …/me`, `PATCH …/:id` | session | Theme preference. **Done in PR #1** |
-| `POST/GET /api/v1/project`, `GET/DELETE /api/v1/project/:id` | session + verified email | Projects *(Should)* |
-| `POST /api/v1/project/:id/token`, `DELETE …/token/:tokenID` | session + verified email | Token `opk_<id>_<secret>`, shown once, stored as SHA-256, scoped to one project *(Should)* |
-| `POST /client/v1/ingest` | Bearer token | CLI upload: report + repo, branch, SHA, PR number, routes *(Should)* |
-| `GET /api/v1/project/:id/trend`, `GET …/compare?base=&head=` | session + verified email | Score history; new, fixed and unchanged findings *(Should)* |
-| `GET /api/v1/badge/:projectID.svg` | public (opt-in) | README badge with `<title>` text *(Could)* |
-| `GET /health` | public | `{status, data: {status, commit, env}}`. **Done in PR #1** |
+| `POST /api/v1/scan` | optional session, rate-limited | Exactly one of `{html}`, `{url}`, `{gym}` (+ `route`, `title`, `projectID`). Anonymous → `CORE`, static, stored `PUBLIC`. Verified → `FULL`, URL rendered, stored `PRIVATE`. Returns the stored report |
+| `GET /api/v1/scan` | session + verified | The caller's scans, cursor-paginated, filterable |
+| `GET /api/v1/scan/:id` | optional session | A `PUBLIC` scan, or the caller's own; otherwise 404 |
+| `PATCH /api/v1/scan/:id` · `DELETE …` | session + verified | Title, visibility (share), project · delete |
+| `POST/GET /api/v1/project`, `GET/PATCH/DELETE /api/v1/project/:id` | session + verified | Optional projects *(Should)* |
+| `POST/GET /api/v1/apitoken`, `GET …/permissions`, `GET/PATCH/DELETE …/:id`, `PATCH …/:id/revoke` | session + verified | API tokens: `opt_<prefix>_<token>`, shown once, SHA-256 of the secret stored, `resource:action:own` permissions, optional expiry |
+| `POST/GET /client/v1/scan`, `GET/PATCH/DELETE /client/v1/scan/:id` | Bearer token + `scan:*:own` | The same scan handlers for CI. `FULL` rule set, URL rendered, plus `repository`, `branch`, `commitSHA`, `prNumber`, `runURL` |
+| `/client/v1/project` (same five) | Bearer token + `project:*:own` | Projects for CI *(Should)* |
+| `GET /api/v1/rules[?set=CORE\|FULL]`, `GET /api/v1/rules/:id` | public | Catalog with rationale, fix, origin, priority and sets |
+| `GET /api/v1/gym`, `GET /gym/pages/:file`, `GET /gym/redirect-private` | public | Fixture pairs, the pages themselves, and the SSRF redirect fixture |
+| `/api/v1/auth/*`: `signup` · `signin` · `signout` · `signout-all` · `refresh` · `me` · `forgot-password` · `verify-otp` · `reset-password/:otp` · `verify-email/initiate` · `verify-email` · `user/change-email` · `user/session` (+ `/:sessionID/revoke`) · `user/:id/change-password` · `user/:id` | mixed | Email + password accounts. **Done** |
+| `POST /api/v1/appearance`, `GET …/me`, `PATCH …/:id` | session | Theme preference. **Done** |
+| `GET /health` | public | `{status, data: {status, commit}}`. **Done** |
 
 **Errors** share one envelope: `{"status": "fail" | "error", "error": <code>, "message": <text>}`.
-- `error` is a **reason code** when the client has to branch on it: `SSRF_BLOCKED`, `NOT_HTML`, `TOO_LARGE`, `FETCH_TIMEOUT`, `WRONG_PROJECT`, `EMAIL_NOT_VERIFIED`.
+
+- `error` is a **reason code** when the caller has to branch on it:
+  - `SSRF_BLOCKED` (400), `TOO_LARGE` (413), `NOT_HTML` (422)
+  - `FETCH_TIMEOUT` / `RENDER_TIMEOUT` (422), `RENDERER_BUSY` (429)
+  - `EMAIL_NOT_VERIFIED` (403), `MISSING_PERMISSION` (403), `TOKEN_REVOKED` / `TOKEN_EXPIRED` (401)
 - Otherwise `error` is the HTTP status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, `TOO_MANY_REQUESTS`).
-- Statuses: `400` invalid input · `400 SSRF_BLOCKED` · `401` · `403 WRONG_PROJECT` / `EMAIL_NOT_VERIFIED` · `404` (also returned for other users' resources) · `413 TOO_LARGE` (HTML > 2 MB) · `415` · `422 NOT_HTML` · `429` (+ `RateLimit-*` headers) · `504 FETCH_TIMEOUT`.
+- Other users' resources are `404`. Rate-limited responses carry `RateLimit-*` and `Retry-After`. Target timeouts are 4xx because a 5xx hides its reason.
 
-**Data model** (GORM structs in `server/internal/models/schema.go`; quoted camelCase columns; AutoMigrate)
-
-Every table carries `env` (indexed, set on insert, filtered on every query) and `createdAt`/`updatedAt`.
+**Data model** (GORM structs in `server/internal/models/schema.go`; quoted camelCase columns; AutoMigrate). The full structs, enums, indexes and FK behaviour are in `.claude/skills/backend/references/data-model.md`.
 
 ```
-User{id, env, name, email, password(bcrypt), role, emailVerified, emailVerifiedAt, profileBgColor}  unique(env, email)  — PR #1
-Session{id, env, userID, accessTokenHash, refreshTokenHash, generatedVia, userAgent, ip, isRevoked,
-        accessTokenExpiresAt, refreshTokenExpiresAt}                                               — PR #1
-OTP{id, env, userID, OTP(sha-256), type[RESET_PASSWORD|VERIFY_EMAIL], isUsed, isVerified, attempts, expiresAt} — PR #1
-Appearance{id, env, userID unique, theme}                                                          — PR #1
-Project{id, env, ownerID → User, name, baseURL, badgePublic}
-APIToken{id, env, projectID → Project, name, tokenHash, last4, revokedAt}
-Scan{id, env, shareID unique NULL, projectID NULL, source[playground|url|gym|cli], mode[static|rendered],
-     targetURL, route, repo, branch, commitSHA, prNumber, overall, categories JSONB,
-     engineVersion, rulesetHash, report JSONB}
-Finding{id, env, scanID → Scan, ruleID, severity, fingerprint, path, role, name, snippet}  — idx (scanID), (fingerprint)
+User{id, name, email unique, password(bcrypt), role, emailVerified, emailVerifiedAt, profileBgColor}        — done
+Session{id, userID, accessToken, refreshToken, generatedVia, userAgent, ip, isRevoked, *ExpiresAt}       — done (raw tokens, never serialised)
+OTP{id, userID, OTP(sha-256), type, isUsed, isVerified, attempts, expiresAt}                             — done
+Appearance{id, userID, theme}                                                                            — done
+Permission{id, name unique (resource:action:scope), resource, action, scope, description}               — seeded
+APIToken{id, userID, name, prefix unique, tokenHash, expiresAt, isRevoked, revokedAt, lastUsedAt, lastUsedIP}
+APITokenPermission{id, apiTokenID, permissionID}  unique(apiTokenID, permissionID)
+Project{id, userID, name, description, baseURL, repository, createdVia, apiTokenID}  unique(userID, name)
+Scan{id, userID?, projectID?, apiTokenID?, triggeredBy, visibility, title,
+     inputType, targetURL, finalURL, gymPageID, route, inputSha256, inputBytes, redirectCount, httpStatus, contentType, pageTitle, pageLang,
+     mode, ruleSet, engineVersion, rulesetHash, reportHash, viewport, nodeCount, controlCount,
+     status, errorCode, errorMessage, startedAt, completedAt, durationMs, fetchMs, renderMs, analyzeMs,
+     overall + 4 category scores, severity counts, rule outcome counts, findingsTruncated,
+     repository, branch, commitSHA, prNumber, runURL}
+ScanRuleResult{id, scanID, ruleID, position, category, priority, severity, weight, result, findingsCount}  unique(scanID, ruleID)
+ScanFinding{id, scanID, ruleID, category, severity, fingerprint, position, documentOrder, selectorPath,
+            tag, role, accessibleName, nameFrom, snippet, message, evidence jsonb}  unique(scanID, fingerprint)
 ```
-
-A new tagged table is also added to `models/purgeEnv.go`, so closing a PR deletes its rows.
 
 ---
 
@@ -296,34 +312,39 @@ A new tagged table is also added to `models/purgeEnv.go`, so closing a PR delete
 - **SSRF-safe fetcher (`server/internal/pkg/fetchPublicPage.go`):**
   - Only `http`/`https` on ports 80 and 443.
   - Resolve the host, then reject loopback, private, link-local (incl. `169.254.169.254`), CGNAT, multicast, unspecified, IPv6 ULA/link-local and IPv4-mapped addresses.
-  - Re-check the *actually dialed* IP in `net.Dialer.Control`, which defeats DNS rebinding.
+  - Re-check the *actually dialed* IP in `net.Dialer.Control` (`pkg/publicDialer.go`), which defeats DNS rebinding.
   - Re-validate each of at most 3 redirects.
   - 8 s timeout, 2 MB cap, `text/html` only.
-- **Rate limits in memory, per container.** Mantiz's lesson (memory limits break on serverless) doesn't apply: each environment is one long-lived container. Example: 30 scans per 10 minutes per IP, 5 URL scans per minute. Auth routes already allow 20 requests per minute per IP and send `RateLimit-*` headers.
-  - The client IP comes from Traefik's `X-Real-IP`. That's trustworthy only because **app containers publish no ports**; Traefik is the only ingress and replaces any client-sent value.
-- **Auth (PR #1):**
-  - Passwords hashed with bcrypt (minimum 8 characters).
-  - Access and refresh JWTs in `HttpOnly`, `Secure`, `SameSite=Lax` cookies on one origin. CORS allows only the app's own origin, plus the Vite dev server locally.
-  - Sessions store **SHA-256 hashes** of both tokens, so a database leak can't replay a session. Sessions can be listed and revoked.
-  - Email verification gates everything beyond the account itself (`403 EMAIL_NOT_VERIFIED`).
+- **Rendered scans can't reach inside either.**
+  - Chrome is launched with `--proxy-server` pointing at an in-process forward proxy, and `--proxy-bypass-list=<-loopback>`. The proxy dials with the same public-only dialer, so every subresource, redirect, fetch and WebSocket is checked.
+  - WebRTC's non-proxied UDP is disabled.
+  - Each scan gets a fresh incognito context: 15 s budget, 20 MB transfer budget, downloads denied, and at most 2 at once.
+- **Rate limits in memory**, in one long-lived container:
+  - Anonymous scans: 30 per 10 minutes per IP, URL scans 5 per minute.
+  - Signed-in users and tokens: 60 per 10 minutes each.
+  - Auth routes: 20 per minute per IP. All send `RateLimit-*` headers.
+  - The client IP comes from Traefik's `X-Real-IP`. That is trustworthy only because Traefik is the only ingress, so **host port 8001 must stay firewalled**.
+- **Auth:**
+  - Passwords are hashed with bcrypt (minimum 8 characters).
+  - Access and refresh JWTs are in `HttpOnly`, `Secure`, `SameSite=None` cookies (cross-site client). CORS allows only the client's origin, plus the Vite dev server locally.
+  - Sessions store the raw tokens (a deliberate simplification) and are never serialised. Sessions can be listed and revoked.
+  - Email verification gates everything beyond the account itself (`403 EMAIL_NOT_VERIFIED`), including the `FULL` rule set.
   - Password reset uses a 6-digit code from `crypto/rand`, stored hashed. It expires after 20 minutes and burns after 5 wrong guesses. Forgot-password answers the same whether or not the account exists. A reset revokes every other session.
   - Other users' resources return `404`.
-  - Project tokens are 32 random bytes, shown once, stored hashed and revocable.
-- **Never render user HTML.** Snippets are shown as escaped text only.
-- **No secrets in the repo:**
-  - Only `.env.example` is committed.
-  - Demo and test passwords live in the VPS env files (`~/optiki/preview.env`, `~/optiki/prod.env`) and the TestSprite credentials.
-  - A **gitleaks** job is a required check (S4 rule).
-- **Fail closed (Mantiz's lesson):**
-  - The Action exits `2` on any network/API/parse error.
-  - A missing score is never treated as a pass.
+- **API tokens:**
+  - Format `opt_<12 hex>_<64 hex>` from `crypto/rand`, shown once. Only `sha256(secret)` is stored, and it is verified in constant time before revealing revoked/expired.
+  - Optional expiry (≥ 1 day); revocable; `lastUsedAt` is recorded.
+  - Permissions are limited to `scan:{create,view,edit,delete}:own` and `project:{create,view,edit,delete}:own`. Tokens can't manage tokens.
+- **Never render user HTML.** Snippets are shown as escaped text only, and raw scanned HTML is never stored.
+- **No secrets in the repo:** only `.env.example` is committed. Demo passwords live in `~/optiki.env` on the server and in the TestSprite portal. (The gitleaks job left with the CI workflow; re-add it with the CI decision.)
+- **Fail closed:** the future Action exits non-zero on any network/API/parse error. A missing score is never treated as a pass.
 
 ---
 
 ## 9. The Gym (fixtures that double as test data and demos)
 
-- **Single source of truth:** `server/internal/gym/pages/`. `gym.go` embeds the pages into the Go binary (so `{gym:"opt-101-broken"}` needs no network). The same embedded files are served at `/gym/pages/<id>.html`, so URL scans and TestSprite can open them. Nothing is copied into the client.
-- **Pairs:** one `-broken.html` and one `-fixed.html` per P0 rule. Each broken page has a banner: "Intentionally broken for OPT-xxx."
+- **Single source of truth:** `server/internal/gym/pages/`. `gym.go` embeds the pages into the Go binary (so `{gym:"opt-101-broken"}` needs no network). The same embedded files are served at `/gym/pages/<id>.html`, so URL scans, rendered scans and TestSprite can open them. Nothing is copied into the client.
+- **Pairs:** one `-broken.html` and one `-fixed.html` for **every** rule. Each broken page has a banner: "Intentionally broken for OPT-xxx." The scenes are listed in `.claude/skills/engine/references/gym.md`. P0 examples:
 
 | Pair | Scene |
 |---|---|
@@ -337,59 +358,61 @@ A new tagged table is also added to `models/purgeEnv.go`, so closing a PR delete
 | opt-203 | Image link without `alt` |
 | opt-401 | No `<title>`, `<h1>` or `<main>` |
 
-- **`kitchen-sink.html`:** exactly one violation of each P0 rule.
-- **`perfect.html`:** must score 100.
+- **`kitchen-sink.html`:** one violation of each of the 14 static-capable rules plus the rendered triggers. `CORE` fails exactly 9; `FULL` static fails 14, with 3 "needs rendered scan"; `FULL` rendered fails 17.
+- **`perfect.html`:** must score 100 in every set and mode.
 - **SSRF fixture:** a Fiber route `GET /gym/redirect-private` that answers `302` to `http://127.0.0.1/`. The target is fixed, so this is not an open redirect.
 
 ---
 
 ## 10. Test strategy
 
-### Layer 1: Go unit tests (`go test -race ./internal/...` in `ci.yml`, a required check)
+### Layer 1: Go unit tests (`make test` → `go test -race ./internal/...`)
 
-Only `engine`, `snapshot` and `pkg/fetchPublicPage` get Go tests (the backend skill's rule). TestSprite covers handlers, auth and the UI end to end.
+Only `engine`, `snapshot`, `pkg/fetchPublicPage`, `pkg/publicDialer` and `pkg/apiToken` get Go tests (the backend skill's rule). TestSprite covers handlers, auth and the UI end to end. No CI job runs them today; one returns with the CI/TestSprite trigger decision.
 
 - Table-driven positive and negative cases for every rule, using the Gym pages.
-- Golden reports for `kitchen-sink` and `perfect`.
+- Golden reports for `kitchen-sink` and `perfect`, per rule set.
 - Invariants:
   - Scores stay within [0, 100].
   - Adding a violation never raises a score.
   - Byte-identical output across runs.
 - Fetcher tests with a stub resolver: private ranges, IPv6, mapped IPv4, decimal IP hosts, redirect chains.
+- Token tests: generate/parse round-trip, malformed tokens, constant-time verify.
 
-There are no frontend unit tests (gradescript's convention). The checks Vitest would have made (text equivalents for every gauge, a keyboard-navigable findings list) are covered by the dogfood gate (Layer 3) and U1/U2.
+There are no frontend unit tests (gradescript's convention). The checks Vitest would have made (text equivalents for every gauge, a keyboard-navigable findings list) are covered by U1/U2 and, later, the optikí Action.
 
 ### Layer 2: TestSprite suite
 
-Built in the **portal**, run by the **GitHub App on every PR**, and set to **block the merge**.
+Built in the **portal**. **Where and when it runs is still a TODO:** there are no per-PR previews, and the deploys run from `main` only. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
 
 | # | Type | Scenario (named as a behavior) | Proves |
 |---|---|---|---|
-| A1 | API | Scanning the kitchen-sink fixture fails exactly the 9 P0 rules with the expected counts | Engine correctness |
+| A1 | API | An anonymous scan of the kitchen-sink fixture runs `CORE` and fails exactly the 9 P0 rules | Engine correctness, anonymous tier |
 | A2 | API | Scanning the perfect fixture scores 100 with zero findings | No false positives |
 | A3 | API | Each broken/fixed pair fails and then passes its own rule | Every rule, both directions |
 | A4 | API | Scanning the same HTML twice returns the same report hash | Determinism |
 | A5 | API | Empty body, both `html` and `url`, HTML over 2 MB, or the wrong content type is rejected (400 / 400 / 413 / 415) | Validation |
-| A6 | API | Scanning the app's own public `/gym/pages/perfect.html` URL returns a static report | Real fetch path |
+| A6 | API | Scanning the API's own `/gym/pages/perfect.html` URL returns a completed report | Real fetch path |
 | A7 | API | `127.0.0.1`, `localhost`, `169.254.169.254`, `[::1]`, `10.0.0.1`, `2130706433`, `file://` and the redirect fixture are all blocked with `SSRF_BLOCKED` | SSRF defense |
-| A8 | API | Exceeding the scan limit returns 429 with `RateLimit-*` headers | Rate limiter |
-| A9 | API | Without a session, projects return 401; user B gets 404 on user A's project and scans | Auth + IDOR *(Should)* |
-| A10 | API | A token ingests into its own project (201), gets 403 on another project and 401 once revoked, and is never shown again | Token scoping *(Should)* |
-| A11 | API | Ingesting a base scan and then a head scan with 2 new and 1 fixed finding makes compare report +2 / −1 | PR-delta math *(Should)* |
+| A8 | API | Exceeding the anonymous scan limit returns 429 with `RateLimit-*` headers | Rate limiter |
+| A9 | API | A scan by the signed-in seeded user runs `FULL` with 17 rule results and is private | Signed-in tier |
+| A10 | API | A token with only `scan:create:own` scans (201), gets 403 `MISSING_PERMISSION` listing scans, and 401 `TOKEN_REVOKED` once revoked; the secret is never returned again | Token scoping |
+| A11 | API | User B gets 404 on user A's private scan, project and token; an anonymous scan's link is readable by anyone | Ownership / IDOR |
 | A12 | API | The OpenAPI spec and health endpoint respond, and health reports the commit | Contract |
 | A13 | API | Sign-up returns a session, and the new user stays unverified (verified-only routes answer `403 EMAIL_NOT_VERIFIED`) | Verification gate |
 | A14 | API | Forgot-password gives the same answer for an unknown email and a known one | No account enumeration |
 | A15 | API | A wrong reset code is rejected, and after five wrong guesses even the right code is refused | OTP brute-force defense |
+| A16 | API | A token with project permissions creates a project and a scan linked to it; deleting the project keeps the scan | Projects via token *(Should)* |
 | U1 | UI | "Try a demo scan" shows an overall score and four category scores as text | First-run experience |
 | U2 | UI | Loading the "Ring" example and scanning lists OPT-101 with a "How to fix" snippet | Core flow |
 | U3 | UI | Switching to the fixed variant makes OPT-101 pass and raises the score | Feedback loop |
 | U4 | UI | Scanning a private address shows "This address isn't allowed" | Error UX |
 | U5 | UI | A shared report link opens the same score and findings | Persistence |
 | U6 | UI | The rules catalog page for OPT-201 shows WCAG 2.5.3 and its origin note | Docs |
-| U7 | UI | A static scan shows the Stable category as "needs rendered scan" | Honest modes |
+| U7 | UI | A signed-out scan shows the "9 core rules" banner and Stable as "needs rendered scan" | Honest tiers and modes |
 | U8 | UI | The Gym index lists the pairs, and a broken page shows its banner | Gym |
-| U9 | UI | Sign in → create project → token shown once, then masked → revoke | Project flow *(Should)* |
-| U10 | UI | A seeded project shows a trend with N points and a compare panel with "+2 new / −1 fixed" | Dashboard *(Should)* |
+| U9 | UI | Creating an API token shows it once, then masked; revoking marks it Revoked | Token flow |
+| U10 | UI | Creating a project and scanning into it lists the scan on the project page | Project flow *(Should)* |
 | U11 | UI | Signing up lands on the "Verify your email" gate | Account flow |
 | U12 | UI | Signing in with the seeded account opens the dashboard; signing out returns to sign-in | Session flow |
 
@@ -401,21 +424,22 @@ Built in the **portal**, run by the **GitHub App on every PR**, and set to **blo
 - Name every test as a behavior.
 
 **Data setup:**
-- Every preview boots with `SEED_DEMO=true` and creates **verified** demo accounts (and, from PR #8, a demo project) in its own env from `DEMO_*` variables.
+- The API boots with `SEED_DEMO=true` and creates **verified** demo accounts from `DEMO_*` variables if they're missing.
 - TestSprite can't read an inbox. Tests that need a verified user sign in with a seeded account; sign-up tests stop at the verification gate.
-- Tests that create users use unique emails.
-- A preview's rows (`env=pr-<n>`) persist across pushes to the same PR and are purged when it closes, so design tests to tolerate leftover rows.
+- There is one shared production database, so tests use unique emails and names, never assert totals, and revoke the tokens they create.
 
-### Layer 3: dogfood gate
+### Layer 3: the optikí GitHub Action *(Later)*
 
-- `optiki-gate` scans the preview's routes (`/`, `/scan`, `/rules`, `/r/<demo>`, `/auth/signin`).
-- The gate requires **≥ 95, zero critical findings, and no new serious findings**.
-- It posts a sticky PR comment with the score, the delta and the top findings.
+- It runs on every PR, using an API token stored as a repository secret.
+- It scans optikí's own key pages through `/client/v1/scan`, then compares head vs base by fingerprint.
+- It posts a sticky PR comment, and fails closed with `--min-score 95 --fail-on critical --no-new serious`.
 
 ### Sabotage PRs (proof that the gates hold the merge; close them unmerged and link them in the README)
 
+These wait for a PR-level gate (the TestSprite trigger decision, or the Action).
+
 1. **S1 (engine):** disable OPT-101's ancestor check. A1/A3 go red and the merge is blocked.
-2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. optikí's own gate fails (and likely U1), and the merge is blocked.
+2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. U1 fails (and the optikí Action, once it exists), and the merge is blocked.
 
 ### README "What the suite covers" (required by S4)
 
@@ -423,41 +447,32 @@ Table columns: test → UI/API → what it proves → the PR where it caught som
 
 ---
 
-## 11. S4 wiring checklist (do this first, today)
+## 11. S4 wiring checklist
 
 The README's "Deploying" section has the exact commands.
 
-- [ ] Request hackathon credits (the form is in your resources doc).
-- [ ] **DNS:** A records for `<domain>` and `*.<domain>` → the VPS IP (`<domain>` is the app's host and the value of the `OPTIKI_DOMAIN` variable, e.g. `optiki.example.com`). Open ports 22, 80 and 443 only.
-- [ ] **VPS:**
-  - Install Docker.
-  - Copy `deploy/` to `~/optiki/deploy`, fill in `.env` (ACME email, Postgres password), then `docker compose up -d`. That starts Traefik and Postgres.
-  - Create `~/optiki/preview.env` and `~/optiki/prod.env` from the examples: DSN, separate JWT secrets, Resend, demo accounts.
-  - Add a deploy user's SSH public key.
-- [ ] **GitHub:**
-  - Secrets `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`; variable `OPTIKI_DOMAIN`.
-  - Images go to GHCR with the workflow's own `GITHUB_TOKEN`, so no registry secret is needed.
+- [x] **DNS:** an A record for `optikiapi.tuliime.com` → the Contabo server. No wildcard and no preview subdomains.
+- [x] **Server:** `~/optiki.env` (from `server/.env.example`) with `OPTIKI_PROD_DSN`, `JWT_SECRET`, `APP_BASE_URL=https://optikii.netlify.app`, Resend and the demo accounts. The `optiki-backend` service is in tuliime's `docker-compose.yaml`.
+- [x] **GitHub secrets** for both deploy workflows (Docker Hub, Contabo SSH, Netlify).
+- [ ] **Production DB:** run the one-off SQL in `.claude/skills/backend/references/data-model.md` (§ Migrations) if the database predates the `env` removal.
+- [ ] **Firewall:** host port 8001 closed to the internet (Traefik is the only way in).
 - [ ] **Resend:** verify the sending domain (the test sender only delivers to your own address).
-- [ ] **TestSprite portal project:**
-  - Live production URL `https://<domain>`, demo credentials and the PRD (§12).
-  - Install the GitHub App, then add a **PR trigger** on the workflow **"Preview"** completing.
-  - Target URL pattern **`https://pr-{pr}.<domain>`**.
-  - **Block PR until tests pass** on; draft PRs off.
-- [ ] **Branch protection on `main`:** PRs required. Required checks: TestSprite, `Server (gofmt, vet, build, test)`, `Client (lint, build)`, `gitleaks`, `Build and deploy preview`, and later `optiki-gate`. A check only becomes selectable after it has run once.
-- [ ] Prove the setup on PR #1: the preview URL serves the PR's commit on `/health`, the bot comments, and the check is green. Then push a deliberately failing commit and confirm the merge is blocked. Close a throwaway PR and confirm its container and `env=pr-<n>` rows are gone.
+- [ ] **TestSprite portal project:** the client URL, demo credentials and the PRD (§12). Trigger and target: **TODO**.
+- [ ] **Branch protection on `main`:** decide the required checks along with the TestSprite trigger.
 
 ---
 
 ## 12. PRD (paste into the TestSprite portal)
 
-> **optikí** scans web pages for problems that stop AI agents (and assistive technology) from using them, and gates pull requests on regressions.
+> **optikí** scans web pages for problems that stop AI agents (and assistive technology) from using them.
 >
 > **Users:** developers who test their web apps with AI agents.
 >
 > **Features and acceptance criteria**
 >
-> 1. **Scan.** On `/scan`, the user can pick a Gym example, paste HTML or enter a URL, then press Scan.
+> 1. **Scan.** On `/scan`, anyone can pick a Gym example, paste HTML or enter a URL, then press Scan.
 >    - The report shows an overall score (0–100) and Operable, Perceivable, Stable and Discoverable scores as visible numbers.
+>    - Signed-out visitors get the 9 core rules and a banner saying so. Signed-in, verified users get all 17 rules, and URL scans render in a real browser.
 >    - Static scans show Stable as "needs rendered scan".
 > 2. **Findings.** Each failed rule lists its ID (e.g. OPT-101), name, severity, element snippet and a "How to fix" example.
 >    - Scanning the fixed variant of an example makes that rule pass and raises the score.
@@ -466,52 +481,43 @@ The README's "Deploying" section has the exact commands.
 >    - URLs that resolve to private or loopback addresses (or redirect to them) are rejected with "This address isn't allowed".
 >    - Inputs over 2 MB are rejected.
 >    - Too many scans return a "slow down" message.
-> 5. **Share.** "Share" creates a link that reopens the same report.
+> 5. **History and sharing.** Signed-in users see their scans under Scans. A scan is private until its owner shares it; a shared link reopens the same report. A signed-out visitor's scan is reachable by its link.
 > 6. **Rules catalog.** `/rules` lists every rule; each rule page shows why agents fail, the fix and the WCAG reference.
 > 7. **Gym.** `/gym` lists broken/fixed example pairs. Broken pages display a banner naming their rule.
 > 8. **Accounts.**
 >    - Sign up with name, email and password. A new account sees a "Verify your email" screen until it opens the emailed link.
 >    - Sign in and out. "Forgot password" emails a 6-digit code; the answer is the same whether or not the email has an account. A wrong code is rejected, and five wrong codes invalidate it.
 >    - Settings let the user change their name, password and theme, and list and revoke their active sessions.
-> 9. **Projects** *(if shipped)*.
->    - Create a project and an API token (shown once).
->    - The dashboard shows score trends and new vs. fixed findings between two scans.
->    - Users never see each other's projects.
+> 9. **API tokens.** In Settings → API tokens, a user creates a named token with chosen permissions and an optional expiry. The token is shown once; afterwards only its prefix is visible. Tokens can be edited, revoked and deleted.
+> 10. **Projects** *(if shipped)*. Users can group scans into projects from the dashboard or with a token. Deleting a project keeps its scans. Users never see each other's projects or scans.
 >
 > **Out of scope:** WebMCP and `llms.txt` checks; mobile viewports; scanning pages behind a login.
 
 ---
 
-## 13. PR roadmap and schedule
+## 13. PR roadmap
 
 | PR | Content | TestSprite tests it adds |
 |---|---|---|
-| #1 | Scaffold from gradescript: accounts (sign-up, verification, reset by code, sessions), theme, landing + dashboard shell, `/health` + OpenAPI, Dockerfile, Traefik + Postgres on the VPS, per-PR previews, CI + gitleaks, Claude skills, TestSprite trigger | A12, A13, A14, A15, U11, U12 |
-| #2 | Engine core: static snapshot, roles, accname, OPT-101/102, scoring, `POST /api/v1/scan{html}` | A4, A5 (partial) |
+| #1 | Scaffold from gradescript: accounts, theme, landing + dashboard shell, `/health` + OpenAPI, Dockerfile, deploys, Claude skills | A12, A13, A14, A15, U11, U12 |
+| #1b | Cleanup: drop env tagging and purge, raw-token session lookups, cross-site cookies, docs and skills for the new design | — |
+| #2 | Engine core: static snapshot, roles, accname, rule sets, OPT-101/102, scoring; `Scan` tables; `POST /api/v1/scan {html}` with `OptionalAuth`; `GET /scan/:id` | A4, A5 (partial) |
 | #3 | P0 rules 103/104/106/201/202/203/401 + Gym pages + golden tests | A1, A2, A3 |
-| #4 | Report UI + playground + Gym index | U1, U2, U3, U7, U8 |
-| #5 | URL scans: SSRF-safe fetcher, scan rate limit, redirect fixture | A5, A6, A7, A8, U4 |
-| #6 | Share links + rules catalog | U5, U6 |
-| #7 | CLI rendered scan (chromedp + AX tree) + `optiki diff` + Action + dogfood gate | (gate goes live) |
-| #8 *(Should)* | Projects, tokens, ingest, trend, compare (accounts already exist) | A9, A10, A11, U9, U10 |
-| #9 *(Should)* | P1 rules 105/205/402/403 + rendered 204/301/302 | Extended A3 |
-| S1, S2 | Sabotage PRs (closed unmerged) | Red, blocked by design |
-| #10 | Polish, README, badge *(Could)* | Full rerun |
-
-| Day | Date | Target |
-|---|---|---|
-| 1 | **Mon Oct 19 (today)** | §11 wiring + PRD + PR #1 green; start PR #2 |
-| 2 | Tue Oct 20 | PRs #2, #3, #4; check the rendered-AX-tree spike (chromedp call) by evening |
-| 3 | Wed Oct 21 | PRs #5, #6, #7. **Cut-line check at 12:00 PT.** PR #8 if on track |
-| 4 | Thu Oct 22 | PRs #9/#10 if time, sabotage PRs, full rerun on `main`, README, demo video, X thread + write-up. **Freeze at 12:00 PT; submit on Discord by ~18:00 PT** |
-| + | Until Oct 29 | Up to 3 CLI-bonus PRs to `testsprite-cli` |
+| #4 | Report UI + playground + Gym index + scan history | U1, U2, U3, U7, U8 |
+| #5 | URL scans: SSRF-safe fetcher, scan rate limits, redirect fixture | A5, A6, A7, A8, U4 |
+| #6 | Rules catalog; scan PATCH (share) and DELETE | U5, U6 |
+| #7 | API tokens + permissions + `AuthAPI` + `/client/v1/scan` + token settings UI | A9, A10, A11, U9 |
+| #8 *(Should)* | Projects on both surfaces + UI | A16, U10 |
+| #9 *(Should)* | Optional static rules 105/205/402/403/107 + rendered snapshot with the proxy + 204/301/302 | Extended A1–A3, A9 |
+| S1, S2 | Sabotage PRs (closed unmerged), once a PR gate exists | Red, blocked by design |
+| Later | The optikí GitHub Action; compare and trend | — |
 
 ---
 
 ## 14. Submission checklist
 
-- [ ] Public repo with a README covering: the app, the live URL, "What the suite covers", how optikí relates to Lighthouse, and limitations (static vs. rendered).
-- [ ] No secrets committed (the gitleaks job is green).
+- [ ] Public repo with a README covering: the app, the live URLs, "What the suite covers", how optikí relates to Lighthouse, and limitations (static vs. rendered, the core vs full rule sets).
+- [ ] No secrets committed.
 - [ ] At least one merged PR whose TestSprite check passed (ideally every PR), plus the two linked sabotage PRs.
 - [ ] Suite built in the TestSprite portal, under the same email you submit with.
 - [ ] Discord post in `#hackathon-submissions`: PR link, live URL, TestSprite email + name.
@@ -523,17 +529,18 @@ The README's "Deploying" section has the exact commands.
 
 | Risk | Mitigation |
 |---|---|
-| Too much scope for 3.5 solo days | The tiers in §2 and a hard cut-line check Wed 12:00 PT; tests and README are never cut |
+| Too much scope for the remaining days | The tiers in §2 and the cut rule; tests and README are never cut |
 | Static accessible names differ from browsers | Label every report's `mode`; rendered mode uses Chrome's tree; document the deviations |
-| False positives (e.g. repeated "Delete" buttons) | Severity tiers for repeated rows; `data-optiki-ignore` with a required reason *(Could)* |
-| Looking like a copy of Google's category | The §1 comparison table in the README; focus on the agent-failure rules and the PR deltas |
-| A PR's AutoMigrate changes the schema production uses (one shared database) | Additive-only migrations, AutoMigrate behind an advisory lock, destructive changes as manual post-merge migrations, and a PR-template checkbox |
-| A query forgets the `env` filter and leaks rows between previews and production | Every model method goes through `scopeEnv`; the backend skill lists a missing scope as an anti-pattern; the purge refuses `production` |
-| One VPS is a single point of failure | `restart: unless-stopped` everywhere; production redeploys from `main` with one workflow run; Postgres lives on a named volume (take a `pg_dump` before the final rerun) |
-| Let's Encrypt limits (50 certificates per registered domain per week) and first-request issuance delay | Roughly 15 PR hosts fit easily; the Preview workflow waits until the public URL serves the commit over valid TLS |
-| `X-Real-IP` spoofing would defeat rate limits | App containers publish no ports; Traefik is the only ingress |
-| chromedp/cdproto API drift | Pin versions; spike `GetFullAXTree` on day 2; fall back to the collector-only rendered mode |
-| Email delivery (Resend test sender only reaches your own inbox) | Verify the domain on day 1; TestSprite never depends on email (seeded verified accounts) |
+| False positives (e.g. repeated "Delete" buttons) | Severity tiers for repeated rows; `data-optiki-ignore` with a required reason *(Later)* |
+| Looking like a copy of Google's category | The §1 comparison table in the README; focus on the agent-failure rules, the rule tiers and the token API |
+| Cross-site cookies: Safari (and any browser blocking third-party cookies) won't keep the session between `optikii.netlify.app` and `optikiapi.tuliime.com` | Cookies are `SameSite=None; Secure` and work in Chrome and Firefox; the real fix is a custom domain such as `optiki.tuliime.com` on Netlify, which makes the client and API same-site |
+| A schema change that AutoMigrate can't apply (drop, rename, retype) breaks inserts in the one production database | Additive-only migrations; destructive changes ship with manual SQL run before the deploy (backend skill § 6) |
+| SSRF through the rendered browser (subresources, redirects, rebinding) | Every Chrome request goes through the public-only forward proxy; loopback is proxied too; WebRTC UDP disabled; A7 covers the URL path |
+| Rendering load on a 2-CPU service | At most 2 concurrent renders, then `429 RENDERER_BUSY`; anonymous scans never render; per-user and per-token rate limits |
+| Port 8001 published on the host lets a client bypass Traefik and spoof `X-Real-IP` | Keep 8001 firewalled; Traefik is the only ingress |
+| Leaked or over-privileged API tokens | Shown once, hashed, optional expiry, revocable, `:own` permissions only, no token management by tokens |
+| chromedp/cdproto API drift | Pin versions; fall back to collector-only rendered mode |
+| Email delivery (Resend test sender only reaches your own inbox) | Verify the domain; TestSprite never depends on email (seeded verified accounts) |
 | Credit burn (Timeora went from ~150 to ~74) | Short, decisive plans; rerun only failed tests while iterating; full suite at milestones |
 
 ---
@@ -545,36 +552,37 @@ The README's "Deploying" section has the exact commands.
 - A browser extension with a live "agent view" overlay.
 - A published calibration study: findings vs. real agent run outcomes on the Gym pairs.
 - SARIF output for GitHub code scanning.
+- Retention for anonymous scans; async rendered scans with a queue.
 
 ---
 
 ## 17. Gradescript alignment
 
-The repo reuses the structure and conventions of the gradescript project for both `client/` and `server/`. Only generic infrastructure was ported, and it was rebranded: auth, theme, shadcn primitives and conventions. The Claude skills in `.claude/skills/` record the rules. Where optikí's needs don't fit gradescript's shape, this is what was done (or will be, in the PR noted).
+The repo reuses the structure and conventions of the gradescript project for both `client/` and `server/`. Only generic infrastructure was ported, and it was rebranded: auth, theme, shadcn primitives and conventions. The Claude skills in `.claude/skills/` record the rules. Where optikí's needs don't fit gradescript's shape, this is what was done (or will be).
 
 | optikí needs | Gradescript has | What optikí does |
 |---|---|---|
-| A pure scan engine (rules, accessible names, scoring) | No equivalent; logic sits in flat `pkg/` | New `server/internal/engine/`: pure, no imports from `models`/`handlers`/`pkg`, one rule per file. The backend skill records why it's a new top-level directory, since gradescript treats unexplained ones as an anti-pattern (PR #2) |
-| Gym fixtures | `internal/assets/` (reserved, empty) | `server/internal/gym/` with `pages/*.html` + `gym.go` (`//go:embed`), shared by the engine, the tests and a static route (PR #3) |
-| Static and rendered snapshots, and a CLI | — | `server/internal/snapshot/{static,rendered}` (chromedp). The CLI is `server/cmd/optiki/`, following gradescript's second binary `cmd/grade/` (PR #2, PR #7) |
-| SSRF-safe URL fetching | `pkg/` one-concern helpers | `pkg/fetchPublicPage.go` (+ `_test.go`) (PR #5) |
-| Tests | "Only grading gets tests" | "Only `engine`, `snapshot` and `pkg/fetchPublicPage` get Go tests"; TestSprite covers the rest. No frontend unit tests |
-| An OpenAPI spec for TestSprite's API mode | None | Hand-written `server/internal/assets/openapi.yaml`, embedded and served at `/api/v1/openapi.yaml`. Handlers keep gradescript's closure recipe; no code-generated API framework (done) |
-| Machine-readable error reasons (`SSRF_BLOCKED`) | The `error` field is the HTTP status name | `pkg.NewReasonError(code, "SSRF_BLOCKED", msg)`, which `DefaultErrorHandler` emits as `error`. The client's error type gets the same values (done; `EMAIL_NOT_VERIFIED` is the first) |
-| Database layer | GORM AutoMigrate | Kept. sqlc and goose are dropped from this spec |
-| One database shared by previews and production | One database per environment, chosen by DSN | **Every user-data table has an `env` column.** `BeforeCreate` stamps it from `OPTIKI_ENV`, and every model query goes through `scopeEnv`. Uniqueness is per environment (`env` + `email`). Migrations are additive only, and AutoMigrate runs behind a Postgres advisory lock. `cmd/purge` deletes a closed PR's rows and refuses `production`. The DSN switch keeps gradescript's shape, with one DSN (`OPTIKI_PROD_DSN`) for every deployed container (done) |
-| Redis/Valkey, streams, SSE (gradescript won't boot without Redis) | `models/cache.go`, `stream.go`, subscribers | Not ported; nothing in optikí needs async fan-out yet |
-| Sessions | Device + location (IP geolocation) + a WEB/CONSOLE app split, raw tokens in the database | `Session` stores `userAgent` + `ip`; location, devices and the app split are dropped. Tokens are stored as **SHA-256 hashes**. One cookie pair (done) |
-| Activity logs, site visits, anonymous users | Wired everywhere | Dropped, along with the frontend skill's site-visit rule (done) |
-| RBAC / orgs / resource scopes | Seeded but unused | Only `role` (`USER`) and owner filters. The rule that every list query is scoped to the caller stays |
-| CLI upload tokens | `APIKey` (`gsk_<id>_<secret>`) + `AuthAPI` middleware | Same pattern as project tokens `opk_<id>_<secret>` under `/client/v1` (PR #8) |
+| A pure scan engine (rules, accessible names, scoring) | No equivalent; logic sits in flat `pkg/` | New `server/internal/engine/`: pure, no imports from `models`/`handlers`/`pkg`, one rule per file. The backend skill records why it's a new top-level directory |
+| Gym fixtures | `internal/assets/` (reserved, empty) | `server/internal/gym/` with `pages/*.html` + `gym.go` (`//go:embed`), shared by the engine, the tests and the `/gym` routes |
+| Static and rendered snapshots | — | `server/internal/snapshot/{static,rendered}`. Rendering runs in the API container's Chromium behind an SSRF-safe proxy; there is no CLI |
+| SSRF-safe URL fetching | `pkg/` one-concern helpers | `pkg/fetchPublicPage.go` + `pkg/publicDialer.go` (+ tests) |
+| Tests | "Only grading gets tests" | "Only `engine`, `snapshot`, the fetcher/dialer and `pkg/apiToken` get Go tests"; TestSprite covers the rest. No frontend unit tests |
+| An OpenAPI spec for TestSprite's API mode | None | Hand-written `server/internal/assets/openapi.yaml`, embedded and served at `/api/v1/openapi.yaml`. Handlers keep gradescript's closure recipe (done) |
+| Machine-readable error reasons (`SSRF_BLOCKED`) | The `error` field is the HTTP status name | `pkg.NewReasonError(code, "SSRF_BLOCKED", msg)`, which `DefaultErrorHandler` emits as `error`, mirrored in the client's `TServerErrorName` (done; `EMAIL_NOT_VERIFIED` is the first) |
+| Database layer | GORM AutoMigrate, one database per environment | Kept: one database per runtime (local, production). The short-lived `env` row tag for per-PR previews was removed with the previews |
+| Redis/Valkey, streams, SSE | `models/cache.go`, `stream.go`, subscribers | Not ported; scans run synchronously within the request |
+| Sessions | Device + location + a WEB/CONSOLE app split, raw tokens in the database | `Session` stores `userAgent` + `ip` and the raw tokens (like gradescript); location, devices and the app split are dropped. One cookie pair (done) |
+| Activity logs, site visits, anonymous-user tracking | Wired everywhere | Dropped. Anonymous *scanning* exists, but nothing tracks the visitor (done) |
+| RBAC / orgs / resource scopes | Seeded roles, permissions, `UserOrgRole`, `ResourceScope` | Only `role` (`USER`) and owner filters. The `resource:action:scope` permission naming survives for API tokens only |
+| API keys | Org-scoped `APIKey` (`gsk_<id>_<secret>`) with grants through `RolePermission`, `AuthAPI`, console-only management | User-scoped `APIToken` (`opt_<prefix>_<token>`), a plain `api_token_permissions` join over a seeded `permissions` table, `AuthAPI` + `RequirePermission`, managed from settings. The gradescript bugs that weren't copied are listed in the backend skill's `references/api-tokens.md` |
+| A separate public API handler tree | `internal/apihandlers/v1/<domain>/` | One handler per endpoint, registered on both `/api/v1` and `/client/v1` when behaviour matches |
 | Admin area `/a/*` | A separate admin route tree | Dropped; one user tree, `/u/*` |
-| Public pages (scan, report, rules, gym) | Public routes repeated in every tree in `App.tsx` | Same approach: `/`, `/scan`, `/r/:id`, `/rules`, `/rules/:id`, `/gym` go into each of the three trees (signed out, unverified, user) |
+| Public pages (scan, report, rules, gym) | Public routes repeated in every tree in `App.tsx` | Same approach: `/`, `/scan`, `/scans/:id`, `/rules`, `/rules/:id`, `/gym` go into each of the three trees (signed out, unverified, user) |
 | File uploads | Presigned S3 only | None needed: HTML arrives as JSON text (≤ 2 MB) |
-| Client ↔ API origin | Separate hosts, `SERVER_URL` chosen by hostname, `SameSite=None` | **One origin.** Fiber serves the built client with an SPA fallback; Vite proxies `/api` in dev; `SERVER_URL = '/api/v1'` always; cookies `Lax` (done) |
-| Deployment | Cloudflare Pages + Docker Swarm on Hostinger, `main` only | Plain Docker + Traefik on Contabo: one container per PR plus production, one shared database. Swarm adds nothing for per-PR containers (done) |
-| Email templates | Read from a working-directory path | Embedded with `//go:embed`. In local development without a Resend key, the email is logged (with its link or code) instead of sent; deployed environments never log it (done) |
-| Verified test accounts for TestSprite | — | `handlers/auth/seedDemoAccounts.go` (following gradescript's seeders) runs when `SEED_DEMO=true`. Credentials come from env and are never committed (done) |
+| Client ↔ API origin | Separate hosts, `SERVER_URL` chosen by hostname, `SameSite=None` | Separate sites again (Netlify + Contabo). `SERVER_URL` is chosen by Vite mode in `constants/urls.ts`; cookies `SameSite=None; Secure` when deployed, `Lax` locally (done) |
+| Deployment | Cloudflare Pages + Docker Swarm on Hostinger, `main` only | Netlify + the shared Contabo Docker Swarm stack, `main` only (done) |
+| Email templates | Read from a working-directory path | Embedded with `//go:embed`. In local development without a Resend key, the email is logged instead of sent; deployed, it is never logged (done) |
+| Verified test accounts for TestSprite | — | `handlers/auth/seedDemoAccounts.go` runs when `SEED_DEMO=true`. Credentials come from env and are never committed (done) |
 | Code gradescript itself flags "do not copy" | Model `BodyParser` in sign-up/sign-in; `use-get-me` as a mutation; a misspelled filename | Ported correctly: Input structs, `useQuery`, `verifyOTP.go` (done) |
 
 ---
@@ -583,8 +591,8 @@ The repo reuses the structure and conventions of the gradescript project for bot
 
 - S4 brief: https://www.testsprite.com/hackathon-s4 · TestSprite GitHub integration: https://docs.testsprite.com/web-portal/integrations/github-integration · TestSprite docs: https://docs.testsprite.com
 - Lighthouse Agentic Browsing: https://developer.chrome.com/docs/lighthouse/agentic-browsing · Chrome agent-ready toolkit: https://developer.chrome.com/blog/agent-ready-toolkit
-- Traefik Docker provider: https://doc.traefik.io/traefik/providers/docker/ · Traefik ACME / Let's Encrypt: https://doc.traefik.io/traefik/https/acme/ · Let's Encrypt rate limits: https://letsencrypt.org/docs/rate-limits/
-- GitHub Container Registry: https://docs.github.com/packages/working-with-a-github-packages-registry/working-with-the-container-registry
+- Traefik Docker provider: https://doc.traefik.io/traefik/providers/docker/ · Netlify redirects: https://docs.netlify.com/routing/redirects/
+- Cookies across sites (`SameSite=None`): https://web.dev/articles/samesite-cookies-explained
 - Resend domains: https://resend.com/docs/dashboard/domains/introduction
 - GORM: https://gorm.io/docs/ · Fiber v2: https://docs.gofiber.io/
 - chromedp protocol bindings (`cdproto`): https://pkg.go.dev/github.com/chromedp/cdproto

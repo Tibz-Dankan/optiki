@@ -1,6 +1,6 @@
 ---
 name: frontend
-description: Conventions for the optikí frontend in client/ — folder structure, @ import aliases, kebab-case file naming, React.FC component style, the class-singleton API layer with HttpError, TanStack Query keys and hooks, T-prefixed types, zustand stores, Formik+Yup forms, the three route trees (signed-out, unverified, user), Tailwind v4 tokens, shadcn/ui, and the agent-legibility rules optikí's own UI must pass. Use when creating, editing, or reviewing any file under client/.
+description: Conventions for the optikí frontend in client/ — folder structure, @ import aliases, kebab-case file naming, React.FC component style, the class-singleton API layer with HttpError against the cross-site API (absolute URLs, credentials include), TanStack Query keys and hooks, T-prefixed types, zustand stores, Formik+Yup forms, the three route trees (signed-out, unverified, user), Netlify hosting, the scan / report / project / API-token pages, Tailwind v4 tokens, shadcn/ui, and the agent-legibility rules optikí's own UI must pass. Use when creating, editing, or reviewing any file under client/.
 ---
 
 # optikí — frontend conventions
@@ -22,7 +22,8 @@ These conventions come from the GradeScript client this app was bootstrapped fro
 | Forms | **Formik + Yup** — not react-hook-form, not zod |
 | Styling | **Tailwind v4 CSS-first — there is no `tailwind.config.*` and no `postcss.config.js`** |
 | UI | shadcn/ui (new-york, slate), Radix, `lucide-react`, `sonner` |
-| API origin | **Same origin as the page.** `SERVER_URL = '/api/v1'`; the Go server serves the built client, and `vite.config.ts` proxies `/api` and `/health` to `localhost:8000` in dev |
+| API origin | **A different site from the page.** `constants/urls.ts` picks absolute URLs by Vite mode: `https://optikiapi.tuliime.com/api/v1` (`SERVER_URL`) and `…/client/v1` (`API_URL`) by default, `http://localhost:8000/…` in mode `localhost` |
+| Hosting | Static build on Netlify (`https://optikii.netlify.app`), deployed from `main` by `.github/workflows/netlify-deploy.yaml`. `public/_redirects` (`/*  /index.html  200`) is the SPA fallback |
 
 Consequences worth stating outright:
 
@@ -30,24 +31,30 @@ Consequences worth stating outright:
 - **Never use `forwardRef`** — React 19 passes `ref` as a normal prop.
 - **Always `import type { … }`** for types — `verbatimModuleSyntax` requires it.
 - **No `enum`, no `namespace`, no parameter properties** — `erasableSyntaxOnly` rejects them. Use string unions (`type TTheme = 'light' | 'dark' | 'system'`).
-- **There is no frontend test tooling** (no vitest/jest). The UI is verified by the TestSprite suite on every PR and by the optikí gate scanning the preview — see the `testsprite` skill. Do not add test files unless asked.
-- **No absolute API hosts.** Never branch on `window.location.hostname` or read a `VITE_*` URL for the API; previews and production are each one origin.
+- **There is no frontend test tooling** (no vitest/jest). The UI is verified by the TestSprite suite (see the `testsprite` skill) and, once it exists, by the optikí GitHub Action scanning the app. Do not add test files unless asked.
+- **API hosts come only from `constants/urls.ts`.** Never branch on `window.location.hostname`, hard-code a host anywhere else, or add a `VITE_*` URL. There are no per-PR previews; a new environment means a new branch in that one file.
+- **Cookies cross sites.** Every call sends `credentials: 'include'`. The server sets the session cookies `SameSite=None; Secure` when deployed, so they reach `optikiapi.tuliime.com` from `optikii.netlify.app`. Browsers that block third-party cookies (Safari) will drop them; the fix is to serve the client from a `*.tuliime.com` domain, not a client-side workaround.
 
-Commands: `pnpm dev` (needs the Go server on :8000) · `pnpm build` (`tsc -b && vite build`) · `pnpm lint` · `pnpm format`.
+Commands:
+
+- `pnpm dev:local` → `vite --mode localhost`: the API on `http://localhost:8000` (run `make run` in `server/`).
+- `pnpm dev` → the **production** API. Use it only to reproduce a production issue.
+- `pnpm build` (`tsc -b && vite build`, always the production URLs) · `pnpm lint` · `pnpm format`.
 
 ## Folder map
 
 ```
 client/src/
 ├── api/          one class per resource + its query-key factory  (auth.ts, appearance.ts, http-error.ts)
-├── constants/    urls.ts (SERVER_URL), fonts.ts, session.ts
+├── constants/    urls.ts (SERVER_URL, API_URL), fonts.ts, session.ts
 ├── hooks/        cross-cutting hooks — use-session-refresh.ts, use-get-me.ts, use-mobile.ts, …
 ├── providers/    app-wide context — theme, font, direction, layout, search, react-query, index.tsx
 ├── routes/       user-routes.tsx, auth-routes.tsx, render-*.tsx
 ├── stores/       zustand stores — auth.ts, appearance.ts
 ├── styles/       index.css (Tailwind entry) + theme.css (design tokens)
 ├── types/        T-prefixed aliases, one file per domain  (alias @typings)
-├── utils/        one function per file — classname.ts, cookies.ts, get-initials.ts, get-browser-label.ts
+├── utils/        one function per file — classname.ts, cookies.ts, end-session.ts, refresh-session.ts,
+│                 get-redirect-path.ts, format-date-time.ts, get-initials.ts, get-browser-label.ts
 └── modules/      feature modules: auth, dashboard, home, settings, shared
     └── <module>/
         ├── pages/   route-level screens
@@ -55,7 +62,15 @@ client/src/
         └── ui/      components for that area
 ```
 
-Feature modules still to come follow the same shape: `scan` (playground + report), `rules` (catalog), `gym` (fixture index), `project` (dashboard, trend, compare).
+Feature modules still to come follow the same shape:
+
+- `scan`: playground, report, history
+- `rules`: catalog
+- `gym`: fixture index
+- `project`: list and detail
+- `api-token`: token management under settings
+
+`references/feature-pages.md` has their pages, routes, API classes, keys and types.
 
 The non-obvious calls — get these wrong and the code stops matching the codebase:
 
@@ -156,12 +171,13 @@ No default exports (`useDialogState` is the single grandfathered exception). Two
 
 ## Agent-legibility rules for optikí's own UI
 
-optikí audits pages for AI-agent and screen-reader legibility, and its own previews are scanned on every PR (the `optiki-gate`) and driven by TestSprite's AI tester. Its UI must pass its own rules:
+optikí audits pages for AI-agent and screen-reader legibility. Its own UI is driven by TestSprite's AI tester and will be scanned by optikí's own GitHub Action. It must pass its own rules:
 
 - **Real controls.** Clickable things are `<button>` / `<a href>` (or shadcn `Button`, which renders one). Never an `onClick` on a `div`/`span`.
 - **Never put controls inside `role="img"`** or any presentational wrapper. Charts and gauges are decorative SVG (`aria-hidden`) **plus** a visible or `sr-only` text equivalent with the same numbers.
 - **`aria-label` must contain the visible text** (WCAG 2.5.3). Prefer no `aria-label` when the visible text already names the control. Icon-only buttons get a name (`sr-only` span or `aria-label`).
-- **Distinct names for look-alike controls.** Per-row actions carry the row's identity in their name ("Revoke session Chrome on Linux", not five "Revoke"s) when a page repeats them.
+- **Distinct names for look-alike controls.** Per-row actions carry the row's identity in their name ("Revoke session Chrome on Linux", "Revoke token CI deploy", "Delete scan of /pricing" — not five "Revoke"s) when a page repeats them.
+- **Never render scanned markup.** Finding snippets are user-controlled HTML: show them as text in `<pre><code>`, never through `dangerouslySetInnerHTML`.
 - **Every field has a `<label>`** — `FormField` provides it; placeholder text is never the label.
 - **Settled UI, fast.** Entrance animations never gate interactivity and finish within ~1 s; nothing important appears only on hover.
 - **No native `confirm()` / `alert()` / `prompt()`** — use `ConfirmDialog`.
@@ -169,7 +185,7 @@ optikí audits pages for AI-agent and screen-reader legibility, and its own prev
 
 ## Recipes
 
-**Add a page** → create `modules/<module>/pages/<name>.tsx` (no `-page`), then add one `TPage` entry to `routes/user-routes.tsx`. That single entry produces the route, the sidebar item, **and** the ⌘K command-menu entry. A public page (`/scan`, `/rules`, `/gym`) instead gets a `<Route>` in **every** tree in `App.tsx`. → `references/routing.md`
+**Add a page** → create `modules/<module>/pages/<name>.tsx` (no `-page`), then add one `TPage` entry to `routes/user-routes.tsx`. That single entry produces the route, the sidebar item, **and** the ⌘K command-menu entry. A public page (`/scan`, `/scans/:id`, `/rules`, `/rules/:id`, `/gym`) instead gets a `<Route>` in **every** tree in `App.tsx`. → `references/routing.md`
 
 **Add an API resource** → `src/api/<resource>.ts`: a class with arrow-property methods, a singleton export, and a `<resource>Keys` factory. → `references/data-layer.md`
 
@@ -181,11 +197,20 @@ optikí audits pages for AI-agent and screen-reader legibility, and its own prev
 
 **Add a shadcn component** → `pnpm dlx shadcn@latest add <component>`. `components.json` routes it to `@shared/ui` with `cn` from `@utils/classname`. Leave the generated style as-is.
 
-**Add a type** → `src/types/<domain>.ts`, `T`-prefixed, response types intersected with `TServerResponseStatus`. Reason codes the server emits in `error` (e.g. `EMAIL_NOT_VERIFIED`, later `SSRF_BLOCKED`) are added to `TServerErrorName` in `types/server-response.ts`. → `references/data-layer.md`
+**Add a type** → `src/types/<domain>.ts`, `T`-prefixed, response types intersected with `TServerResponseStatus`. Reason codes the server emits in `error` (`EMAIL_NOT_VERIFIED` today; `SSRF_BLOCKED`, `TOO_LARGE`, `NOT_HTML`, `FETCH_TIMEOUT`, `RENDER_TIMEOUT`, `RENDERER_BUSY` with scans) are added to `TServerErrorName` in `types/server-response.ts`. → `references/data-layer.md`
 
 ## What was deliberately dropped from GradeScript
 
-Anonymous users and site-visit tracking (`PageCapturer`, `siteVisitPageNames`), the admin tree (`/a/*`), Google sign-in, the sign-in OTP, devices and geolocation, avatars and every file upload, organizations, billing, banners, the developer console. Don't reintroduce them by pattern-matching on GradeScript code.
+Anonymous-user and site-visit tracking (`PageCapturer`, `siteVisitPageNames`), the admin tree (`/a/*`), Google sign-in, the sign-in OTP, devices and geolocation, avatars and every file upload, organizations, billing, banners, the separate developer console. Don't reintroduce them by pattern-matching on GradeScript code.
+
+Anonymous visitors *can* scan; that is a product feature, not GradeScript's anonymous-user tracking. Nothing identifies or tracks them.
+
+**Ported from the GradeScript console:** the API-key screens become optikí's API-token settings page (`references/feature-pages.md`):
+
+- the table with prefix, permissions, status, expiry and last use
+- the create dialog with permission checkboxes and expiry presets
+- the shown-once dialog that can't be dismissed by an outside click
+- the revoke and delete confirmations
 
 ## References
 
@@ -195,3 +220,4 @@ Anonymous users and site-visit tracking (`PageCapturer`, `siteVisitPageNames`), 
 | `references/routing.md` | Adding a page, changing navigation, or working on auth redirects |
 | `references/theme-and-ui.md` | Writing components, styling, tokens, layouts, dialogs, or providers |
 | `references/forms.md` | Building or editing any form |
+| `references/feature-pages.md` | Building the scan playground, report, scan history, projects, API tokens, rules or Gym pages |

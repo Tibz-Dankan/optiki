@@ -27,9 +27,7 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (!isHttpError(error)) return
-      const isAuthenticatedPath =
-        window.location.pathname.includes('/u/') ||
-        window.location.pathname.includes('/a/')
+      const isAuthenticatedPath = window.location.pathname.includes('/u/')
 
       if (error.status === 401 && isAuthenticatedPath) {
         toast.error('Session expired!')

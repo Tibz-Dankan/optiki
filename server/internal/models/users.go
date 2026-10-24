@@ -19,7 +19,6 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 	tx.Statement.SetColumn("Password", hashedPassword)
 	tx.Statement.SetColumn("ProfileBgColor", pkg.GetRandomColor())
 	tx.Statement.SetColumn("ID", uuid.New().String())
-	stampEnv(tx)
 	return nil
 }
 
@@ -34,7 +33,7 @@ func (u *User) Create(user User) (User, error) {
 
 func (u *User) FindOne(id string) (User, error) {
 	var user User
-	if err := db.Scopes(scopeEnv).First(&user, "id = ?", id).
+	if err := db.First(&user, "id = ?", id).
 		Error; err != nil && err != gorm.ErrRecordNotFound {
 		return user, err
 	}
@@ -44,7 +43,7 @@ func (u *User) FindOne(id string) (User, error) {
 
 func (u *User) FindByEmail(email string) (User, error) {
 	var user User
-	if err := db.Scopes(scopeEnv).First(&user, "email = ?", pkg.NormalizeEmail(email)).
+	if err := db.First(&user, "email = ?", pkg.NormalizeEmail(email)).
 		Error; err != nil && err != gorm.ErrRecordNotFound {
 		return user, err
 	}
@@ -53,7 +52,7 @@ func (u *User) FindByEmail(email string) (User, error) {
 }
 
 func (u *User) Update() (User, error) {
-	if err := db.Scopes(scopeEnv).Model(&User{}).Where("id = ?", u.ID).
+	if err := db.Model(&User{}).Where("id = ?", u.ID).
 		Updates(map[string]interface{}{
 			"name":  u.Name,
 			"email": pkg.NormalizeEmail(u.Email),
@@ -70,7 +69,7 @@ func (u *User) MarkEmailVerified() (User, error) {
 	}
 
 	verifiedAt := time.Now()
-	result := db.Scopes(scopeEnv).Model(&User{}).Where("id = ?", u.ID).
+	result := db.Model(&User{}).Where("id = ?", u.ID).
 		Updates(map[string]interface{}{
 			"emailVerified":   true,
 			"emailVerifiedAt": verifiedAt,
@@ -93,7 +92,7 @@ func (u *User) SetPassword(password string) error {
 		return err
 	}
 
-	return db.Scopes(scopeEnv).Model(&User{}).Where("id = ?", u.ID).
+	return db.Model(&User{}).Where("id = ?", u.ID).
 		Update("password", hashedPassword).Error
 }
 

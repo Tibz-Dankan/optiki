@@ -14,13 +14,6 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
   ],
-  server: {
-    // The built client is served by the Go server on the same origin; in dev, Vite forwards to it.
-    proxy: {
-      '/api': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
-    },
-  },
   resolve: {
     // Keep in sync with `compilerOptions.paths` in tsconfig.app.json.
     alias: {

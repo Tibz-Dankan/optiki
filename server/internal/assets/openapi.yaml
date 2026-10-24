@@ -399,7 +399,7 @@ paths:
   /health:
     get:
       tags: [Operations]
-      summary: Liveness, the deployed commit and the env tag
+      summary: Liveness and the deployed commit
       responses:
         '200':
           description: Healthy
@@ -414,7 +414,6 @@ paths:
                     properties:
                       status: { type: string, const: ok }
                       commit: { type: string }
-                      env: { type: string }
   /status:
     get:
       tags: [Operations]

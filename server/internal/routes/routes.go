@@ -1,10 +1,8 @@
 package routes
 
 import (
-	"github.com/Tibz-Dankan/optiki/internal/constants"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/appearance"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/auth"
-	"github.com/Tibz-Dankan/optiki/internal/handlers/client"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/docs"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/health"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/status"
@@ -50,10 +48,6 @@ func AppRoutes(app *fiber.App) {
 
 	// Status
 	app.Get("/status", status.GetAppStatus)
-
-	// Client
-	app.Static("/", constants.CLIENT_DIST_DIR, fiber.Static{Compress: true})
-	app.Get("/*", client.ServeIndex)
 
 	// 404 handler
 	app.Use("*", func(c *fiber.Ctx) error {

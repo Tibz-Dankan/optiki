@@ -50,6 +50,6 @@ func SeedDemoAccounts() {
 			continue
 		}
 
-		log.Printf("Seeded demo account %s in env %s", pkg.NormalizeEmail(account.email), pkg.GetDeployEnv())
+		log.Printf("Seeded demo account %s", pkg.NormalizeEmail(account.email))
 	}
 }

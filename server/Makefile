@@ -18,13 +18,7 @@ install:
 test:
 	@go test -race ./internal/...
 
-# Builds the server and the purge tool into ./bin
+# Builds the server into ./bin
 .PHONY: build
 build:
 	@go build -o ./bin/optiki-server $(CMD_DIR)
-	@go build -o ./bin/purge ./cmd/purge
-
-# Deletes every row of one env from the database in .env, e.g. make purge ENV=local-a (production is refused)
-.PHONY: purge
-purge:
-	@GO_ENV=development go run ./cmd/purge $(ENV)

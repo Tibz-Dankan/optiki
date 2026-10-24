@@ -73,3 +73,4 @@ export type TServerErrorName =
   | 'CLIENT_ERROR'
   | 'SERVER_ERROR'
   | 'UNKNOWN_ERROR'
+  | 'EMAIL_NOT_VERIFIED'

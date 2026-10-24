@@ -6,11 +6,7 @@ var QUERY_MINIMUM_LIMIT float64 = 1
 var QUERY_MAXIMUM_LIMIT float64 = 25
 var QUERY_DEFAULT_LIMIT float64 = 12
 
-var DEPLOY_ENV_LOCAL = "local"
-var DEPLOY_ENV_PRODUCTION = "production"
-
 var LOCAL_CLIENT_ORIGIN = "http://localhost:5173"
-var CLIENT_DIST_DIR = "./public"
 var USER_HOME_PATH = "/u/dashboard"
 
 var ACCESS_TOKEN_COOKIE = "accessToken"
@@ -42,5 +38,3 @@ var MAX_REQUEST_BODY_SIZE int64 = 4 << 20
 
 var AUTH_RATE_LIMIT = 20
 var AUTH_RATE_LIMIT_WINDOW = 60 * time.Second
-
-var MIGRATION_ADVISORY_LOCK_KEY int64 = 704201101

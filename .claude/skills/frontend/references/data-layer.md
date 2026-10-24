@@ -4,8 +4,8 @@
 
 | Kind of state | Where it lives |
 |---|---|
-| Server data | TanStack Query. Never mirrored into zustand. |
-| Session / identity | zustand + `persist` (`stores/auth.ts`) — plus the theme mirror `stores/appearance.ts` |
+| Server data | TanStack Query. The only mirrors are listed in the next row; don't add others. |
+| Session / identity | zustand + `persist` (`stores/auth.ts`): `useGetMe` copies `user` and `session` in after every fetch. Plus the theme mirror `stores/appearance.ts` |
 | UI preferences (theme, font, direction, layout) | React context + cookies (`providers/*`) |
 | Ephemeral UI (search dialog, sidebar) | Context scoped to `AuthenticatedLayout`, not global |
 
@@ -41,8 +41,9 @@ export const authAPI = new AuthAPI()
 
 Rules:
 
-- Raw `fetch`, no axios. Base URL is always `SERVER_URL` from `@constants/urls`.
-- `credentials: 'include'` on **every** call — sessions are httpOnly cookies, never bearer tokens. JS never sees `accessToken`/`refreshToken`.
+- Raw `fetch`, no axios. Base URL is always `SERVER_URL` from `@constants/urls`. It is absolute: `https://optikiapi.tuliime.com/api/v1` in every build, and `http://localhost:8000/api/v1` under `pnpm dev:local` (Vite mode `localhost`).
+- `API_URL` (`…/client/v1`) is the token API. The app never calls it, because the browser never holds an API token. It appears only in copyable snippets, such as the curl sample in the token-created dialog.
+- `credentials: 'include'` on **every** call. Sessions are httpOnly cookies, never bearer tokens, and JS never sees `accessToken`/`refreshToken`. The client (Netlify) and the API (Contabo) are different sites, so the server sets them `SameSite=None; Secure`; without `credentials: 'include'` the browser drops them.
 - Every response goes through `throwOnError`. Never `response.json()` unguarded.
 - Query params are built inline in the template literal: `` `${SERVER_URL}/auth/user/session?limit=${limit}&cursor=${cursor}` ``.
 - **Never put `useQuery`/`useMutation` inside an API class.** The class is a plain async wrapper.
@@ -91,7 +92,7 @@ export const throwOnError = async (response: Response): Promise<Response> => {
 
 Carrying `status` on the error is what lets the global `QueryCache` branch on 401. It also means **`error.message` is always safe to render** — it is already the server's message.
 
-`error.error` is the server's status name (`NOT_FOUND`, `FORBIDDEN`, …), typed as `TServerErrorName` from `@typings/server-response` and kept in lockstep with `server/internal/pkg/statusCodeName.go`. TanStack types `error` as plain `Error` — network failures are not `HttpError`s — so narrow before reading it, in `onError` and on `useQuery`/`useMutation`'s `error` alike:
+`error.error` is the server's status name (`NOT_FOUND`, `FORBIDDEN`, …) or a reason code (`EMAIL_NOT_VERIFIED`, and with scans `SSRF_BLOCKED`, `NOT_HTML`, `TOO_LARGE`, `FETCH_TIMEOUT`, `RENDER_TIMEOUT`, `RENDERER_BUSY`). It is typed as `TServerErrorName` from `@typings/server-response`, which is kept in lockstep with `server/internal/pkg/statusCodeName.go` and `server/internal/constants/errors.go`. TanStack types `error` as plain `Error` — network failures are not `HttpError`s — so narrow before reading it, in `onError` and on `useQuery`/`useMutation`'s `error` alike:
 
 ```ts
 if (isHttpError(error) && error.error === 'NOT_FOUND') { … }
@@ -99,7 +100,7 @@ if (isHttpError(error) && error.error === 'NOT_FOUND') { … }
 
 ### Global request interceptor
 
-`hooks/use-global-request-interceptor.ts` monkey-patches `globalThis.fetch` for the app's lifetime (mounted once in `App.tsx`). For any URL starting with `SERVER_URL` (`/api/v1`) it forces `credentials: 'include'`. Don't add per-call credential plumbing that belongs here.
+`hooks/use-global-request-interceptor.ts` monkey-patches `globalThis.fetch` for the app's lifetime (mounted once in `App.tsx`). For any URL starting with `SERVER_URL` (the absolute API URL) it forces `credentials: 'include'`. Don't add per-call credential plumbing that belongs here.
 
 ---
 
@@ -111,11 +112,13 @@ Every `src/api/<resource>.ts` exports a key factory beside its singleton:
 export const authKeys = {
   all: ['auth'] as const,
   me: () => [...authKeys.all, 'me'] as const,
+  sessions: () => [...authKeys.all, 'sessions'] as const,
 }
 
 export const scanKeys = {
   all: ['scan'] as const,
-  list: (cursor: string) => [...scanKeys.all, 'list', cursor] as const,
+  list: (filters: TScanListFilters) =>
+    [...scanKeys.all, 'list', filters] as const,
   detail: (id: string) => [...scanKeys.all, 'detail', id] as const,
 }
 ```
@@ -124,8 +127,8 @@ Rules:
 
 - **Tuple keys only.** Never a template-string key like `` [`quiz-${id}`] `` — it collapses the namespace and the parameters into one opaque string, which makes prefix invalidation impossible.
 - Namespace segment is kebab-case, matching the resource file name.
-- Order: namespace → sub-scope → identifiers → `cursor` last.
-- `limit` stays a constant inside the `queryFn` and out of the key.
+- Order: namespace → sub-scope → identifiers → filters.
+- Lists are infinite queries, so the cursor is the `pageParam`, never part of the key. `limit` stays a constant inside the `queryFn` and out of the key too.
 - Keys always come from the factory. Never hand-write an array at a call site — that is how two spellings of the same key end up in the cache.
 
 ---
@@ -134,49 +137,47 @@ Rules:
 
 `useQuery` is the read path. It may be called inline in a page **or** wrapped in a `use-<thing>.ts` hook in `src/hooks/`. Wrap it when two or more places need the same read, or when the read carries policy (`enabled` guards, `staleTime` overrides, envelope unwrapping).
 
-Hook shape: unwrap the server envelope in the `queryFn`, return the domain noun under its own name with a default.
+Hook shape: return the domain noun under its own name with a default. `src/hooks/use-get-me.ts` is the reference and carries the most policy of any read:
 
 ```ts
-// src/hooks/use-get-me.ts
-export const useGetMe = () => {
-  const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: authKeys.me(),
-    queryFn: authAPI.getMe,
-  })
-
-  return { user: data?.user ?? null, isPending, isError, error, refetch }
-}
-```
-
-```ts
-export const useScans = ({
-  cursor,
-  enabled,
-}: {
-  cursor: string
-  enabled: boolean
-}) => {
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: scanKeys.list(cursor),
-    queryFn: () => scanAPI.getAll(20, cursor),
-    placeholderData: keepPreviousData,
-    enabled,
-  })
-
-  return {
-    scans: data?.data ?? [],
-    pagination: data?.pagination,
-    isPending,
-    isError,
-    error,
+// src/hooks/use-get-me.ts (condensed)
+const getMe = async (): Promise<TGetMeResponse> => {
+  try {
+    return await authAPI.getMe()
+  } catch (error) {
+    if (!isHttpError(error) || error.status !== 401) throw error
+    await refreshSession()
+    return authAPI.getMe()
   }
 }
+
+export const useGetMe = () => {
+  const { isAuthenticatedPath } = useIsAuthenticatedPath()
+  const hasSession = useAuthStore((state) => !!state.auth.session.userID)
+  // … updateUser / updateSession selectors
+
+  const { data, isPending, isLoading, isError, error, refetch } = useQuery({
+    queryKey: authKeys.me(),
+    queryFn: getMe,
+    enabled: hasSession || isAuthenticatedPath,
+  })
+
+  useEffect(() => {
+    if (data?.user) updateUser(data.user)
+    if (data?.session) updateSession(data.session)
+  }, [data, updateUser, updateSession])
+
+  return { user: data?.user ?? null, isPending, isLoading, isError, error, refetch }
+}
 ```
 
+- A 401 is retried once after `refreshSession()` (single-flight, `@utils/refresh-session`). An expired access token therefore never bounces a signed-in user.
+- The identity mirror is written here and nowhere else.
+
 - Guard required params with `enabled: !!id`, and gate tab/segment-scoped reads with `enabled: activeTab === 'x'`.
-- Use **`isPending`**, not `isLoading`.
+- Use **`isPending`** for queries that always run. A query that can be disabled stays `isPending` forever while `enabled` is false, so gate on **`isLoading`** there, as `App.tsx` does with `useGetMe`.
 - Pass a bare method reference (`queryFn: authAPI.getMe`) when the call takes no arguments; a one-line arrow when it does.
-- Don't copy query results into zustand. `useAuthStore` holds the session mirror only.
+- Don't copy query results into zustand beyond the identity and theme mirrors above.
 
 ---
 
@@ -197,7 +198,7 @@ const { mutate, isPending, error } = useMutation({
 - `mutationFn` is a bare method reference — that is why API methods are arrow properties.
 - `onSuccess(data, variables)` carries the input forward: `` toast.success(`Verification code sent to ${variables.email}`) ``.
 - `onSettled` is for cleanup that must happen either way — `sign-out-dialog.tsx` clears local auth and redirects on settle, so a failed sign-out cannot strand the user.
-- A `useRef` guard handles StrictMode's double-invoked effects when a mutation fires on mount (`google-callback.tsx`).
+- A `useRef` guard handles StrictMode's double-invoked effects when a mutation fires on mount (`modules/auth/ui/email-token-verification.tsx`, `hooks/use-get-appearance.ts`).
   With the guard, **read the outcome only from `onSuccess`/`onError`** (into local state when it's rendered, as `email-token-verification.tsx` does). StrictMode's fake unmount detaches the observer from the in-flight mutation, so the hook's `isSuccess`/`isError`/`data`/`error` never update, but option-level callbacks still fire.
 - **A local `onError` replaces the global mutation toast** (TanStack v5 semantics). Omit it and you get `toast.error(error.message)` for free; add one only when you want different behaviour.
 
@@ -270,34 +271,29 @@ So: mutation errors toast automatically; a 401 from a **query** on an app page e
 
 ## Pagination
 
-Cursor-based, driven by the URL so the browser's history is the cursor stack.
-
-- The cursor lives in a search param (`useSearchParams`) and is part of the query key.
-- "Next" writes `pagination.nextCursor` back with `{ replace: false }`.
-- "Previous" is `navigate(-1)`.
-- **Always set `placeholderData: keepPreviousData`** so paging doesn't flash skeletons.
-- Page size is a constant in the `queryFn`, not in the key.
+The server's lists are cursor-based (`limit` + `cursor`, with a `limit+1` lookahead). The client reads them with **`useInfiniteQuery` and a "Load more" button**. `modules/settings/ui/active-sessions-section.tsx` is the reference:
 
 ```tsx
-const [searchParams, setSearchParams] = useSearchParams()
-const cursor = searchParams.get('cursor') ?? ''
-const hasCursor = !!cursor
+const SESSION_PAGE_SIZE = 25
 
-const loadNext = () => {
-  setSearchParams(
-    (prev) => {
-      prev.set('cursor', pagination.nextCursor)
-      return prev
-    },
-    { replace: false }
-  )
-}
+const { data, isPending, isError, error, hasNextPage, fetchNextPage, isFetchingNextPage } =
+  useInfiniteQuery({
+    queryKey: authKeys.sessions(),
+    queryFn: ({ pageParam }) =>
+      authAPI.getActiveSessions(SESSION_PAGE_SIZE, pageParam),
+    initialPageParam: '',
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.hasNextItems
+        ? lastPage.pagination.nextCursor
+        : undefined,
+  })
 
-const loadPrev = () => {
-  if (!hasCursor) return
-  navigate(-1)
-}
+const sessions = data?.pages.flatMap((page) => page.data) ?? []
 ```
+
+- The cursor is the `pageParam`; the key holds only the filters. Changing a filter starts a fresh list.
+- The page size is a module constant, at most 25 (the server 400s above `QUERY_MAXIMUM_LIMIT`).
+- "Load more" is a real `<Button>` with a distinct name ("Load more sessions"), disabled while `isFetchingNextPage`.
 
 Server envelope (`types/auth.ts` → `TActiveSessionResponse`, and every future list):
 
@@ -313,7 +309,7 @@ export type TActiveSessionResponse = TServerResponseStatus & {
 Early returns, in order: pending → error → success.
 
 ```tsx
-if (isPending && !hasCursor) {
+if (isPending) {
   return (
     <div className='flex w-full flex-col gap-4'>
       {Array.from({ length: 8 }).map((_, i) => (
@@ -332,7 +328,7 @@ if (isError) {
 }
 ```
 
-The full skeleton belongs to the *first* page only (`isPending && !hasCursor`); subsequent pages show an inline spinner. Empty state renders below the list, not as an early return. `error.message` is already normalized by `HttpError`.
+The full skeleton belongs to the *first* page only (`isPending`); later pages show an inline spinner on the "Load more" button (`isFetchingNextPage`). Empty state renders below the list, not as an early return. `error.message` is already normalized by `HttpError`.
 
 ---
 
@@ -357,7 +353,10 @@ export type TServerResponseStatus = {
 }
 
 // src/types/auth.ts
-export type TAuthResponse = TServerResponseStatus & { session: TSession }
+export type TAuthResponse = TServerResponseStatus & {
+  session: TSession
+  redirectToPath: string
+}
 
 export type TGetMeResponse = TServerResponseStatus & {
   user: TUser
@@ -394,6 +393,7 @@ export const useAuthStore = create<AuthStore>()(
       updateAuth: (auth) => set(() => ({ auth })),
       updateSession: (session) =>
         set((state) => ({ auth: { ...state.auth, session } })),
+      updateUser: (user) => set((state) => ({ auth: { ...state.auth, user } })),
       clearAuth: () => set(() => ({ auth: initialAuthValues })),
     }),
     {
@@ -409,5 +409,5 @@ export const useAuthStore = create<AuthStore>()(
 - `export type XStore = TXState & TXActions`, an `initialXValues` const, an exported `defaultInitState`.
 - **Empty-string sentinels, not `null`.** Emptiness is tested as `!!session?.userID`.
 - Consume with **one atomic selector per value** — `useAuthStore((state) => state.updateSession)`. Never destructure the whole store; it re-renders on every change.
-- Outside React, read with `useAuthStore.getState()` (see `providers/react-query.tsx` and the fetch interceptor).
+- Outside React, read with `useAuthStore.getState()` (see `providers/theme.tsx` and `utils/end-session.ts`).
 - Actions may return a value when the caller needs it, and may guard against stale writes by comparing an id the caller holds with the one in the store.
