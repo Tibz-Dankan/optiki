@@ -254,12 +254,12 @@ Adding an email is three edits: a template in `templates/email/` supplying the `
 | `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()`; every deployed container (previews and production) uses `OPTIKI_PROD_DSN` — the one shared database |
 | `OPTIKI_ENV` | row tag; required when deployed |
 | `JWT_SECRET` | ≥ 32 chars, or the server refuses to boot |
-| `APP_BASE_URL` | required when deployed; set by the deploy scripts, e.g. `https://pr-12.optiki.example.com` |
-| `GIT_SHA` | reported by `/health` |
+| `APP_BASE_URL` | required when deployed; the client's public origin, from `~/optiki.env` on the server |
+| `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
 | `SEED_DEMO`, `DEMO_EMAIL`/`DEMO_PASSWORD`(/`_2`) | verified TestSprite accounts, created once per env on boot |
 
-Ports: 8000 (local), 8001 (deployed — previews and production).
+Ports: 8000 (local), 8001 (deployed).
 
 ## 11. Security rules
 
@@ -280,9 +280,10 @@ Ports: 8000 (local), 8001 (deployed — previews and production).
 
 ## 13. Container and deployment
 
-- One image (root `Dockerfile`): builds `client/dist` with pnpm, builds `optiki-server` and `purge`, and runs on Alpine with the client copied to `./public`. Chromium is added when rendered scans land (PR #7).
-- On the Contabo VPS (`deploy/compose.yml`), Traefik routes `pr-<n>.<OPTIKI_DOMAIN>` to container `optiki-pr-<n>` and `<OPTIKI_DOMAIN>` (e.g. `optiki.example.com`) to `optiki-prod` by Docker labels, both on port 8001. App containers join the `optiki-edge` network (Traefik) and the internal `optiki-db` network (Postgres) and **publish no ports**. Scripts: `scripts/deploy-preview.sh`, `destroy-preview.sh` (runs `purge pr-<n>`), `deploy-prod.sh`, sharing `scripts/lib.sh`. Container env comes from `~/optiki/preview.env` or `~/optiki/prod.env` (examples in `deploy/`) plus `OPTIKI_ENV`, `APP_BASE_URL` and `GIT_SHA` from the script.
-- CI (`.github/workflows/preview.yml`) builds `ghcr.io/tibz-dankan/optiki:pr-<n>-<sha>`, deploys it over SSH, and waits until the public `/health` reports the SHA. The TestSprite GitHub App triggers on that workflow's completion. `preview-cleanup.yml` destroys and purges on close; `deploy-prod.yml` deploys `main`.
+- One backend-only image (root `Dockerfile`), modelled on content-agent's: `golang:1.26-bookworm` builds `optiki-server`; `debian:bookworm-slim` runs it as user `optiki` with `curl` and Chromium (`CHROME_BIN=/usr/bin/chromium`, `CHROMEDP_NO_SANDBOX=true`) for rendered scans. The client is not in the image; it deploys to Netlify. `GIT_SHA` is a build arg baked into the image.
+- Production runs on the Contabo server shared with tuliime-backend and content-agent, as the `optiki-backend` service of their Docker Swarm stack `app-stack`. **The service is defined in tuliime-backend's `docker-compose.yaml`, not in this repo**: image `tibzdankan/optiki-backend:latest`, limits 2 CPUs / 3 GB (reservations 0.5 / 768M), tuliime's Traefik routes `optikiapi.tuliime.com` to port 8001, healthcheck `curl` on `/health`, published on host port 8001. The database is external (`OPTIKI_PROD_DSN`).
+- Container env comes from `~/optiki.env` (template `deploy/optiki.env.example`), copied to `~/app/optiki/.env` (the service's `env_file`) by `scripts/optiki-deploy.sh` and by tuliime's `deploy.sh`.
+- CI (`.github/workflows/contabo-deploy.yaml`, on push to `main`) builds and pushes `tibzdankan/optiki-backend:<sha>` and `:latest` to Docker Hub, then runs `optiki-deploy.sh` over SSH. The script runs `docker stack deploy app-stack` and waits until the service is `1/1` and port 8001 answers on localhost. The client deploys to Netlify separately (`netlify-deploy.yaml`). There are no per-PR previews.
 - **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`.
 
 ## 14. Anti-patterns

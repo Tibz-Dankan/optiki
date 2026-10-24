@@ -4,17 +4,16 @@
 
 Built for **TestSprite Hackathon Season 4** ("One week. One loop. Every PR."). The full spec, roadmap and test plan are in [optiki.md](optiki.md).
 
-- **Live:** `https://<OPTIKI_DOMAIN>` *(set once the VPS is up)*
-- **Every PR:** `https://pr-<n>.<OPTIKI_DOMAIN>`, tested by TestSprite before it can merge
+- **API:** `https://optikiapi.tuliime.com`
+- **Client:** deployed to Netlify from `main`
 
-> **Status:** PR #1, the scaffold. Accounts, the app shell, per-PR previews, CI and the TestSprite loop are in place. The scan engine lands in PR #2 ([roadmap](optiki.md#13-pr-roadmap-and-schedule)).
+> **Status:** PR #1, the scaffold. Accounts, the app shell, deployment, CI and the TestSprite loop are in place. The scan engine lands in PR #2 ([roadmap](optiki.md#13-pr-roadmap-and-schedule)).
 
-## How every PR is tested
+## How changes ship
 
-1. Opening or pushing to a PR runs the **Preview** workflow. It builds one Docker image (Go API + React client), deploys it to `https://pr-<n>.<OPTIKI_DOMAIN>` behind Traefik, and finishes only when that URL's `/health` reports the PR's commit.
-2. The **TestSprite GitHub App** triggers on that workflow, runs the suite against the preview, comments on the PR, and blocks the merge until the tests pass.
-3. **CI** runs alongside it: gofmt, vet, build and Go tests; client lint and build; a syntax check of the deploy scripts; gitleaks.
-4. Closing the PR removes its container and purges its rows from the database.
+1. **CI** runs on every PR: gofmt, vet, build and Go tests; client lint and build; a syntax check of the deploy script; gitleaks.
+2. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and port 8001 answers on the server.
+3. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
 
 From PR #7, optikí also scans its own preview, so a change that makes optikí harder for agents to use blocks its own merge.
 
@@ -63,72 +62,65 @@ pnpm dev
 ```
 server/    Go 1.26 · Fiber v2 · GORM/Postgres. cmd/main.go (API), cmd/purge (env cleanup), internal/{routes,handlers,middlewares,models,pkg,...}
 client/    React 19 · Vite · TypeScript · TanStack Query · zustand · Formik/Yup · Tailwind v4 · shadcn/ui
-deploy/    compose.yml for Traefik + Postgres on the VPS, and env-file templates
-scripts/   deploy-preview.sh · destroy-preview.sh · deploy-prod.sh (run on the VPS by the workflows)
-.github/   ci.yml · preview.yml · preview-cleanup.yml · deploy-prod.yml
+deploy/    optiki.env.example, the template for ~/optiki.env on the server
+scripts/   optiki-deploy.sh (run on the server by the deploy workflow)
+.github/   ci.yml · contabo-deploy.yaml · netlify-deploy.yaml
 .claude/   skills for the backend, frontend, engine and TestSprite conventions
 ```
 
 ## Deploying (one-time setup)
 
-Previews and production run on one VPS. **Traefik** is the only thing listening on the internet. It routes each host to its container and gets certificates from Let's Encrypt. **Postgres** runs beside it on an internal network.
+The backend runs on the Contabo server that also hosts tuliime-backend and content-agent. It is the `optiki-backend` service of their shared Docker Swarm stack, `app-stack`, which is defined by **tuliime-backend's `docker-compose.yaml`** (on the server at `~/docker-compose.yaml`). Tuliime's **Traefik** is the only ingress and gets certificates from Let's Encrypt. The service is limited to 2 CPUs and 3 GB RAM, listens on 8001, also published on the host. The database is an external Postgres (`OPTIKI_PROD_DSN`).
 
-There's one database for everything. Each row carries an `env` tag (`pr-12`, `production`), every query filters on it, and migrations are additive only. Below, `optiki.example.com` stands for your `OPTIKI_DOMAIN`.
+Each row carries an `env` tag (`production`, or `local` in development), every query filters on it, and migrations are additive only.
 
 ### 1. DNS
 
-Point two A records at the VPS: `optiki.example.com` and `*.optiki.example.com`.
+Point an A record for `optikiapi.tuliime.com` at the server.
 
-### 2. The VPS
+### 2. The server
 
 ```bash
-# On the VPS (Ubuntu): Docker, and a user that can run it
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker "$USER"      # log out and back in
-sudo ufw allow 22,80,443/tcp && sudo ufw enable
-mkdir -p ~/optiki/deploy
-
 # From your machine
-scp deploy/compose.yml deploy/.env.example deploy/*.env.example <user>@<vps>:~/optiki/deploy/
+scp deploy/optiki.env.example <user>@<server>:~/optiki.env
 
-# On the VPS: Traefik + Postgres
-cd ~/optiki/deploy
-cp .env.example .env                  # ACME_EMAIL, POSTGRES_PASSWORD (openssl rand -hex 24)
-docker compose up -d
-
-# App env files, read by every preview and by production
-cp preview.env.example ../preview.env # DSN (with the Postgres password), JWT_SECRET, Resend, DEMO_* accounts
-cp prod.env.example ../prod.env       # same database, a different JWT_SECRET
-chmod 600 .env ../preview.env ../prod.env
+# On the server: fill in OPTIKI_PROD_DSN, APP_BASE_URL, JWT_SECRET, Resend and the DEMO_* accounts
+chmod 600 ~/optiki.env
+mkdir -p ~/app/optiki && cp ~/optiki.env ~/app/optiki/.env
+docker login                          # only if the Docker Hub repository is private
 ```
 
-App containers publish no ports. That's deliberate: the rate limiter trusts the `X-Real-IP` header Traefik sets, which is only safe while Traefik is the only way in.
+`~/app/optiki/.env` must exist before any `docker stack deploy` of a compose file that lists `optiki-backend`, tuliime's own deploys included. Both deploy scripts refresh it from `~/optiki.env`.
 
-### 3. GitHub
+### 3. The stack
+
+The `optiki-backend` service is defined in tuliime-backend's `docker-compose.yaml`, not in this repo. Get that file to `~/docker-compose.yaml` on the server (tuliime's deploy copies it, or `scp` it). `scripts/optiki-deploy.sh` refuses to run if the service isn't in it.
+
+### 4. GitHub
 
 ```bash
-ssh-keygen -t ed25519 -f optiki-deploy -N "" -C optiki-deploy   # then add optiki-deploy.pub to ~/.ssh/authorized_keys on the VPS
-gh secret set VPS_HOST --body "<vps ip>"
-gh secret set VPS_USERNAME --body "<user>"
-gh secret set VPS_SSH_KEY < optiki-deploy
-gh variable set OPTIKI_DOMAIN --body "optiki.example.com"
+gh secret set DOCKERHUB_USERNAME --body "tibzdankan"   # the compose file pulls tibzdankan/optiki-backend:latest
+gh secret set DOCKERHUB_TOKEN                          # a Docker Hub access token with write access
+gh secret set CONTABO_HOST --body "<server ip>"
+gh secret set CONTABO_USERNAME --body "<user>"
+gh secret set CONTABO_SSHKEY < <private key>
 ```
 
-Images go to `ghcr.io/<owner>/optiki` using the workflow's own `GITHUB_TOKEN`; no registry secret is needed.
+These are the same secrets content-agent uses. After that, every push to `main` deploys.
 
-### 4. Email (Resend)
+### 5. Email (Resend)
 
-Verify a sending domain in Resend, then put the API key and an address on that domain in both env files. Resend's test sender only delivers to your own inbox. TestSprite never needs email: it signs in with the seeded, already-verified accounts.
+Verify a sending domain in Resend, then put the API key and an address on that domain in `~/optiki.env`. Resend's test sender only delivers to your own inbox. TestSprite never needs email: it signs in with the seeded, already-verified accounts.
 
-### 5. TestSprite
+### 6. TestSprite
 
-- In the portal, create a project for `https://optiki.example.com`. Add the demo credentials and the PRD from [optiki.md §12](optiki.md#12-prd-paste-into-the-testsprite-portal).
-- Install the GitHub App. Add a **PR trigger** that fires when the **Preview** workflow completes, with the Target URL pattern `https://pr-{pr}.optiki.example.com`.
+- In the portal, create a project for the deployed client URL. Add the demo credentials and the PRD from [optiki.md §12](optiki.md#12-prd-paste-into-the-testsprite-portal).
+- Install the GitHub App. *(Per-PR previews were removed with the move to the shared server, so its trigger needs re-pointing.)*
 - Turn on **Block PR until tests pass**.
 
-### 6. Branch protection on `main`
+### 7. Branch protection on `main`
 
-Require pull requests and these checks: TestSprite, `Server (gofmt, vet, build, test)`, `Client (lint, build)`, `gitleaks` and `Build and deploy preview`. A check can only be selected after it has run once, so open PR #1 first.
+Require pull requests and these checks: TestSprite, `Server (gofmt, vet, build, test)`, `Client (lint, build)` and `gitleaks`. A check can only be selected after it has run once, so open PR #1 first.
 
 ## Security notes
 

@@ -7,6 +7,6 @@ scripts
 **/.env
 **/*.env
 **/node_modules
-client/dist
+client
 server/bin
 server/public
