@@ -6,3 +6,6 @@ node_modules/
 *.env
 accessibility-rules.md
 features.md
+
+# Local Netlify folder
+.netlify

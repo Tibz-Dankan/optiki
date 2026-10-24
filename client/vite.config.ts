@@ -40,4 +40,20 @@ export default defineConfig({
       '@': src(),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/,
+              priority: 2,
+            },
+            { name: 'vendor', test: /node_modules[\\/]/, priority: 1 },
+          ],
+        },
+      },
+    },
+  },
 })
