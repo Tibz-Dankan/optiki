@@ -268,7 +268,7 @@ Ports: 8000 (local), 8001 (deployed).
 - **Never render user HTML.** Scan input is parsed by the engine and only ever returned as escaped snippets.
 - **No file uploads, no multipart.** Scan input is JSON (`html`, `url`, or `gym`).
 - **OTPs**: single use, expire, and burn after `RESET_PASSWORD_OTP_MAX_ATTEMPTS` wrong guesses. Forgot-password never reveals whether an account exists. A password reset revokes every other session.
-- **No secrets in the repo** — only `.env.example`. A gitleaks job is a required check.
+- **No secrets in the repo** — only `.env.example`.
 - **Fail closed.** Any gate (the optiki Action, CI scripts) exits non-zero on errors; a missing score is never a pass.
 
 ## 12. Tests

@@ -17,7 +17,7 @@ description: >-
 
 1. A PR is opened or pushed → `.github/workflows/preview.yml` builds the image, deploys container `optiki-pr-<n>` behind Traefik at **`https://pr-<n>.<OPTIKI_DOMAIN>`** (e.g. `pr-12.optiki.example.com`), and finishes only once that public URL's `/health` reports the PR's commit SHA.
 2. The **TestSprite GitHub App** trigger fires when that "Preview" workflow completes, runs the suite against the Target URL pattern `https://pr-{pr}.<OPTIKI_DOMAIN>`, comments on the PR (`testsprite-dev` bot), and — with **Block PR until tests pass** plus branch protection — holds the merge.
-3. In parallel, `ci.yml` runs Go tests, the client build/lint and gitleaks; later `optiki-gate` (PR #7) scans the preview with optikí itself.
+3. Later, `optiki-gate` (PR #7) scans the preview with optikí itself.
 
 Judges read **the PRs, the TestSprite portal, and the commit history**. The PR history is the evidence: small PRs, one feature each, each linking the tests it adds, with at least one real red → fix → green → merge.
 

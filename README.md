@@ -7,13 +7,12 @@ Built for **TestSprite Hackathon Season 4** ("One week. One loop. Every PR."). T
 - **API:** `https://optikiapi.tuliime.com`
 - **Client:** deployed to Netlify from `main`
 
-> **Status:** PR #1, the scaffold. Accounts, the app shell, deployment, CI and the TestSprite loop are in place. The scan engine lands in PR #2 ([roadmap](optiki.md#13-pr-roadmap-and-schedule)).
+> **Status:** PR #1, the scaffold. Accounts, the app shell, deployment and the TestSprite loop are in place. The scan engine lands in PR #2 ([roadmap](optiki.md#13-pr-roadmap-and-schedule)).
 
 ## How changes ship
 
-1. **CI** runs on every PR: gofmt, vet, build and Go tests; client lint and build; a syntax check of the deploy script; gitleaks.
-2. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and port 8001 answers on the server.
-3. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
+1. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and port 8001 answers on the server.
+2. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
 
 From PR #7, optikí also scans its own preview, so a change that makes optikí harder for agents to use blocks its own merge.
 
@@ -64,7 +63,7 @@ server/    Go 1.26 · Fiber v2 · GORM/Postgres. cmd/main.go (API), cmd/purge (e
 client/    React 19 · Vite · TypeScript · TanStack Query · zustand · Formik/Yup · Tailwind v4 · shadcn/ui
 deploy/    optiki.env.example, the template for ~/optiki.env on the server
 scripts/   optiki-deploy.sh (run on the server by the deploy workflow)
-.github/   ci.yml · contabo-deploy.yaml · netlify-deploy.yaml
+.github/   contabo-deploy.yaml · netlify-deploy.yaml
 .claude/   skills for the backend, frontend, engine and TestSprite conventions
 ```
 
@@ -120,14 +119,14 @@ Verify a sending domain in Resend, then put the API key and an address on that d
 
 ### 7. Branch protection on `main`
 
-Require pull requests and these checks: TestSprite, `Server (gofmt, vet, build, test)`, `Client (lint, build)` and `gitleaks`. A check can only be selected after it has run once, so open PR #1 first.
+Require pull requests and the TestSprite check. A check can only be selected after it has run once, so open PR #1 first.
 
 ## Security notes
 
 - Passwords are hashed with bcrypt. Sessions are `HttpOnly`, `SameSite=Lax` cookies, and the database stores only SHA-256 hashes of the tokens.
 - Reset codes are random, single-use, expire after 20 minutes and burn after five wrong guesses. Forgot-password never reveals whether an account exists.
 - Auth routes are rate-limited per IP and send `RateLimit-*` headers.
-- No secrets are committed: only `*.example` env files are in git, and gitleaks runs on every PR.
+- No secrets are committed: only `*.example` env files are in git.
 
 ## optikí and Lighthouse
 
