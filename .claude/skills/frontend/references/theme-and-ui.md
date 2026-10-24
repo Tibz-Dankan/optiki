@@ -132,9 +132,9 @@ const buttonVariants = cva('inline-flex items-center justify-center …', {
 })
 ```
 
-Hand-written widgets in the same folder (`password-input`, `form-field`, `file-picker`, `confirm-dialog`, `theme-switch`, `profile-dropdown`, …) use the app's `export const X: React.FC<XProps>` style.
+Hand-written widgets in the same folder (`password-input`, `form-field`, `confirm-dialog`, `theme-switch`, `profile-dropdown`, `command-menu`, `search`, …) use the app's `export const X: React.FC<XProps>` style.
 
-Notably absent: shadcn `form` (Formik instead), `table`, `calendar`, `toast` (sonner instead).
+`table` is installed and used by `settings/ui/active-sessions-section.tsx`; use it for every list (scans, projects, API tokens). Notably absent: shadcn `form` (Formik instead), `calendar`, `toast` (sonner instead). Add `checkbox` with the shadcn CLI when the token permission picker lands; `@radix-ui/react-checkbox` is already a dependency.
 
 ## Providers
 
@@ -180,7 +180,7 @@ Provider-scoped state that only the authenticated shell needs (`SearchProvider`,
 |---|---|---|
 | `AuthenticatedLayout` | `shared/layout/authenticated-layout.tsx` | `/u/*` |
 | `AuthLayout` | `auth/layout/auth-layout.tsx` | each `/auth/*` page renders it itself |
-| Public page shell (inline in the page today) | `home/pages/home.tsx` | `/` — extract a `home/layout/home-layout.tsx` once a second public page (`/scan`, `/rules`, `/gym`) needs the same header |
+| Public page shell (inline in the page today) | `home/pages/home.tsx` | `/` — extract a `home/layout/home-layout.tsx` once a second public page (`/scan`, `/scans/:id`, `/rules`, `/gym`) needs the same header |
 
 `AuthenticatedLayout` composes `SearchProvider` → `LayoutProvider` → `SidebarProvider` → `SkipToMain` + `AppSidebar` + `SidebarInset`, reading the sidebar's open state from the `sidebar_state` cookie. `AppSidebar` maps `routes.groups` to `<NavGroup>`, so navigation follows from the route config.
 
@@ -191,15 +191,19 @@ export const Dashboard: React.FC = () => {
   return (
     <>
       <Header>
-        <TopNav links={topNav} className='me-auto' />
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
+        <div className='ms-auto flex items-center gap-4'>
+          <Search />
+          <ThemeSwitch />
+          <ProfileDropdown />
+        </div>
       </Header>
 
       <Main>
-        <div className='mb-2 flex items-center justify-between space-y-2'>
-          <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
+        <div className='space-y-0.5'>
+          <h1 className='text-2xl font-bold tracking-tight md:text-3xl'>
+            Dashboard
+          </h1>
+          <p className='text-muted-foreground'>One line on what the page is for.</p>
         </div>
       </Main>
     </>

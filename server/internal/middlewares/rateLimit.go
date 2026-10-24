@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// One long-lived container serves each environment, so a per-process window is enough.
+// One long-lived container serves the API, so a per-process window is enough.
 type rateLimiter struct {
 	mutex   sync.Mutex
 	limit   int

@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// SetAuthCookies sets the httpOnly access and refresh token cookies; client and API share one origin, so SameSite=Lax holds
+// SetAuthCookies sets the httpOnly access and refresh token cookies
 func SetAuthCookies(c *fiber.Ctx, accessToken, refreshToken string, accessTokenExpiry, refreshTokenExpiry time.Duration) {
 	setAuthCookie(c, constants.ACCESS_TOKEN_COOKIE, accessToken, accessTokenExpiry)
 	setAuthCookie(c, constants.REFRESH_TOKEN_COOKIE, refreshToken, refreshTokenExpiry)
@@ -22,26 +22,35 @@ func SetAccessTokenCookie(c *fiber.Ctx, accessToken string, accessTokenExpiry ti
 // ClearAuthCookies expires both auth cookies
 func ClearAuthCookies(c *fiber.Ctx) {
 	for _, name := range []string{constants.ACCESS_TOKEN_COOKIE, constants.REFRESH_TOKEN_COOKIE} {
-		c.Cookie(&fiber.Cookie{
-			Name:     name,
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HTTPOnly: true,
-			Secure:   os.Getenv("GO_ENV") == "production",
-			SameSite: fiber.CookieSameSiteLaxMode,
-		})
+		cookie := authCookie(name, "")
+		// fasthttp drops a negative max-age, so only a past expiry makes the browser delete the cookie
+		cookie.Expires = time.Unix(0, 0)
+		c.Cookie(cookie)
 	}
 }
 
 func setAuthCookie(c *fiber.Ctx, name, value string, expiry time.Duration) {
-	c.Cookie(&fiber.Cookie{
+	cookie := authCookie(name, value)
+	cookie.MaxAge = int(expiry.Seconds())
+	c.Cookie(cookie)
+}
+
+func authCookie(name, value string) *fiber.Cookie {
+	isDeployed := os.Getenv("GO_ENV") == "production"
+
+	// The deployed client (Netlify) and API (Contabo) are different sites, so cookies must be SameSite=None,
+	// which browsers only accept with Secure. Locally both run on localhost, the same site, over plain http.
+	sameSite := fiber.CookieSameSiteLaxMode
+	if isDeployed {
+		sameSite = fiber.CookieSameSiteNoneMode
+	}
+
+	return &fiber.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
-		MaxAge:   int(expiry.Seconds()),
 		HTTPOnly: true,
-		Secure:   os.Getenv("GO_ENV") == "production",
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+		Secure:   isDeployed,
+		SameSite: sameSite,
+	}
 }

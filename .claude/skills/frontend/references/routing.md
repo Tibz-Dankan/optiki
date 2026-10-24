@@ -16,13 +16,19 @@ There are no `<ProtectedRoute>` wrappers and no `<Outlet>` layout routes. `App.t
 
 Sign-in only returns a session; `emailVerified` arrives with `getMe`, so the unverified and user trees wait for `isUserResolved` (`!!user.id && !isLoadingGetMe`) and show `LoadingPage` until then — otherwise a verified user would flash through the verify-email gate.
 
-Router-independent hooks are called directly in `App` (`useGlobalRequestInterceptor`, `useSessionRefresh`, `useGetMe`, `useGetAppearance`). Hooks that need router context are mounted as null-rendering components inside `<BrowserRouter>`.
+Router-independent hooks are called directly in `App` (`useGlobalRequestInterceptor`, `useSessionRefresh`, `useGetMe`, `useGetAppearance`). A hook that needs router context goes in a null-rendering component inside `<BrowserRouter>`; none exists yet.
 
 Prefixes: `/u/*` for the signed-in app, `/auth/*` for the auth area. Everything else is public.
 
 ### Public pages
 
-A public page — `/` today; `/scan`, `/r/:id`, `/rules`, `/rules/:id`, `/gym` as they land — needs a `<Route>` in **each of the three trees** in `App.tsx`, because each tree is a complete `<Routes>`. Forgetting one tree makes the page 404 (or redirect) for that audience only — a classic bug TestSprite will catch when it signs in.
+A public page needs a `<Route>` in **each of the three trees** in `App.tsx`, because each tree is a complete `<Routes>`. Today that is `/`; `/scan`, `/scans/:id`, `/rules`, `/rules/:id` and `/gym` join as they land. Forgetting one tree makes the page 404 (or redirect) for that audience only — a classic bug TestSprite will catch when it signs in.
+
+The same page then behaves according to who is looking. `/scan` runs the 9 core rules for a signed-out or unverified visitor and all 17 for a verified user, because the server decides from the session cookie. `/scans/:id` shows a private scan only to its owner. The page never branches on the tree; it renders what the API returns (see `references/feature-pages.md`).
+
+### Deep links on Netlify
+
+The client is a static SPA on Netlify. `public/_redirects` holds one rule, `/*  /index.html  200`. It is what makes a direct load or refresh of `/u/settings`, `/scans/:id` or the emailed `/auth/verify-email?token=…` link reach React Router instead of Netlify's 404. Keep it; there is no server-side fallback.
 
 ## One config drives routes, sidebar, and ⌘K
 
@@ -33,6 +39,7 @@ export type TPage = {
   title: string
   path: string
   icon?: React.ElementType
+  highlightIcon?: boolean
   element?: ReactNode
   badge?: string
   showInSidebar: boolean
@@ -44,7 +51,7 @@ export type TNavGroup = { title?: string; pages: TPage[] }
 export type TRoute = { title?: string; homePath: string; groups: TNavGroup[] }
 ```
 
-`src/routes/user-routes.tsx` holds the `userRoutes` config: Dashboard under "General"; Settings (General, Account) and the `*` 404 under "Other".
+`src/routes/user-routes.tsx` holds the `userRoutes` config: Dashboard under "General"; Settings (General, Account) and the `*` 404 under "Other". As features land, "General" gains Scans (`/u/scans`) and Projects (`/u/projects`), and Settings gains API tokens (`/u/settings/api-tokens`).
 
 - `showInSidebar: false` keeps a page routable but hidden (the `*` catch-all uses this).
 - A `children` entry **with no `element`** is nav-only: it draws a collapsible sidebar group, and `renderRoutes` hoists its children into flat routes.

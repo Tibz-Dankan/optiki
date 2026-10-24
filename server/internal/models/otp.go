@@ -12,7 +12,6 @@ import (
 
 func (o *OTP) BeforeCreate(tx *gorm.DB) error {
 	tx.Statement.SetColumn("ID", uuid.New().String())
-	stampEnv(tx)
 	return nil
 }
 
@@ -53,8 +52,7 @@ func (o *OTP) Create(otp OTP) (string, error) {
 
 func (o *OTP) FindByCode(code string, otpType string) (OTP, error) {
 	var otp OTP
-	if err := db.Scopes(scopeEnv).
-		Where("\"OTP\" = ? AND \"type\" = ?", pkg.EncodeToHexString(code), otpType).
+	if err := db.Where("\"OTP\" = ? AND \"type\" = ?", pkg.EncodeToHexString(code), otpType).
 		First(&otp).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return otp, err
 	}
@@ -64,8 +62,7 @@ func (o *OTP) FindByCode(code string, otpType string) (OTP, error) {
 
 func (o *OTP) FindByUserAndCode(userID string, code string, otpType string) (OTP, error) {
 	var otp OTP
-	if err := db.Scopes(scopeEnv).
-		Where("\"userID\" = ? AND \"OTP\" = ? AND \"type\" = ?", userID, pkg.EncodeToHexString(code), otpType).
+	if err := db.Where("\"userID\" = ? AND \"OTP\" = ? AND \"type\" = ?", userID, pkg.EncodeToHexString(code), otpType).
 		First(&otp).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return otp, err
 	}
@@ -75,8 +72,7 @@ func (o *OTP) FindByUserAndCode(userID string, code string, otpType string) (OTP
 
 func (o *OTP) FindLatestByUserAndType(userID string, otpType string) (OTP, error) {
 	var otp OTP
-	if err := db.Scopes(scopeEnv).
-		Where("\"userID\" = ? AND \"type\" = ?", userID, otpType).
+	if err := db.Where("\"userID\" = ? AND \"type\" = ?", userID, otpType).
 		Order("\"createdAt\" DESC").
 		First(&otp).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return otp, err
@@ -102,7 +98,7 @@ func (o *OTP) RecordFailedAttempt(userID string, otpType string) error {
 }
 
 func (o *OTP) Update() (OTP, error) {
-	if err := db.Scopes(scopeEnv).Model(&OTP{}).Where("id = ?", o.ID).
+	if err := db.Model(&OTP{}).Where("id = ?", o.ID).
 		Updates(map[string]interface{}{
 			"isUsed":     o.IsUsed,
 			"isVerified": o.IsVerified,
@@ -116,7 +112,7 @@ func (o *OTP) Update() (OTP, error) {
 }
 
 func (o *OTP) ExpireUserOTPs(userID string, otpType string) error {
-	return db.Scopes(scopeEnv).Model(&OTP{}).
+	return db.Model(&OTP{}).
 		Where("\"userID\" = ? AND \"type\" = ? AND \"isUsed\" = ? AND \"expiresAt\" > ?", userID, otpType, false, time.Now()).
 		Update("expiresAt", time.Now()).Error
 }

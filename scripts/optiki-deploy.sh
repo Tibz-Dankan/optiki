@@ -26,7 +26,7 @@ if [ -f ~/optiki.env ]; then
   cp ~/optiki.env ./optiki/.env
 else
   echo "ERROR: No ~/optiki.env file found!"
-  echo "Please create it from deploy/optiki.env.example in the optiki repo"
+  echo "Please create it from server/.env.example in the optiki repo"
   exit 1
 fi
 

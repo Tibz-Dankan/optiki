@@ -72,9 +72,7 @@ func checkRequiredEnv() {
 		return
 	}
 
-	for _, name := range []string{"OPTIKI_ENV", "APP_BASE_URL"} {
-		if os.Getenv(name) == "" {
-			log.Fatalf("%s must be set in deployed environments", name)
-		}
+	if os.Getenv("APP_BASE_URL") == "" {
+		log.Fatal("APP_BASE_URL must be set in deployed environments")
 	}
 }

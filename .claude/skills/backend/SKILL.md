@@ -3,12 +3,13 @@ name: backend
 description: >-
   Conventions and recipes for the optikí Go/Fiber/GORM backend in server/.
   Use whenever adding or changing anything under server/ — a route, handler,
-  middleware, model, schema field, pkg util, constant, email template, the
-  scan engine wiring, or the deploy/container setup — or when asked where
-  backend code belongs, how responses and errors are shaped, how the shared
-  database keeps PR previews and production apart (the env tag), what needs
-  tests, or how to wire a new domain end to end. The engine's own rules live
-  in the engine skill. Does not apply to client/.
+  middleware, model, schema field, migration, pkg util, constant, email
+  template, scans (anonymous, signed-in and API-token callers, rule sets,
+  static fetch and rendered Chromium scans, storage), projects, API tokens
+  and their permissions, the /client/v1 token API, or the deploy/container
+  setup — or when asked where backend code belongs, how responses and errors
+  are shaped, what needs tests, or how to wire a new domain end to end. The
+  engine's own rules live in the engine skill. Does not apply to client/.
 ---
 
 # optikí backend conventions
@@ -17,41 +18,52 @@ Go 1.26 · Fiber v2 · GORM + Postgres · module `github.com/Tibz-Dankan/optiki`
 
 These conventions come from the GradeScript backend this server was bootstrapped from; where optikí differs, this file says so. Follow it exactly.
 
+The API is deployed at `https://optikiapi.tuliime.com` and the client separately on Netlify at `https://optikii.netlify.app`. There is one production database, and no per-PR previews.
+
+## References
+
+| File | Read it when |
+|---|---|
+| `references/data-model.md` | Adding or changing any table, column, index, FK or seed; writing a migration |
+| `references/scans.md` | Anything about scans: who gets which rule set, the create pipeline, fetching or rendering a URL, storage, read/list/update/delete, rate limits |
+| `references/api-tokens.md` | Token format, `AuthAPI`, permissions, token management endpoints, the `/client/v1` surface |
+| `references/projects.md` | Project CRUD and how scans attach to projects |
+
 ## 1. The tree
 
 ```
 server/
-  cmd/main.go                  Fiber app, global middleware, env checks, port, Listen
-  cmd/purge/main.go            purge <env> — deletes one env's rows (closed PR previews)
-  cmd/optiki/                  (PR #7) the CLI: rendered scans with chromedp, diff, upload
-  Makefile                     make run · install · test · build · purge ENV=…
+  cmd/main.go                  Fiber app, global middleware, env checks, seeds, port, Listen
+  Makefile                     make run · install · test · build
   internal/
     routes/routes.go           THE only route table — every path in the app
     handlers/<domain>/         one file per endpoint, package == folder name
-    middlewares/               one file per middleware, func(c *fiber.Ctx) error
+                               auth/ appearance/ docs/ health/ status/ — then scan/ project/ apitoken/ rules/ gym/
+    middlewares/               one file per middleware
     models/
-      db.go                    Postgres singleton + advisory-locked AutoMigrate list
+      db.go                    Postgres singleton + AutoMigrate list
       schema.go                ALL GORM structs, nothing else
-      envScope.go              scopeEnv / stampEnv — the shared-database contract (§ 6)
-      purgeEnv.go              deletes one env's rows from every tagged table
       <entity>.go              methods for exactly one entity
-    engine/                    (PR #2) PURE scan engine — see the engine skill
-    snapshot/static|rendered/  (PR #2 / #7) HTML or Chrome → engine.Snapshot
-    gym/                       (PR #3) fixture pages, //go:embed, shared by engine tests and a static route
+    engine/                    PURE scan engine — see the engine skill
+    snapshot/static|rendered/  HTML (x/net/html) or Chromium (chromedp) → engine.Snapshot
+    gym/                       fixture pages, //go:embed, shared by engine tests and the /gym routes
     pkg/                       stateless cross-cutting helpers, one concern per file
-    constants/                 constants.go — tunables; errors.go — error strings and reason codes
+    constants/                 constants.go — tunables and enum values; errors.go — error strings and reason codes
+    data/                      seed lists — permissions.go (the grantable API token permissions)
     templates/                 templates.go (//go:embed) + email/layout.html and one file per email
-    types/ data/ assets/       shared types · seed/enum tables · embedded assets (openapi.yaml)
+    types/ assets/             shared types · embedded assets (openapi.yaml)
 ```
 
-**Why `engine/`, `snapshot/` and `gym/` exist** (a new top-level directory under `internal/` needs a stated reason): the scan engine is optikí's core logic — pure, deterministic, heavily tested, and imported by both the server and the CLI. Flattening it into `pkg/` would bury ~30 files of one concern among unrelated helpers. Nothing under `engine/` may import `models`, `handlers`, Fiber, or do I/O.
+**Why `engine/`, `snapshot/` and `gym/` exist** (a new top-level directory under `internal/` needs a stated reason): the scan engine is optikí's core logic — pure, deterministic, heavily tested. Flattening it into `pkg/` would bury ~30 files of one concern among unrelated helpers. Nothing under `engine/` may import `models`, `handlers`, Fiber, or do I/O. `snapshot/rendered` is I/O (it drives Chromium) and lives outside `engine/` for that reason.
+
+The server serves **only the API**. It does not serve the client: that is a static build on Netlify.
 
 ## 2. Naming
 
 - Files are `lowerCamelCase.go`, named after the one exported symbol they contain: `signUp.go` → `SignUp`, `validateQueryLimit.go` → `ValidateQueryLimit`. Rules follow the same rule: `opt101HiddenControl.go`.
-- One endpoint = one file. Never two handlers in a file. Unexported helpers shared inside a handler package get their own file too (`startSession.go`, `userResponseData.go`).
+- One endpoint = one file. Never two handlers in a file. Unexported helpers shared inside a handler package get their own file too (`startSession.go`, `userResponseData.go`, `runScan.go`).
 - Handler names read `<Verb><Noun>`. Where the HTTP verb is not obvious, the file carries it: `getAppStatus.go`.
-- Package name == folder name, lowercase, no underscores.
+- Package name == folder name, lowercase, no underscores (`apitoken`, not `api_token`).
 - Enum-ish string columns take `SCREAMING_SNAKE` values, listed in a trailing `//` comment on the struct field.
 
 **Comments: default to none.** Write one only where the reason for a line is unrecoverable from the code — one line, above it. Exempt: exported `pkg/` helpers carry a single-line doc comment; `schema.go` keeps its enum-value trailing comments and `// Relationships` markers; `routes.go` keeps its per-group `// Auth` labels; `TODO:` markers stay.
@@ -102,24 +114,38 @@ var UpdateUser = func(c *fiber.Ctx) error {
 Rules:
 
 - `var X = func(c *fiber.Ctx) error` — the assigned-closure form, not `func X(...)`.
-- **Always declare a `<HandlerName>Input` struct with `json` tags and parse into that.** Never `BodyParser` into a `models.*` struct: that makes every model field — `role`, `emailVerified`, `password`, `env` — settable from the request body. (GradeScript's sign-up/sign-in broke this rule; optikí's ports fix it.)
-- Read request context with the comma-ok form, never a bare assertion. Available locals: `clientIP` (always), `userID` (whenever a valid cookie exists), `user` and `session` (only behind `middlewares.Auth`).
-- Side effects that must not fail the request — sending email — log and continue.
+- **Always declare a `<HandlerName>Input` struct with `json` tags and parse into that.** Never `BodyParser` into a `models.*` struct: that makes every model field — `role`, `emailVerified`, `password`, `userID` — settable from the request body.
+- Read request context with the comma-ok form, never a bare assertion. Available locals:
+  - `clientIP` (always)
+  - `userID` (whenever a valid cookie or token exists)
+  - `user` (behind `Auth`, `AuthAPI`, or `OptionalAuth` when signed in)
+  - `session` (behind `Auth`/`OptionalAuth`)
+  - `apiToken` and `apiTokenPermissions` (behind `AuthAPI` only)
+- Side effects that must not fail the request — sending email, touching `lastUsedAt` — log and continue.
+
+### One handler, two surfaces
+
+Scans and projects are reachable from the browser (`/api/v1`, session cookie) and from scripts (`/client/v1`, API token). **When the behaviour is the same, it is the same handler, registered twice in `routes.go`.**
+
+- Ownership code reads `user`, which both `Auth` and `AuthAPI` set.
+- Branch on `apiToken` only where the surfaces genuinely differ: recording `apiTokenID`, `triggeredBy API_TOKEN`, accepting the CI fields, and reading only one's own scans.
+- There is no `apihandlers/` tree (gradescript's split); a second copy of each handler would drift.
 
 ### Read one
 
-Singular handler name, id from the path, `status` + `data` only (no `message`). The model's `FindOne` does the lookup (and any preloading). A resource the caller doesn't own is a **404**, not a 403 — don't confirm it exists.
+Singular handler name, id from the path, `status` + `data` only (no `message`). The model's `FindOne` does the lookup (and any preloading). A resource the caller doesn't own is a **404**, not a 403 — don't confirm it exists. A malformed UUID is a 400.
 
 ### Read many (cursor pagination)
 
 `auth/getActiveSessions.go` is the reference. Plural handler name, `limit`/`cursor` query params, the **`limit+1` lookahead**:
 
 1. `limit` and `cursor` come from `c.Query`. A missing cursor means "first page".
-2. Size the page with `pkg.ValidateQueryLimit`. A bad limit is a **400**, not a clamp.
+2. Size the page with `pkg.ValidateQueryLimit` (default 12, 1–25). A bad limit is a **400**, not a clamp.
 3. Call the model with **`limit+1`**. Never `limit`.
 4. If the result is longer than `limit`, drop the last row, take `nextCursor` from the new last row's `ID`, set `hasNextItems`.
 5. `pagination` always carries all four keys — `limit`, `nextCursor`, `hasNextItems`, `count`.
 6. An empty result is `"data": []`, not a 404.
+7. The cursor lookup is scoped to the caller too (`id = ? AND "userID" = ?`), and an unknown cursor is a 400, not a 500. (`Session.FindAllActiveByUser` predates this rule; fix it when you next touch it.)
 
 ## 4. Response and error contract
 
@@ -130,7 +156,7 @@ Singular handler name, id from the path, `status` + `data` only (no `message`). 
 | Read many | `status`, `data`, `pagination` |
 
 - **`message` belongs to writes only.** Use `fiber.Map` for the envelope (`pagination` is built as `map[string]interface{}`).
-- **Never serialise a model that carries secrets.** `User` (password hash), `Session` (token hashes) and `OTP` (code hash) are returned through explicit field maps — `userResponseData`, `sessionResponseData`. Their `json:"-"` tags are a second line of defence, not the first.
+- **Never serialise a model.** Every response goes through an explicit field map: `userResponseData`, `sessionResponseData`, `scanReportData`, `apiTokenData`, `projectResponseData`. `json:"-"` on secrets (`password`, session tokens, `OTP`, `tokenHash`) is a second line of defence, not the first.
 - `StatusCreated` for creates, `StatusOK` otherwise.
 
 Every failure path returns an error; never hand-roll an error JSON body. `pkg.DefaultErrorHandler` renders:
@@ -140,59 +166,72 @@ Every failure path returns an error; never hand-roll an error JSON body. `pkg.De
 | 4xx | `fail` | the reason code, else the status name (`BAD_REQUEST`, `NOT_FOUND`, …) | your message, verbatim |
 | 5xx | `error` | the status name | `"Ooops, something went wrong, try again later!"` — yours only reaches the log |
 
-**Reason codes.** When a client or a test must branch on *why* a request failed, return `pkg.NewReasonError(status, "SCREAMING_SNAKE_REASON", message)` instead of `fiber.NewError`. The reason becomes the `error` field. Current reasons: `EMAIL_NOT_VERIFIED`; coming with scans: `SSRF_BLOCKED`, `NOT_HTML`, `FETCH_TIMEOUT`. Every reason is a constant in `constants/errors.go` and is mirrored in the client's `TServerErrorName`.
+**Reason codes.** When a client, a script or a test must branch on *why* a request failed, return `pkg.NewReasonError(status, "SCREAMING_SNAKE_REASON", message)` instead of `fiber.NewError`. The reason becomes the `error` field. Every reason is a constant in `constants/errors.go` and is mirrored in the client's `TServerErrorName`.
 
-**A 5xx message is developer-facing only. Anything the user must act on has to be 4xx.**
+| Reason | Status | Raised by |
+|---|---|---|
+| `EMAIL_NOT_VERIFIED` | 403 | `VerifiedEmail`, `AuthAPI` (exists today) |
+| `SSRF_BLOCKED` | 400 | URL pre-flight, redirects, render proxy |
+| `TOO_LARGE` | 413 | HTML input or fetched body over 2 MB |
+| `NOT_HTML` | 422 | fetched content isn't `text/html` |
+| `FETCH_TIMEOUT` · `RENDER_TIMEOUT` | 422 | the target took too long |
+| `RENDERER_BUSY` | 429 | no render slot within 10 s |
+| `TOKEN_REVOKED` · `TOKEN_EXPIRED` | 401 | `AuthAPI` |
+| `MISSING_PERMISSION` | 403 | `RequirePermission` |
+
+**A 5xx message is developer-facing only. Anything the user must act on has to be 4xx** — that is why target timeouts are 422, not 504.
 
 ## 5. Model recipe
 
-Adding an entity touches three files. Miss `db.go` and the table is silently never created.
+Adding an entity touches three files. Miss `db.go` and the table is silently never created. `references/data-model.md` has every table's full struct.
 
 **1. `schema.go`** — the struct, and nothing but structs:
 
 ```go
-type Scan struct {
-	ID        string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	Env       string    `gorm:"column:env;not null;index" json:"-"`
-	UserID    *string   `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
-	Mode      string    `gorm:"column:mode;not null" json:"mode"` // STATIC, RENDERED
-	CreatedAt time.Time `gorm:"column:createdAt;index" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+type Project struct {
+	ID         string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID     string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
+	Name       string    `gorm:"column:name;size:64;not null" json:"name"`
+	CreatedVia string    `gorm:"column:createdVia;not null" json:"createdVia"` // WEB, API_TOKEN
+	CreatedAt  time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt  time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
 
 	// Relationships
-	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"user,omitempty"`
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 ```
 
-`ID` is `type:uuid;primaryKey`. Every column gets an explicit camelCase `column:` tag. `CreatedAt` and `UpdatedAt` are indexed. **Every table holding user data has the `Env` column** (§ 6). Relationships go last under `// Relationships`.
+- `ID` is `type:uuid;primaryKey`. Every column gets an explicit camelCase `column:` tag. `CreatedAt` and `UpdatedAt` are indexed.
+- Optional columns are pointers with `default:null`.
+- Relationships go last under `// Relationships`. Pick `OnDelete` deliberately: `CASCADE` for rows that mean nothing without their parent (findings without their scan), `SET NULL` for history that should outlive a label (scans when a project or token is deleted).
 
-**2. `<entity>.go`** — `BeforeCreate` sets the UUID **and calls `stampEnv(tx)`**, then methods on a pointer receiver. Every query starts with `db.Scopes(scopeEnv)`.
+**2. `<entity>.go`** — `BeforeCreate` sets the UUID, then methods on a pointer receiver. Methods that answer for a user take the `userID` and filter on it.
 
-**3. `db.go`** — add the type to the `AutoMigrate` list, **and** add the table to `purgeEnv.go`.
+**3. `db.go`** — add the type to the `AutoMigrate` list, parents before children.
 
 ### GORM gotchas
 
 - Columns are camelCase, so **every raw SQL fragment must quote them**: `db.Where("\"userID\" = ?", userID)`, `db.Order("\"createdAt\" DESC")`.
 - Lookups tolerate absence: filter out `gorm.ErrRecordNotFound` and let the caller test `row.ID == ""`.
-- **Never `db.Save` an existing row.** When its update matches zero rows, `Save` falls back to an upsert — combined with the env scope that can silently insert into the wrong environment. Update with `Model(&T{}).Where("id = ?", id).Updates(map[string]interface{}{…})` and list the columns you mean to change.
+- **Never `db.Save` an existing row.** When its update matches zero rows, `Save` falls back to an upsert and can silently insert a row. Update with `Model(&T{}).Where("id = ?", id).Updates(map[string]interface{}{…})` and list the columns you mean to change.
+- State changes that must happen once — revoking a token, completing a scan — are **conditional updates** (`WHERE … AND "isRevoked" = false`) checked by `RowsAffected`.
+- Multi-row writes that must land together (a scan's results and findings; a token and its grants) run in `db.Transaction`.
 - Cursor pagination is timestamp-keyed, never OFFSET.
 - `models.Db()` is a `sync.Once` singleton exposed as the package-level `db`. Never open a second connection.
 
-## 6. One database for every environment — the `env` contract
+## 6. Database and migrations
 
-Every PR preview and production run against **one** Postgres database. They are kept apart by data, not by connection:
-
-- `pkg.GetDeployEnv()` returns the env tag: `OPTIKI_ENV` (`pr-12`, `production`, …), defaulting to `local` in local development. Deployed containers refuse to boot without it.
-- **Stamp:** every user-data model's `BeforeCreate` calls `stampEnv(tx)`.
-- **Scope:** every query on a tagged table goes through `db.Scopes(scopeEnv)` — reads, updates and deletes. A query without it reads or changes another PR's (or production's) data.
-- **Uniqueness is per environment**: a unique business key includes `env` (`users` has `uniqueIndex:idx_users_env_email` on both columns). That is what lets every preview seed the same TestSprite account.
-- **Purge:** `purgeEnv.go` lists every tagged table, children first. `cmd/purge` calls it when a PR closes, and refuses `production`.
-- **Migrations are additive-only.** A PR's AutoMigrate runs against production's schema the moment its preview boots. So in a PR: new tables and new columns only, and new columns must be nullable or have a default. **Never** rename, retype or drop a column in a PR — that is a manual migration run after merge. AutoMigrate runs inside a Postgres advisory lock (`constants.MIGRATION_ADVISORY_LOCK_KEY`) so concurrent boots don't race.
-- **System paths** — code that deliberately works across envs (only `PurgeEnv` today) — carry a `// System path:` comment saying why.
+- One database per runtime: `OPTIKI_DEV_DSN_LOCAL` for `make run`, `OPTIKI_PROD_DSN` for the deployed container. No row carries an environment tag, and nothing filters on one.
+- `AutoMigrate` runs on every boot and **only adds**: tables, columns, indexes, constraints. So:
+  - New columns are nullable or have a default (existing rows need a value).
+  - A **drop, rename, retype or tightening** is a manual SQL migration. Write it, run it on the local DB, run it on production **before** the deploy that needs it, and put it in the PR description.
+  - Removing a field from a struct leaves its column in the database. If that column is `NOT NULL` without a default, every insert fails. `references/data-model.md` has the October 2026 example (dropping `env` and the session hash columns).
+- Unique business keys are plain: `users.email`, `api_tokens.prefix`, `(userID, name)` on projects.
+- Seed lists (`data/permissions.go`) are applied on every boot, idempotently, after AutoMigrate.
 
 ## 7. Routes
 
-One table: `routes.AppRoutes(app)`. Group per domain; pass middleware positionally per route in the order `AuthRateLimit → Auth → VerifiedEmail → handler`:
+One table: `routes.AppRoutes(app)`. Group per domain and surface; pass middleware positionally per route.
 
 ```go
 // Auth
@@ -202,28 +241,48 @@ authGroup := app.Group("/api/v1/auth", func(c *fiber.Ctx) error {
 authGroup.Post("/signin", middlewares.AuthRateLimit, auth.SignIn)
 authGroup.Get("/me", middlewares.Auth, auth.GetMe)
 authGroup.Patch("/user/:id", middlewares.Auth, middlewares.VerifiedEmail, auth.UpdateUser)
+
+// Scan
+scanGroup := app.Group("/api/v1/scan", func(c *fiber.Ctx) error {
+	return c.Next()
+})
+scanGroup.Post("/", middlewares.OptionalAuth, middlewares.ScanRateLimit, scan.CreateScan)
+scanGroup.Get("/:id", middlewares.OptionalAuth, scan.GetScan)
+
+// Scan (token API)
+scanAPIGroup := app.Group("/client/v1/scan", func(c *fiber.Ctx) error {
+	return c.Next()
+})
+scanAPIGroup.Post("/", middlewares.AuthAPI, middlewares.RequirePermission(constants.PERMISSION_SCAN_CREATE), middlewares.ScanRateLimit, scan.CreateScan)
 ```
 
-- Application routes live under `/api/v1/<domain>`. The token-authenticated CLI API (PR #8) lives under `/client/v1/<domain>`.
-- Operational endpoints — `/health` (reports `commit` and `env`; CI waits until `commit` equals the pushed SHA) and `/status` — sit outside the version prefix.
-- Then `// Client`: `app.Static` serves the built client from `./public`, and `client.ServeIndex` returns `index.html` for any other GET outside `/api/` and `/client/` (the SPA fallback).
+- **`/api/v1/<domain>`** is the browser API (session cookies). Middleware order: `AuthRateLimit → Auth | OptionalAuth → VerifiedEmail → ScanRateLimit → handler`.
+- **`/client/v1/<domain>`** is the token API, for scripts and CI. Middleware order: `AuthAPI → RequirePermission(…) → ScanRateLimit → handler`. It is never reached with cookies, and it has scan and project routes only.
+- Token management (`/api/v1/apitoken`) is browser-only; a token can't manage tokens.
+- Public read endpoints (`/api/v1/rules`, `/api/v1/gym`) and the Gym pages (`/gym/pages/:file`, `/gym/redirect-private`) take no auth.
+- Operational endpoints — `/health` (`{status, data: {status, commit}}`) and `/status` — sit outside the version prefix.
+- Static paths register before `/:id` (`/apitoken/permissions` before `/apitoken/:id`).
 - The catch-all JSON 404 `app.Use("*", …)` stays last. Nothing registers after it.
 - No business logic in this file. It is a table.
 
 ## 8. Middleware
 
-Signature `func Name(c *fiber.Ctx) error`, ending in `c.Next()`. One per file.
+Signature `func Name(c *fiber.Ctx) error`, ending in `c.Next()`, one per file. The one exception is `RequirePermission(permission string) fiber.Handler`, which takes the permission it checks.
 
 | Middleware | Where | Behaviour |
 |---|---|---|
 | `LimitRequestBody` | global | 413s any body over `MAX_REQUEST_BODY_SIZE` (4 MB) |
 | `SetClientIP` | global | `X-Real-IP` → first `X-Forwarded-For` → `c.IP()` into `clientIP` |
-| `SetUserInRequest` | global | Optional auth: sets `userID` when a valid cookie exists, **never rejects** |
+| `SetUserInRequest` | global | Decodes the access-token JWT into `userID`, **never rejects**, does no DB lookup — not enough to trust for anything that matters |
 | `AuthRateLimit` | per route | Per-IP, per-route window (`AUTH_RATE_LIMIT`/minute) on credential and code endpoints; sets `RateLimit-*` headers and `Retry-After` |
-| `Auth` | per route | Hard gate: valid `accessToken` cookie → session (looked up by token hash, env-scoped, not revoked, not expired) → user. Sets `userID`, `user`, `session`. Authn failures are **401** |
+| `Auth` | per route | Hard gate: valid `accessToken` cookie → session (by raw token, not revoked, not expired) → user. Sets `userID`, `user`, `session`. Authn failures are **401** |
+| `OptionalAuth` | per route | The same lookup as `Auth`, but a missing or bad session just continues anonymously. Used where anonymous and signed-in callers share an endpoint (`POST /scan`, `GET /scan/:id`) |
 | `VerifiedEmail` | per route, after `Auth` | 403 with reason `EMAIL_NOT_VERIFIED` |
+| `AuthAPI` | `/client/v1` | Bearer `opt_…` token → verified secret → not revoked/expired → verified owner. Sets `userID`, `user`, `apiToken`, `apiTokenPermissions` |
+| `RequirePermission(p)` | `/client/v1`, after `AuthAPI` | 403 `MISSING_PERMISSION`; then touches `lastUsedAt` |
+| `ScanRateLimit` | scan create, after auth | Per IP (anonymous), per user, or per token — see `references/scans.md` |
 
-`SetClientIP` trusts forwarding headers because **Traefik is the only ingress** and overwrites them. Containers must never publish their port to the host — otherwise a client can spoof `X-Real-IP` and dodge the rate limiter.
+`SetClientIP` trusts forwarding headers because **Traefik is the only ingress** and overwrites them. The service also publishes port 8001 on the host for the deploy script's check, so **the host firewall must keep 8001 closed to the internet**. Otherwise a client can reach the container directly, spoof `X-Real-IP`, and dodge every per-IP limit.
 
 ## 9. pkg
 
@@ -231,86 +290,114 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 
 | Helper | Use |
 |---|---|
-| `GetAppEnv()` | the runtime switch: `local_development` (`make run`) or `deployed_production` (every container — PR previews and production; `OPTIKI_ENV` tells them apart) |
-| `GetDeployEnv()` | the row tag (§ 6) |
+| `GetAppEnv()` | `local_development` (`make run`, `GO_ENV=development`) or `deployed_production` (the container, `GO_ENV=production`) |
 | `GetTokenExpiry(role)`, `SignJWTToken(userID, expiresAt)`, `DecodeJWT(token)` | 12 h access / 30 d refresh; HS256 only; a random `jti` keeps tokens issued in the same second distinct |
-| `SetAuthCookies`, `SetAccessTokenCookie`, `ClearAuthCookies` | the two httpOnly cookies — `SameSite=Lax` (one origin), `Secure` when `GO_ENV=production` |
-| `EncodeToHexString` | SHA-256 hex — how OTPs, verification tokens and session tokens are stored |
-| `GenerateNumericCode(n)`, `GenerateRandomState()` | `crypto/rand` OTPs and URL-safe tokens (GradeScript's `math/rand` OTPs are not ported) |
-| `Email{Recipient}` + `SendWelcome`/`SendVerifyEmail`/`SendResetPassword` | Resend, templates embedded; with no `RESEND_API_KEY` in local dev the email is logged instead (never in deployed envs) |
+| `SetAuthCookies`, `SetAccessTokenCookie`, `ClearAuthCookies` | the two httpOnly cookies. Deployed: `SameSite=None; Secure`, because the Netlify client and the API are different sites. Local: `SameSite=Lax`, because `localhost:5173` and `localhost:8000` are the same site over plain http. Clearing sends a past `Expires`, since fasthttp drops a negative `max-age` |
+| `EncodeToHexString` | SHA-256 hex — how OTPs are stored |
+| `GenerateAPIToken`, `ParseAPIToken`, `HashAPITokenSecret`, `VerifyAPITokenSecret` | `opt_<prefix>_<token>` API tokens — `references/api-tokens.md` |
+| `GenerateNumericCode(n)`, `GenerateRandomState()` | `crypto/rand` OTPs and URL-safe tokens |
+| `Email{Recipient}` + `SendWelcome`/`SendVerifyEmail`/`SendResetPassword` | Resend, templates embedded. With no `RESEND_API_KEY` in local dev the email is logged instead; deployed, it is an error |
 | `NormalizeEmail`, `IsValidEmail`, `ValidateInput`, `ValidateQueryLimit`, `IsValidTheme` | input handling |
-| `GetClientBaseURL()`, `AllowedOrigins()`, `IsAllowedOrigin()` | `APP_BASE_URL` (this deployment's origin), used in email links and CORS |
+| `GetClientBaseURL()`, `AllowedOrigins()` | `APP_BASE_URL` — the **client's** origin (`https://optikii.netlify.app`) — used in email links and as the CORS allow-list (plus `http://localhost:5173`) |
 | `NewReasonError`, `DefaultErrorHandler`, `StatusCodeName`, `ListQueryError` | the error contract (§ 4) |
-| `FetchPublicPage` *(PR #5)* | **the only way to fetch a user-supplied URL** — SSRF-safe (see § 11) |
+| `FetchPublicPage`, `PublicDialer` | **the only way to fetch a user-supplied URL**, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
 
 Adding an email is three edits: a template in `templates/email/` supplying the `content` and `preheader` blocks the layout expects, a `subject…` constant in `email.go`, and a `Send…` method delegating to `renderAndSend`.
 
 ## 10. Environment and config
 
-`.env` loads only in local development (`make run` sets `GO_ENV=development`). Every secret comes from the environment; never log a token, a code, a DSN or a key.
+`.env` loads only in local development (`make run` sets `GO_ENV=development`). Every secret comes from the environment; never log a token, a code, a DSN or a key. The template is `server/.env.example`; on the server the values live in `~/optiki.env`.
 
 | Variable | Notes |
 |---|---|
-| `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()`; every deployed container (previews and production) uses `OPTIKI_PROD_DSN` — the one shared database |
-| `OPTIKI_ENV` | row tag; required when deployed |
+| `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()` |
 | `JWT_SECRET` | ≥ 32 chars, or the server refuses to boot |
-| `APP_BASE_URL` | required when deployed; the client's public origin, from `~/optiki.env` on the server |
+| `APP_BASE_URL` | the client's origin, `https://optikii.netlify.app`; required when deployed |
 | `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
+| `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
-| `SEED_DEMO`, `DEMO_EMAIL`/`DEMO_PASSWORD`(/`_2`) | verified TestSprite accounts, created once per env on boot |
+| `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified TestSprite accounts, created on boot if missing |
 
 Ports: 8000 (local), 8001 (deployed).
 
 ## 11. Security rules
 
-- **Ownership**: every list query filters on the caller (`"userID" = ?`) inside `scopeEnv`; single-row handlers compare the owner and answer 404 for others. (GradeScript's RBAC/`ResourceScope` tables are not ported.)
-- **User-supplied URLs** go through `pkg.FetchPublicPage` only: http/https on 80/443, resolve then reject private/loopback/link-local/CGNAT/multicast/IPv4-mapped addresses, re-check the dialed IP in `net.Dialer.Control`, re-validate every redirect (max 3), 8 s timeout, 2 MB cap, `text/html` only. Blocked → `NewReasonError(400, "SSRF_BLOCKED", …)`.
-- **Never render user HTML.** Scan input is parsed by the engine and only ever returned as escaped snippets.
+- **Ownership**: every list query filters on the caller (`"userID" = ?`); single-row handlers compare the owner and answer 404 for others. A token acts as its owner and sees exactly what the owner sees through the API.
+- **Sessions** store the raw access and refresh JWTs. That is a deliberate simplification, so those columns never leave the server: `json:"-"` plus `sessionResponseData`. Revocation is a flag, checked on every `Auth`.
+- **API tokens** store only `sha256(secret)`, verify in constant time, check the secret before revealing revoked/expired, and carry only the grantable `:own` permissions (`references/api-tokens.md`).
+- **User-supplied URLs** go through `pkg.FetchPublicPage` only, and **rendered scans route every Chrome request through the in-process proxy** that dials with the same `PublicDialer`:
+  - http/https on 80/443 only
+  - public addresses only, re-checked on the dialed IP
+  - every redirect re-validated, at most 3
+  - size and time budgets
+  - Blocked → `NewReasonError(400, "SSRF_BLOCKED", …)`. `references/scans.md` has the full rules and the Chrome flags.
+- **Never render user HTML.** Scan input is parsed by the engine and only ever returned as escaped snippets, and raw HTML is never stored.
 - **No file uploads, no multipart.** Scan input is JSON (`html`, `url`, or `gym`).
 - **OTPs**: single use, expire, and burn after `RESET_PASSWORD_OTP_MAX_ATTEMPTS` wrong guesses. Forgot-password never reveals whether an account exists. A password reset revokes every other session.
 - **No secrets in the repo** — only `.env.example`.
-- **Fail closed.** Any gate (the optiki Action, CI scripts) exits non-zero on errors; a missing score is never a pass.
+- **Fail closed.** Any gate (the future optikí GitHub Action, CI scripts) exits non-zero on errors; a missing score is never a pass.
 
 ## 12. Tests
 
-**Only the engine, the snapshot builders and `pkg/fetchPublicPage` get Go tests** — the deterministic core and the security boundary. CRUD handlers ship without Go tests; they are covered by the TestSprite API suite against every PR preview (see the `testsprite` skill). Don't add test files elsewhere unless asked.
+**Only the deterministic core and the security boundaries get Go tests:**
+
+- `engine/`
+- `snapshot/`
+- `pkg/fetchPublicPage` and `pkg/publicDialer`
+- `pkg/apiToken`
+
+CRUD handlers ship without Go tests; they are covered by the TestSprite API suite (see the `testsprite` skill). Don't add test files elsewhere unless asked.
 
 - Unit tests sit next to the code as `<file>_test.go`, need no database, and run with `make test` (`go test -race ./internal/...`).
 - Engine tests are table-driven over the Gym fixtures plus golden reports — the engine skill has the recipe.
 
 ## 13. Container and deployment
 
-- One backend-only image (root `Dockerfile`), modelled on content-agent's: `golang:1.26-bookworm` builds `optiki-server`; `debian:bookworm-slim` runs it as user `optiki` with `curl` and Chromium (`CHROME_BIN=/usr/bin/chromium`, `CHROMEDP_NO_SANDBOX=true`) for rendered scans. The client is not in the image; it deploys to Netlify. `GIT_SHA` is a build arg baked into the image.
-- Production runs on the Contabo server shared with tuliime-backend and content-agent, as the `optiki-backend` service of their Docker Swarm stack `app-stack`. **The service is defined in tuliime-backend's `docker-compose.yaml`, not in this repo**: image `tibzdankan/optiki-backend:latest`, limits 2 CPUs / 3 GB (reservations 0.5 / 768M), tuliime's Traefik routes `optikiapi.tuliime.com` to port 8001, healthcheck `curl` on `/health`, published on host port 8001. The database is external (`OPTIKI_PROD_DSN`).
-- Container env comes from `~/optiki.env` (template `deploy/optiki.env.example`), copied to `~/app/optiki/.env` (the service's `env_file`) by `scripts/optiki-deploy.sh` and by tuliime's `deploy.sh`.
-- CI (`.github/workflows/contabo-deploy.yaml`, on push to `main`) builds and pushes `tibzdankan/optiki-backend:<sha>` and `:latest` to Docker Hub, then runs `optiki-deploy.sh` over SSH. The script runs `docker stack deploy app-stack` and waits until the service is `1/1` and port 8001 answers on localhost. The client deploys to Netlify separately (`netlify-deploy.yaml`). There are no per-PR previews.
-- **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`.
+- One backend-only image (root `Dockerfile`):
+  - `golang:1.26-bookworm` builds `optiki-server`.
+  - `debian:bookworm-slim` runs it as user `optiki`, with `curl` and Chromium (`CHROME_BIN=/usr/bin/chromium`, `CHROMEDP_NO_SANDBOX=true`) for rendered scans.
+  - The client is not in the image; it deploys to Netlify. `GIT_SHA` is a build arg baked into the image.
+- Production runs on the Contabo server shared with tuliime-backend and content-agent, as the `optiki-backend` service of their Docker Swarm stack `app-stack`.
+  - **The service is defined in tuliime-backend's `docker-compose.yaml`, not in this repo.**
+  - Image `tibzdankan/optiki-backend:latest`; limits 2 CPUs / 3 GB (reservations 0.5 / 768M).
+  - tuliime's Traefik routes `optikiapi.tuliime.com` to port 8001.
+  - Healthcheck: `curl` on `/health`. Published on host port 8001; keep it firewalled (§ 8).
+  - The database is external (`OPTIKI_PROD_DSN`).
+- Container env comes from `~/optiki.env` (template `server/.env.example`), copied to `~/app/optiki/.env` (the service's `env_file`) by `scripts/optiki-deploy.sh` and by tuliime's `deploy.sh`.
+- CI (`.github/workflows/contabo-deploy.yaml`, on push to `main`):
+  - Builds and pushes `tibzdankan/optiki-backend:<sha>` and `:latest` to Docker Hub, then runs `optiki-deploy.sh` over SSH.
+  - The script runs `docker stack deploy app-stack` with the compose file's tag (`:latest`). It waits until the service is `1/1` and port 8001 answers on localhost.
+  - It does not compare `/health`'s `commit` with the pushed SHA.
+- The client deploys to Netlify separately (`netlify-deploy.yaml`, on push to `main`). There are no per-PR previews.
+- **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`. Document `/client/v1` routes under a `bearerAuth` security scheme.
 
 ## 14. Anti-patterns
 
 - Business logic in `routes.go`; a second DB connection; `panic` in a request path.
 - `BodyParser` into a `models.*` struct instead of an `Input` struct.
-- Returning a `User`, `Session` or `OTP` struct (or anything preloading one) instead of an explicit field map.
-- **A query on an env-tagged table without `db.Scopes(scopeEnv)`**; a tagged table missing from `purgeEnv.go`; a new user-data table without the `Env` column.
-- **A destructive migration in a PR** (rename, retype, drop), or a new `NOT NULL` column without a default.
-- **`db.Save` on an existing row.**
-- Fetching a user-supplied URL with anything but `pkg.FetchPublicPage`; rendering user HTML; multipart endpoints.
+- Serialising any model directly instead of an explicit field map; a session token, `tokenHash` or OTP hash in a response.
+- **A destructive change shipped without its manual migration** (removing a field from a struct, a rename, a retype), or a new `NOT NULL` column without a default.
+- **`db.Save` on an existing row**; a once-only state change without a conditional update.
+- Fetching a user-supplied URL with anything but `pkg.FetchPublicPage`; launching Chrome without the proxy; rendering or storing user HTML; multipart endpoints.
+- Deciding the rule set inside the engine, or anywhere but `resolveScanCaller`.
+- A second copy of a handler for `/client/v1` when the behaviour matches `/api/v1`.
+- A token route without `RequirePermission`; a token that can manage tokens; a permission outside `data.APITokenPermissions`.
 - A `message` key on a read response, or a read-many response missing `pagination`; paginating with `limit` instead of `limit+1`; clamping a bad `limit`.
 - Unquoted camelCase columns in raw SQL; a GORM struct declared anywhere but `schema.go`.
 - `errors.New(constants.ErrNotPermitted)` instead of the `ErrNotPermittedError` sentinel; a 5xx for something the user must act on.
-- Secrets, tokens, codes or DSNs in logs; publishing a container port to the host.
-- A test file outside `engine/`, `snapshot/` and `pkg/fetchPublicPage`.
+- Secrets, tokens, codes, DSNs, submitted HTML or full URLs with query strings in logs; publishing a container port to the internet.
+- A test file outside `engine/`, `snapshot/`, `pkg/fetchPublicPage`, `pkg/publicDialer` and `pkg/apiToken`.
 - A JSDoc-style or multi-paragraph comment explaining what a handler does.
 
 ## 15. Before you call it done
 
-- [ ] Route registered in `routes.go`, correct group, middleware order `AuthRateLimit → Auth → VerifiedEmail → handler`
-- [ ] Handler file named for its one exported symbol, `<Name>Input` struct declared
-- [ ] Model struct in `schema.go` with `Env`; methods use `scopeEnv`; `BeforeCreate` stamps env; added to `AutoMigrate` **and** `purgeEnv.go`
-- [ ] Migration is additive-only; new columns nullable or defaulted
+- [ ] Route registered in `routes.go`, correct group and surface, middleware in the documented order
+- [ ] Handler file named for its one exported symbol, `<Name>Input` struct declared; one handler serves both surfaces where behaviour matches
+- [ ] Model struct in `schema.go`; added to `AutoMigrate`; owner filters on every user-data query
+- [ ] Migration is additive, or its manual SQL is written, run locally, and in the PR description
 - [ ] Raw SQL fragments quote their camelCase columns; no `db.Save` on existing rows
-- [ ] Every failure path returns an error; user-actionable messages are 4xx; reasons the client branches on use `NewReasonError`
-- [ ] Response envelope matches the verb; nothing secret is serialised
-- [ ] A TestSprite API scenario covers the endpoint (testsprite skill)
+- [ ] Every failure path returns an error; user-actionable messages are 4xx; reasons the client branches on use `NewReasonError` and are mirrored in the client
+- [ ] Response envelope matches the verb; everything goes through an explicit field map
+- [ ] `openapi.yaml` updated; a TestSprite API scenario covers the endpoint (testsprite skill)
 - [ ] `gofmt -l .` empty, `go vet ./...` and `go build ./...` pass, `make test` passes
 - [ ] `make run` boots and logs `Auto Migration successful`
