@@ -3,7 +3,7 @@ name: Preview cleanup
 
 on:
   pull_request:
-    types: [closed]
+    types: [closed--no]
 
 permissions:
   contents: read

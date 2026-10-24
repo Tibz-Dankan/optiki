@@ -24,5 +24,5 @@ require_env_file "$OPTIKI_HOME/prod.env"
 
 echo "Deploying $IMAGE to https://$OPTIKI_DOMAIN"
 
-start_app optiki-prod "$OPTIKI_DOMAIN" "$IMAGE" "$OPTIKI_HOME/prod.env" 8001 production "$SHA" -e APP_ENV=production
+start_app optiki-prod "$OPTIKI_DOMAIN" "$IMAGE" "$OPTIKI_HOME/prod.env" 8001 production "$SHA"
 wait_for_health optiki-prod 8001 "$SHA"

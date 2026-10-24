@@ -34,9 +34,9 @@ WORKDIR /app
 COPY --from=server /app/server/bin/optiki-server /app/server/bin/purge ./
 COPY --from=client /app/client/dist ./public
 
-# Previews listen on 8000 (APP_ENV unset); production on 8001 (APP_ENV=production)
+# Every deployed container (PR previews and production) listens on 8001
 ENV GO_ENV=production
-EXPOSE 8000 8001
+EXPOSE 8001
 
 USER optiki
 
