@@ -33,8 +33,6 @@ func Db() *gorm.DB {
 		switch appEnv {
 		case "local_development":
 			dsn = os.Getenv("OPTIKI_DEV_DSN_LOCAL")
-		case "deployed_development":
-			dsn = os.Getenv("OPTIKI_DEV_DSN")
 		case "deployed_production":
 			dsn = os.Getenv("OPTIKI_PROD_DSN")
 		default:

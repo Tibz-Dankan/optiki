@@ -231,7 +231,7 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 
 | Helper | Use |
 |---|---|
-| `GetAppEnv()` | the runtime switch: `local_development`, `deployed_development` (PR previews), `deployed_production` |
+| `GetAppEnv()` | the runtime switch: `local_development` (`make run`) or `deployed_production` (every container — PR previews and production; `OPTIKI_ENV` tells them apart) |
 | `GetDeployEnv()` | the row tag (§ 6) |
 | `GetTokenExpiry(role)`, `SignJWTToken(userID, expiresAt)`, `DecodeJWT(token)` | 12 h access / 30 d refresh; HS256 only; a random `jti` keeps tokens issued in the same second distinct |
 | `SetAuthCookies`, `SetAccessTokenCookie`, `ClearAuthCookies` | the two httpOnly cookies — `SameSite=Lax` (one origin), `Secure` when `GO_ENV=production` |
@@ -251,7 +251,7 @@ Adding an email is three edits: a template in `templates/email/` supplying the `
 
 | Variable | Notes |
 |---|---|
-| `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_DEV_DSN` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()`; the two deployed ones hold the **same** database URL |
+| `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()`; every deployed container (previews and production) uses `OPTIKI_PROD_DSN` — the one shared database |
 | `OPTIKI_ENV` | row tag; required when deployed |
 | `JWT_SECRET` | ≥ 32 chars, or the server refuses to boot |
 | `APP_BASE_URL` | required when deployed; set by the deploy scripts, e.g. `https://pr-12.optiki.example.com` |
@@ -259,7 +259,7 @@ Adding an email is three edits: a template in `templates/email/` supplying the `
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
 | `SEED_DEMO`, `DEMO_EMAIL`/`DEMO_PASSWORD`(/`_2`) | verified TestSprite accounts, created once per env on boot |
 
-Ports: 8000 (local and previews), 8001 (production).
+Ports: 8000 (local), 8001 (deployed — previews and production).
 
 ## 11. Security rules
 
@@ -281,7 +281,7 @@ Ports: 8000 (local and previews), 8001 (production).
 ## 13. Container and deployment
 
 - One image (root `Dockerfile`): builds `client/dist` with pnpm, builds `optiki-server` and `purge`, and runs on Alpine with the client copied to `./public`. Chromium is added when rendered scans land (PR #7).
-- On the Contabo VPS (`deploy/compose.yml`), Traefik routes `pr-<n>.<OPTIKI_DOMAIN>` to container `optiki-pr-<n>` (port 8000) and `<OPTIKI_DOMAIN>` (e.g. `optiki.example.com`) to `optiki-prod` (port 8001) by Docker labels. App containers join the `optiki-edge` network (Traefik) and the internal `optiki-db` network (Postgres) and **publish no ports**. Scripts: `scripts/deploy-preview.sh`, `destroy-preview.sh` (runs `purge pr-<n>`), `deploy-prod.sh`, sharing `scripts/lib.sh`. Container env comes from `~/optiki/preview.env` or `~/optiki/prod.env` (examples in `deploy/`) plus `OPTIKI_ENV`, `APP_BASE_URL` and `GIT_SHA` from the script.
+- On the Contabo VPS (`deploy/compose.yml`), Traefik routes `pr-<n>.<OPTIKI_DOMAIN>` to container `optiki-pr-<n>` and `<OPTIKI_DOMAIN>` (e.g. `optiki.example.com`) to `optiki-prod` by Docker labels, both on port 8001. App containers join the `optiki-edge` network (Traefik) and the internal `optiki-db` network (Postgres) and **publish no ports**. Scripts: `scripts/deploy-preview.sh`, `destroy-preview.sh` (runs `purge pr-<n>`), `deploy-prod.sh`, sharing `scripts/lib.sh`. Container env comes from `~/optiki/preview.env` or `~/optiki/prod.env` (examples in `deploy/`) plus `OPTIKI_ENV`, `APP_BASE_URL` and `GIT_SHA` from the script.
 - CI (`.github/workflows/preview.yml`) builds `ghcr.io/tibz-dankan/optiki:pr-<n>-<sha>`, deploys it over SSH, and waits until the public `/health` reports the SHA. The TestSprite GitHub App triggers on that workflow's completion. `preview-cleanup.yml` destroys and purges on close; `deploy-prod.yml` deploys `main`.
 - **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`.
 

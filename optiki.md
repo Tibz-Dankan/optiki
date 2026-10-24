@@ -132,7 +132,7 @@
 ```
                  Contabo VPS ── Traefik v3 (only ingress, Let's Encrypt, Host() routing)
                        │
-   https://pr-<n>.<domain> ──→ container optiki-pr-<n>   OPTIKI_ENV=pr-<n>      :8000
+   https://pr-<n>.<domain> ──→ container optiki-pr-<n>   OPTIKI_ENV=pr-<n>      :8001
    https://<domain>        ──→ container optiki-prod     OPTIKI_ENV=production  :8001
                        │        one image: Fiber API (/api/v1, /client/v1, /health)
                        │                 + built React SPA (./public, SPA fallback)
@@ -562,7 +562,7 @@ The repo reuses the structure and conventions of the gradescript project for bot
 | An OpenAPI spec for TestSprite's API mode | None | Hand-written `server/internal/assets/openapi.yaml`, embedded and served at `/api/v1/openapi.yaml`. Handlers keep gradescript's closure recipe; no code-generated API framework (done) |
 | Machine-readable error reasons (`SSRF_BLOCKED`) | The `error` field is the HTTP status name | `pkg.NewReasonError(code, "SSRF_BLOCKED", msg)`, which `DefaultErrorHandler` emits as `error`. The client's error type gets the same values (done; `EMAIL_NOT_VERIFIED` is the first) |
 | Database layer | GORM AutoMigrate | Kept. sqlc and goose are dropped from this spec |
-| One database shared by previews and production | One database per environment, chosen by DSN | **Every user-data table has an `env` column.** `BeforeCreate` stamps it from `OPTIKI_ENV`, and every model query goes through `scopeEnv`. Uniqueness is per environment (`env` + `email`). Migrations are additive only, and AutoMigrate runs behind a Postgres advisory lock. `cmd/purge` deletes a closed PR's rows and refuses `production`. The DSN switch keeps gradescript's shape, but both deployed DSNs point at the same database (done) |
+| One database shared by previews and production | One database per environment, chosen by DSN | **Every user-data table has an `env` column.** `BeforeCreate` stamps it from `OPTIKI_ENV`, and every model query goes through `scopeEnv`. Uniqueness is per environment (`env` + `email`). Migrations are additive only, and AutoMigrate runs behind a Postgres advisory lock. `cmd/purge` deletes a closed PR's rows and refuses `production`. The DSN switch keeps gradescript's shape, with one DSN (`OPTIKI_PROD_DSN`) for every deployed container (done) |
 | Redis/Valkey, streams, SSE (gradescript won't boot without Redis) | `models/cache.go`, `stream.go`, subscribers | Not ported; nothing in optikí needs async fan-out yet |
 | Sessions | Device + location (IP geolocation) + a WEB/CONSOLE app split, raw tokens in the database | `Session` stores `userAgent` + `ip`; location, devices and the app split are dropped. Tokens are stored as **SHA-256 hashes**. One cookie pair (done) |
 | Activity logs, site visits, anonymous users | Wired everywhere | Dropped, along with the frontend skill's site-visit rule (done) |

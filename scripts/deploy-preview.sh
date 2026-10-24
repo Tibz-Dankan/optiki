@@ -29,5 +29,5 @@ HOST="pr-$PR.$OPTIKI_DOMAIN"
 
 echo "Deploying $IMAGE to https://$HOST"
 
-start_app "$NAME" "$HOST" "$IMAGE" "$OPTIKI_HOME/preview.env" 8000 "pr-$PR" "$SHA" --label "optiki.pr=$PR"
-wait_for_health "$NAME" 8000 "$SHA"
+start_app "$NAME" "$HOST" "$IMAGE" "$OPTIKI_HOME/preview.env" 8001 "pr-$PR" "$SHA" --label "optiki.pr=$PR"
+wait_for_health "$NAME" 8001 "$SHA"
