@@ -40,7 +40,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:${{ github.sha }}, ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:latest
 
   deploy:
-    name: Deploy to Server
+    name: Deploy Server to Contabo
     needs: build
     runs-on: ubuntu-latest
     env:
