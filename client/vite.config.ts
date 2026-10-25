@@ -43,7 +43,14 @@ export default defineConfig({
               test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/,
               priority: 2,
             },
-            { name: 'vendor', test: /node_modules[\\/]/, priority: 1 },
+            // entriesAware keeps dynamically imported packages (Shiki) out of
+            // the eagerly loaded vendor chunk.
+            {
+              name: 'vendor',
+              test: /node_modules[\\/]/,
+              priority: 1,
+              entriesAware: true,
+            },
           ],
         },
       },

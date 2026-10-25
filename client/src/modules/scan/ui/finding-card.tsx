@@ -2,6 +2,8 @@ import { severityLabels, severityTones } from '@constants/scan'
 import type { TRule } from '@typings/rules'
 import type { TScanFinding } from '@typings/scan'
 import { cn } from '@utils/classname'
+import { getCodeLanguage } from '@utils/get-code-language'
+import { CodeBlock } from '@shared/ui/code-block'
 
 type FindingCardProps = {
   finding: TScanFinding
@@ -9,9 +11,11 @@ type FindingCardProps = {
 }
 
 export const FindingCard: React.FC<FindingCardProps> = ({ finding, rule }) => {
+  const findingLabel = `${finding.ruleID} finding at ${finding.selectorPath}`
+
   return (
     <article
-      aria-label={`${finding.ruleID} finding at ${finding.selectorPath}`}
+      aria-label={findingLabel}
       className='rounded-md border border-border bg-card p-4'
     >
       <div className='flex flex-wrap items-center gap-2'>
@@ -33,9 +37,13 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, rule }) => {
           Accessible name: “{finding.accessibleName}”
         </p>
       )}
-      <pre className='mt-3 overflow-x-auto rounded bg-muted p-3 text-xs'>
-        <code>{finding.snippet}</code>
-      </pre>
+      <CodeBlock
+        title='Snippet'
+        language='html'
+        code={finding.snippet}
+        copyLabel={`Copy snippet of ${findingLabel}`}
+        className='mt-3'
+      />
       {rule && (
         <details className='mt-3 text-sm'>
           <summary className='cursor-pointer font-medium'>
@@ -43,20 +51,18 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, rule }) => {
           </summary>
           <p className='mt-2 text-muted-foreground'>{rule.fix}</p>
           <div className='mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
-            <div>
-              <p className='text-xs font-medium text-muted-foreground'>
-                Before
-              </p>
-              <pre className='mt-1 overflow-x-auto rounded bg-muted p-3 text-xs'>
-                <code>{rule.fixBefore}</code>
-              </pre>
-            </div>
-            <div>
-              <p className='text-xs font-medium text-muted-foreground'>After</p>
-              <pre className='mt-1 overflow-x-auto rounded bg-muted p-3 text-xs'>
-                <code>{rule.fixAfter}</code>
-              </pre>
-            </div>
+            <CodeBlock
+              title='Before'
+              language={getCodeLanguage(rule.fixBefore)}
+              code={rule.fixBefore}
+              copyLabel={`Copy before example for ${findingLabel}`}
+            />
+            <CodeBlock
+              title='After'
+              language={getCodeLanguage(rule.fixAfter)}
+              code={rule.fixAfter}
+              copyLabel={`Copy after example for ${findingLabel}`}
+            />
           </div>
         </details>
       )}
