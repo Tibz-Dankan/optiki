@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+  # Each PR gets a preview at https://deploy-preview-<PR number>--optikii.netlify.app, which TestSprite tests
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -31,9 +35,11 @@ jobs:
         with:
           publish-dir: "./client/dist"
           production-branch: main
+          # Ignored on main (production deploys); on a PR it names the preview
+          alias: deploy-preview-${{ github.event.number }}
           github-token: ${{ secrets.ACCESS_TOKEN_GITHUB }}
           deploy-message: "Deploy from GitHub Actions"
-          enable-pull-request-comment: false
+          enable-pull-request-comment: true
           enable-commit-comment: true
           overwrites-pull-request-comment: true
         env:

@@ -15,7 +15,7 @@
     - The API is on the shared Contabo server: a Docker Swarm service behind tuliime's Traefik, at `https://optikiapi.tuliime.com`.
     - The client is on Netlify, at `https://optikii.netlify.app`.
     - One production Postgres database.
-    - **No per-PR previews.**
+    - **Per-PR client previews** at `https://deploy-preview-<PR number>--optikii.netlify.app` (Netlify draft deploys from GitHub Actions). They talk to the production API, which has no previews.
   - API tokens belong to users and carry gradescript-style permissions. Projects are optional groupings of scans.
   - The repo structure follows the gradescript project (`client/` + `server/`); §17 lists where optikí departs from it.
   - Accounts use email + password, email verification, and password reset by emailed code.
@@ -169,9 +169,9 @@ Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) �
 
 - **Client and API on different sites.**
   - The client is a static build on Netlify; the API is a long-lived container on the shared Contabo server.
-  - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows the Netlify origin from `GetClientBaseURL` with credentials.
+  - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows the Netlify origin from `GetClientBaseURL`, and its previews (`https://*--optikii.netlify.app`), with credentials.
   - Browsers that block third-party cookies (Safari) won't keep the session. The fix is a `*.tuliime.com` custom domain for the client (§15).
-- **No per-PR previews and no environment tags.** One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
+- **Client previews only, and no environment tags.** Each PR gets a Netlify preview of the client that talks to the production API. One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
 - **Every feature runs locally too, without Docker.** Nothing is gated on the environment; only config differs (DSN, port, cookie flags, client origin, and the console fallback for email). Rendered scans use the installed Chromium, screenshots go to the same real S3 bucket as production, and `.env.example` seeds verified demo accounts.
 - **Rendered scans on the server.**
   - Each rendered scan also captures a full-page JPEG screenshot. It is stored in a private S3 bucket as an attachment and returned with a 30-minute presigned URL; without S3 configured, scans still work, without screenshots.
@@ -386,7 +386,7 @@ There are no frontend unit tests (gradescript's convention). The checks Vitest w
 
 ### Layer 2: TestSprite suite
 
-Built in the **portal**. **Where and when it runs is still a TODO:** there are no per-PR previews, and the deploys run from `main` only. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
+Built in the **portal**. The TestSprite GitHub App runs the UI tests on every ready (non-draft) PR against its Netlify preview (`https://deploy-preview-{pr}--optikii.netlify.app`) and blocks the merge on red. The API tests run from the portal against production. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
 
 | # | Type | Scenario (named as a behavior) | Proves |
 |---|---|---|---|
@@ -439,7 +439,7 @@ Built in the **portal**. **Where and when it runs is still a TODO:** there are n
 
 ### Sabotage PRs (proof that the gates hold the merge; close them unmerged and link them in the README)
 
-These wait for a PR-level gate (the TestSprite trigger decision, or the Action).
+S2 uses the TestSprite PR trigger. S1 still waits for a backend gate: server code never reaches a preview, so the PR trigger can't see it.
 
 1. **S1 (engine):** disable OPT-101's ancestor check. A1/A3 go red and the merge is blocked.
 2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. U1 fails (and the optikí Action, once it exists), and the merge is blocked.

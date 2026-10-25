@@ -19,7 +19,7 @@ Go 1.26 · Fiber v2 · GORM + Postgres · module `github.com/Tibz-Dankan/optiki`
 
 These conventions come from the GradeScript backend this server was bootstrapped from; where optikí differs, this file says so. Follow it exactly.
 
-The API is deployed at `https://optikiapi.tuliime.com` and the client separately on Netlify at `https://optikii.netlify.app`. There is one production database, and no per-PR previews.
+The API is deployed at `https://optikiapi.tuliime.com` and the client separately on Netlify at `https://optikii.netlify.app`. There is one production database. Each PR gets a Netlify preview of the client only, and it calls this production API.
 
 ## References
 
@@ -383,7 +383,7 @@ CRUD handlers ship without Go tests; they are covered by the TestSprite API suit
   - Builds and pushes `tibzdankan/optiki-backend:<sha>` and `:latest` to Docker Hub, then runs `optiki-deploy.sh` over SSH.
   - The script runs `docker stack deploy app-stack` with the compose file's tag (`:latest`). It waits until the service is `1/1` and `https://optikiapi.tuliime.com/health` answers through Traefik on the server's loopback (`curl --resolve …:443:127.0.0.1`).
   - It does not compare `/health`'s `commit` with the pushed SHA.
-- The client deploys to Netlify separately (`netlify-deploy.yaml`, on push to `main`). There are no per-PR previews.
+- The client deploys to Netlify separately (`netlify-deploy.yaml`): production on push to `main`, a preview per PR. The API has no previews.
 - **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`. Document `/client/v1` routes under a `bearerAuth` security scheme.
 
 ## 14. Anti-patterns
