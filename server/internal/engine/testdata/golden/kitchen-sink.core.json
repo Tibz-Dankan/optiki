@@ -1,0 +1,314 @@
+{
+  "engineVersion": "0.1.0",
+  "ruleSet": "CORE",
+  "rulesetHash": "778e5f0ecef392247b2de730ba7c0f95510d9a02041016d577937d562fbb5406",
+  "mode": "STATIC",
+  "url": "",
+  "route": "/gym/pages/kitchen-sink.html",
+  "title": "Kitchen sink · optikí Gym",
+  "lang": "en",
+  "nodeCount": 64,
+  "controlCount": 13,
+  "scores": {
+    "overall": 0,
+    "operable": 0,
+    "perceivable": 0,
+    "stable": null,
+    "discoverable": 0
+  },
+  "counts": {
+    "findings": 10,
+    "critical": 2,
+    "serious": 6,
+    "moderate": 2,
+    "minor": 0,
+    "rulesPassed": 0,
+    "rulesFailed": 9,
+    "rulesNotApplicable": 0,
+    "rulesNeedRendered": 0
+  },
+  "rules": [
+    {
+      "ruleID": "OPT-101",
+      "position": 1,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-102",
+      "position": 2,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-103",
+      "position": 3,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 2
+    },
+    {
+      "ruleID": "OPT-104",
+      "position": 4,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-106",
+      "position": 5,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-201",
+      "position": 6,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-202",
+      "position": 7,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-203",
+      "position": 8,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-401",
+      "position": 9,
+      "category": "DISCOVERABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    }
+  ],
+  "findings": [
+    {
+      "ruleID": "OPT-101",
+      "category": "OPERABLE",
+      "severity": "CRITICAL",
+      "fingerprint": "22fe5bfc8cd82e1eb5a14dffcc08e70a78104110694b16df60735870db490382",
+      "position": 1,
+      "documentOrder": 30,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(2) \u003e div \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Seek to iteration 1",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eSeek to iteration 1\u003c/button\u003e",
+      "message": "This button sits inside role=\"img\", so agents can't see or press it.",
+      "evidence": {
+        "hiddenBy": "ROLE_IMG",
+        "hidingAncestorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(2) \u003e div"
+      }
+    },
+    {
+      "ruleID": "OPT-102",
+      "category": "OPERABLE",
+      "severity": "CRITICAL",
+      "fingerprint": "84258603b79e188c536ac6f5cfa9c3718a9b7c574450552ea7c9316f83f72133",
+      "position": 2,
+      "documentOrder": 37,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(3) \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cbutton type=\"button\"\u003e\u003c/button\u003e",
+      "message": "This button has no accessible name, so agents can't tell what it does.",
+      "evidence": {}
+    },
+    {
+      "ruleID": "OPT-103",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "1d147a419d222217b28fac6739eae3d7ffb296779c52e6056fe3cb2ffcce66cb",
+      "position": 3,
+      "documentOrder": 45,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(1)",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Iteration 2",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eIteration 2\u003c/button\u003e",
+      "message": "2 buttons are all named \"Iteration 2\", so agents can't tell them apart.",
+      "evidence": {
+        "inRepeatedRow": false,
+        "peerPaths": [
+          "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(2)"
+        ],
+        "sharedName": "Iteration 2"
+      }
+    },
+    {
+      "ruleID": "OPT-103",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "64aa49f81b0da0e9fa001ec2fd85d02ca22ad986efd9903ccf3c74230aa3c9d2",
+      "position": 4,
+      "documentOrder": 48,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(2)",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Iteration 2",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eIteration 2\u003c/button\u003e",
+      "message": "2 buttons are all named \"Iteration 2\", so agents can't tell them apart.",
+      "evidence": {
+        "inRepeatedRow": false,
+        "peerPaths": [
+          "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(1)"
+        ],
+        "sharedName": "Iteration 2"
+      }
+    },
+    {
+      "ruleID": "OPT-104",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "a65021568be1bcf3ecbe6d3c571a337ef21cb72b7f25bd538e947aa2ed23fe79",
+      "position": 5,
+      "documentOrder": 55,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(5) \u003e div",
+      "tag": "div",
+      "role": "generic",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cdiv class=\"btn\" onclick=\"this.textContent='Saved'\"\u003eSave draft\u003c/div\u003e",
+      "message": "This \u003cdiv\u003e has an onclick handler but isn't a control, so agents can't find it as one.",
+      "evidence": {
+        "trigger": "ONCLICK"
+      }
+    },
+    {
+      "ruleID": "OPT-106",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "04dbc0eb79be1617d0d6726b5e1eff1acf297a7eed40534704042b5c2587fe2c",
+      "position": 6,
+      "documentOrder": 69,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(6) \u003e input",
+      "tag": "input",
+      "role": "textbox",
+      "accessibleName": "Email",
+      "nameFrom": "PLACEHOLDER",
+      "snippet": "\u003cinput type=\"email\" placeholder=\"Email\"\u003e",
+      "message": "This field's only label is its placeholder \"Email\", which disappears as soon as something is typed.",
+      "evidence": {
+        "placeholderOnly": true
+      }
+    },
+    {
+      "ruleID": "OPT-201",
+      "category": "PERCEIVABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "72dd7631fdc5590c914cd06caea8ca0b65ffc66eced5b1d7458617f3864d6eee",
+      "position": 7,
+      "documentOrder": 82,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(8) \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Help",
+      "nameFrom": "ARIA_LABEL",
+      "snippet": "\u003cbutton type=\"button\" aria-label=\"Help\"\u003ePress ? for shortcuts\u003c/button\u003e",
+      "message": "The visible text \"Press ? for shortcuts\" isn't part of the accessible name \"Help\", so an agent told to click the text won't find it.",
+      "evidence": {
+        "accessibleName": "Help",
+        "visibleText": "Press ? for shortcuts"
+      }
+    },
+    {
+      "ruleID": "OPT-202",
+      "category": "PERCEIVABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "217fc57d5a19b517926b8442b83d0cc569cdec636ebac4d9226ed8b70d99562f",
+      "position": 8,
+      "documentOrder": 89,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(9) \u003e svg",
+      "tag": "svg",
+      "role": "img",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003csvg role=\"img\" width=\"160\" height=\"48\" viewbox=\"0 0 160 48\"\u003e98.2%\u003c/svg\u003e",
+      "message": "This SVG shows \"98.2%\" but gives agents no text for it.",
+      "evidence": {
+        "graphic": "SVG",
+        "textContent": "98.2%"
+      }
+    },
+    {
+      "ruleID": "OPT-203",
+      "category": "PERCEIVABLE",
+      "severity": "MODERATE",
+      "fingerprint": "dc06bc42fb64977f0f429192a00aa0fb9c5c11792f2a38fc50edb24ca69cb34e",
+      "position": 9,
+      "documentOrder": 98,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(10) \u003e a \u003e img",
+      "tag": "img",
+      "role": "img",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cimg src=\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%224%22%20fill%3D%22%236366f1%22%2F%3E%3C%2Fsvg%3E\" width=\"24\" height=\"24\"\u003e",
+      "message": "This image has no alt attribute, so agents don't know what it shows.",
+      "evidence": {}
+    },
+    {
+      "ruleID": "OPT-401",
+      "category": "DISCOVERABLE",
+      "severity": "MODERATE",
+      "fingerprint": "70a99476aa13f010b609da0a23faa193b8032bbd00433dde4f01d5901c154a07",
+      "position": 10,
+      "documentOrder": 0,
+      "selectorPath": "html",
+      "tag": "html",
+      "role": "generic",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003chtml lang=\"en\"\u003eIntentionally broken: one violation of every rule Kitchen sink Hidden control Seek to iteration 1 Unnamed control Look-alike controls Iteration 2 Iteration 2 Cl…\u003c/html\u003e",
+      "message": "The page has no main landmark, so agents can't confirm where they are or find the content.",
+      "evidence": {
+        "missing": [
+          "main"
+        ]
+      }
+    }
+  ],
+  "reportHash": "6e15da3a13fe4a587a84b6311455f731f60fe42a4d5947af68967fd4b0e12753"
+}

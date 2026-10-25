@@ -173,6 +173,7 @@ Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) �
   - Browsers that block third-party cookies (Safari) won't keep the session. The fix is a `*.tuliime.com` custom domain for the client (§15).
 - **No per-PR previews and no environment tags.** One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
 - **Rendered scans on the server.**
+  - Each rendered scan also captures a full-page JPEG screenshot. It is stored in a private S3 bucket as an attachment and returned with a 30-minute presigned URL; without S3 configured, scans still work, without screenshots.
   - The image already ships Chromium. Verified users' and tokens' URL scans render there, with every request Chrome makes forced through an in-process forward proxy that only dials public addresses.
   - Static scans need no browser and serve anonymous visitors.
   - At most 2 renders at once, to fit the service's 2-CPU limit.
@@ -262,7 +263,7 @@ The browser API is under `/api/v1` (session cookies); the token API for scripts 
 |---|---|---|
 | `POST /api/v1/scan` | optional session, rate-limited | Exactly one of `{html}`, `{url}`, `{gym}` (+ `route`, `title`, `projectID`). Anonymous → `CORE`, static, stored `PUBLIC`. Verified → `FULL`, URL rendered, stored `PRIVATE`. Returns the stored report |
 | `GET /api/v1/scan` | session + verified | The caller's scans, cursor-paginated, filterable |
-| `GET /api/v1/scan/:id` | optional session | A `PUBLIC` scan, or the caller's own; otherwise 404 |
+| `GET /api/v1/scan/:id` | optional session | A `PUBLIC` scan, or the caller's own; otherwise 404. Rendered scans include `screenshot: {url, expiresAt, …}` — a fresh 30-minute presigned S3 link on every read |
 | `PATCH /api/v1/scan/:id` · `DELETE …` | session + verified | Title, visibility (share), project · delete |
 | `POST/GET /api/v1/project`, `GET/PATCH/DELETE /api/v1/project/:id` | session + verified | Optional projects *(Should)* |
 | `POST/GET /api/v1/apitoken`, `GET …/permissions`, `GET/PATCH/DELETE …/:id`, `PATCH …/:id/revoke` | session + verified | API tokens: `opt_<prefix>_<token>`, shown once, SHA-256 of the secret stored, `resource:action:own` permissions, optional expiry |
@@ -290,11 +291,12 @@ User{id, name, email unique, password(bcrypt), role, emailVerified, emailVerifie
 Session{id, userID, accessToken, refreshToken, generatedVia, userAgent, ip, isRevoked, *ExpiresAt}       — done (raw tokens, never serialised)
 OTP{id, userID, OTP(sha-256), type, isUsed, isVerified, attempts, expiresAt}                             — done
 Appearance{id, userID, theme}                                                                            — done
-Permission{id, name unique (resource:action:scope), resource, action, scope, description}               — seeded
+Attachment{id, userID, type[SCAN_SCREENSHOT], key (S3), contentType, size, width, height}               — done; reads sign a 30-minute URL
+Permission{id, name unique (resource:action:scope), resource, action, scope, description}               — seeded (scan:* today)
 APIToken{id, userID, name, prefix unique, tokenHash, expiresAt, isRevoked, revokedAt, lastUsedAt, lastUsedIP}
 APITokenPermission{id, apiTokenID, permissionID}  unique(apiTokenID, permissionID)
-Project{id, userID, name, description, baseURL, repository, createdVia, apiTokenID}  unique(userID, name)
-Scan{id, userID?, projectID?, apiTokenID?, triggeredBy, visibility, title,
+Project{id, userID, name, description, baseURL, repository, createdVia, apiTokenID}  unique(userID, name)  — not built yet
+Scan{id, userID?, apiTokenID?, screenshotAttachmentID?, triggeredBy, visibility, title,   (+ projectID? with projects)
      inputType, targetURL, finalURL, gymPageID, route, inputSha256, inputBytes, redirectCount, httpStatus, contentType, pageTitle, pageLang,
      mode, ruleSet, engineVersion, rulesetHash, reportHash, viewport, nodeCount, controlCount,
      status, errorCode, errorMessage, startedAt, completedAt, durationMs, fetchMs, renderMs, analyzeMs,
@@ -501,6 +503,7 @@ The README's "Deploying" section has the exact commands.
 |---|---|---|
 | #1 | Scaffold from gradescript: accounts, theme, landing + dashboard shell, `/health` + OpenAPI, Dockerfile, deploys, Claude skills | A12, A13, A14, A15, U11, U12 |
 | #1b | Cleanup: drop env tagging and purge, raw-token session lookups, cross-site cookies, docs and skills for the new design | — |
+| #2–#7, #9 | **Built together on `feat/scans-and-tokens`, to be split into PRs:** the engine with all 17 rules, rule sets, Gym, golden tests; static + rendered (Chromium + SSRF-safe proxy) snapshots with screenshots in S3; scan CRUD on both surfaces; SSRF-safe fetch and rate limits; rules catalog; API tokens + permissions; the playground, report, history, token settings, rules and Gym pages | A1–A11, U1–U9 |
 | #2 | Engine core: static snapshot, roles, accname, rule sets, OPT-101/102, scoring; `Scan` tables; `POST /api/v1/scan {html}` with `OptionalAuth`; `GET /scan/:id` | A4, A5 (partial) |
 | #3 | P0 rules 103/104/106/201/202/203/401 + Gym pages + golden tests | A1, A2, A3 |
 | #4 | Report UI + playground + Gym index + scan history | U1, U2, U3, U7, U8 |

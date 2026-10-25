@@ -166,7 +166,6 @@ export const SignUp: React.FC = () => {
               />
             </FormField>
 
-
             {error && (
               <p role='alert' className='text-sm text-destructive'>
                 {error.message}

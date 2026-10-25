@@ -1,5 +1,7 @@
 # Projects
 
+> **Not built yet.** This is the agreed design. It lands additively: the `projects` table, `scans.projectID`, the `project:*:own` permissions and these routes, in one PR. Nothing in the code references projects today.
+
 A project is an optional label that groups a user's scans: a site, an app, a repository. Nothing requires one. A scan without a project is complete on its own, and anonymous scans never have one.
 
 Projects are created from the dashboard (session) or by an API token with `project:create:own`. They always belong to the **user**; a token that creates one is recorded in `apiTokenID`, for history only. Tokens are never scoped to a project.

@@ -10,7 +10,12 @@ import { RenderUserRoutes } from '@routes/render-user-routes'
 import { GeneralError } from '@shared/pages/general-error'
 import { LoadingPage } from '@shared/pages/loading-page'
 import { VerifyEmail } from '@modules/auth/pages/verify-email'
+import { Gym } from '@modules/gym/pages/gym'
 import { Home } from '@modules/home/pages/home'
+import { Rule } from '@modules/rules/pages/rule'
+import { Rules } from '@modules/rules/pages/rules'
+import { Scan } from '@modules/scan/pages/scan'
+import { ScanReport } from '@modules/scan/pages/scan-report'
 
 export const App: React.FC = () => {
   const { isAuthenticatedPath } = useIsAuthenticatedPath()
@@ -41,6 +46,11 @@ export const App: React.FC = () => {
       {!isLoggedIn && (
         <Routes>
           <Route path='/' element={<Home />} />
+          <Route path='/scan' element={<Scan />} />
+          <Route path='/scans/:id' element={<ScanReport />} />
+          <Route path='/rules' element={<Rules />} />
+          <Route path='/rules/:id' element={<Rule />} />
+          <Route path='/gym' element={<Gym />} />
           <Route path='/*' element={<AuthRoutes />} />
         </Routes>
       )}
@@ -52,6 +62,11 @@ export const App: React.FC = () => {
       {isLoggedInUnverified && (
         <Routes>
           <Route path='/' element={<Home />} />
+          <Route path='/scan' element={<Scan />} />
+          <Route path='/scans/:id' element={<ScanReport />} />
+          <Route path='/rules' element={<Rules />} />
+          <Route path='/rules/:id' element={<Rule />} />
+          <Route path='/gym' element={<Gym />} />
           <Route path='/auth/verify-email' element={<VerifyEmail />} />
           <Route
             path='*'
@@ -63,6 +78,11 @@ export const App: React.FC = () => {
       {isLoggedInUser && (
         <Routes>
           <Route path='/' element={<Home />} />
+          <Route path='/scan' element={<Scan />} />
+          <Route path='/scans/:id' element={<ScanReport />} />
+          <Route path='/rules' element={<Rules />} />
+          <Route path='/rules/:id' element={<Rule />} />
+          <Route path='/gym' element={<Gym />} />
           <Route
             path='/auth/*'
             element={<Navigate to='/u/dashboard' replace />}

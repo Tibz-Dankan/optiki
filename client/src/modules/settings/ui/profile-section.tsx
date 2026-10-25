@@ -32,8 +32,7 @@ export const ProfileSection: React.FC = () => {
   const formik = useFormik({
     initialValues: { name: user.name },
     validationSchema: fullNameSchema,
-    onSubmit: (values) =>
-      mutate({ userID: user.id, name: values.name }),
+    onSubmit: (values) => mutate({ userID: user.id, name: values.name }),
   })
 
   const isUnchanged = formik.values.name.trim() === user.name
@@ -41,7 +40,6 @@ export const ProfileSection: React.FC = () => {
   return (
     <section>
       <h3 className='text-sm font-semibold text-muted-foreground'>Profile</h3>
-
 
       <SettingsRow label='Full name'>
         <form

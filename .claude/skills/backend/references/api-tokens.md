@@ -56,6 +56,7 @@ Named `resource:action:scope`, as in gradescript. The scope is always `own`: a t
 | `project:delete:own` | delete the owner's projects (their scans stay, unassigned) |
 
 - The list lives in `internal/data/permissions.go` as `APITokenPermissions` (name + description). It is seeded into the `permissions` table on boot (`data-model.md`).
+- **Today only the four `scan:*:own` permissions are seeded and grantable.** The `project:*:own` ones are added to that list in the same PR that builds projects.
 - **These are the only grantable permissions.** Tokens never manage tokens, sessions or the account; those routes accept sessions only.
 - Constants name them: `constants.PERMISSION_SCAN_CREATE = "scan:create:own"`, and so on. Routes use the constants, never string literals.
 - Grants are rows in `api_token_permissions`. `models.APIToken{}.FindPermissionNames(tokenID)` reads them back as a `map[string]struct{}` with one join.
@@ -202,7 +203,7 @@ scanAPIGroup.Patch("/:id", middlewares.AuthAPI, middlewares.RequirePermission(co
 scanAPIGroup.Delete("/:id", middlewares.AuthAPI, middlewares.RequirePermission(constants.PERMISSION_SCAN_DELETE), scan.DeleteScan)
 ```
 
-Project routes follow the same pattern (`projects.md`).
+Project routes will follow the same pattern (`projects.md`) once projects are built.
 
 - **Same handlers as the browser API.** Both auth middlewares set `user`, so ownership code reads one local. `apiToken` is set only here; handlers use it to record `apiTokenID`, choose `triggeredBy API_TOKEN`, and accept the CI fields.
 - **Owner-scoped, not token-scoped.** A token sees every scan and project its owner has, including ones made in the browser or by another of the owner's tokens. Permissions limit what it may *do*, not which of the owner's rows it sees.

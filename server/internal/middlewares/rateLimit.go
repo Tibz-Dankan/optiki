@@ -52,14 +52,25 @@ func (rl *rateLimiter) take(key string) (allowed bool, remaining int, resetAt ti
 	return window.count <= rl.limit, max(0, rl.limit-window.count), window.resetAt
 }
 
+func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+	return &rateLimiter{limit: limit, window: window, windows: make(map[string]rateWindow)}
+}
+
 // AuthRateLimit caps credential and code endpoints per client IP and route
 func AuthRateLimit(c *fiber.Ctx) error {
 	clientIP, _ := c.Locals("clientIP").(string)
+	if err := applyRateLimit(c, authRateLimiter, clientIP+" "+c.Route().Path); err != nil {
+		return err
+	}
+	return c.Next()
+}
 
-	allowed, remaining, resetAt := authRateLimiter.take(clientIP + " " + c.Route().Path)
+// applyRateLimit counts one request against key, sets the RateLimit-* headers, and returns 429 when over
+func applyRateLimit(c *fiber.Ctx, limiter *rateLimiter, key string) error {
+	allowed, remaining, resetAt := limiter.take(key)
 
 	resetSeconds := strconv.Itoa(int(time.Until(resetAt).Seconds()) + 1)
-	c.Set("RateLimit-Limit", strconv.Itoa(authRateLimiter.limit))
+	c.Set("RateLimit-Limit", strconv.Itoa(limiter.limit))
 	c.Set("RateLimit-Remaining", strconv.Itoa(remaining))
 	c.Set("RateLimit-Reset", resetSeconds)
 
@@ -67,6 +78,5 @@ func AuthRateLimit(c *fiber.Ctx) error {
 		c.Set("Retry-After", resetSeconds)
 		return fiber.NewError(fiber.StatusTooManyRequests, "You have made too many requests! Please try again later.")
 	}
-
-	return c.Next()
+	return nil
 }

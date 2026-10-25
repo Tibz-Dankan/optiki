@@ -8,12 +8,19 @@ info:
     `refreshToken`) set by sign-up, sign-in and reset-password; send them back
     on every call. Errors share one envelope: `status` is `fail` (4xx) or
     `error` (5xx), `error` is a reason code or the HTTP status name, and
-    `message` is human-readable.
+    `message` is human-readable. Scripts and CI use the token API under
+    `/client/v1` with `Authorization: Bearer opt_<prefix>_<token>`; each
+    route there needs the permission it names.
 servers:
   - url: /
 tags:
   - name: Auth
   - name: Appearance
+  - name: Scans
+  - name: Scans (token API)
+  - name: API tokens
+  - name: Rules
+  - name: Gym
   - name: Operations
 components:
   securitySchemes:
@@ -21,6 +28,10 @@ components:
       type: apiKey
       in: cookie
       name: accessToken
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: An API token, `opt_<12 hex>_<64 hex>`, created in Settings → API tokens.
   schemas:
     Error:
       type: object
@@ -92,6 +103,124 @@ components:
         theme: { type: string, enum: [light, dark, system] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    CreateScanInput:
+      type: object
+      description: Exactly one of html, url or gym. CI fields are accepted only on the token API.
+      properties:
+        html: { type: string, maxLength: 2097152 }
+        url: { type: string, format: uri }
+        gym: { type: string, example: kitchen-sink }
+        route: { type: string, example: /pricing }
+        title: { type: string, maxLength: 120 }
+        repository: { type: string, example: owner/name }
+        branch: { type: string }
+        commitSHA: { type: string, pattern: '^[0-9a-fA-F]{7,64}$' }
+        prNumber: { type: integer, minimum: 1 }
+        runURL: { type: string, format: uri }
+    ScanScreenshot:
+      type: [object, 'null']
+      description: Present for rendered scans when S3 is configured. The url is presigned for 30 minutes on every read.
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        contentType: { type: string, example: image/jpeg }
+        size: { type: integer }
+        width: { type: [integer, 'null'] }
+        height: { type: [integer, 'null'] }
+    ScanSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: [string, 'null'] }
+        visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+        status: { type: string, enum: [RUNNING, COMPLETED, FAILED] }
+        triggeredBy: { type: string, enum: [ANONYMOUS, USER, API_TOKEN] }
+        inputType: { type: string, enum: [HTML, URL, GYM] }
+        mode: { type: string, enum: [STATIC, RENDERED] }
+        ruleSet: { type: string, enum: [CORE, FULL] }
+        isOwner: { type: boolean }
+        target: { type: object }
+        scores:
+          type: object
+          properties:
+            overall: { type: [integer, 'null'] }
+            operable: { type: [integer, 'null'] }
+            perceivable: { type: [integer, 'null'] }
+            stable: { type: [integer, 'null'] }
+            discoverable: { type: [integer, 'null'] }
+        counts: { type: object }
+        engine: { type: object }
+        ci: { type: object }
+        timing: { type: object }
+        error: { type: [object, 'null'] }
+        screenshot: { $ref: '#/components/schemas/ScanScreenshot' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScanReport:
+      allOf:
+        - { $ref: '#/components/schemas/ScanSummary' }
+        - type: object
+          properties:
+            rules:
+              type: array
+              items:
+                type: object
+                properties:
+                  ruleID: { type: string, example: OPT-101 }
+                  name: { type: string }
+                  category: { type: string, enum: [OPERABLE, PERCEIVABLE, STABLE, DISCOVERABLE] }
+                  priority: { type: string, enum: [P0, P1, P2] }
+                  severity: { type: string, enum: [CRITICAL, SERIOUS, MODERATE, MINOR] }
+                  weight: { type: integer }
+                  result: { type: string, enum: [PASS, FAIL, NOT_APPLICABLE, NEEDS_RENDERED] }
+                  findingsCount: { type: integer }
+            findings:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  ruleID: { type: string }
+                  severity: { type: string }
+                  fingerprint: { type: string }
+                  selectorPath: { type: string }
+                  role: { type: [string, 'null'] }
+                  accessibleName: { type: [string, 'null'] }
+                  snippet: { type: string, description: Raw markup; display it as escaped text only. }
+                  message: { type: string }
+                  evidence: { type: object }
+    APIToken:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix: { type: string, example: 3f9a1c07be42 }
+        permissions: { type: array, items: { type: string, enum: ['scan:create:own', 'scan:view:own', 'scan:edit:own', 'scan:delete:own'] } }
+        status: { type: string, enum: [ACTIVE, EXPIRED, REVOKED] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        lastUsedIP: { type: [string, 'null'] }
+        isRevoked: { type: boolean }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Rule:
+      type: object
+      properties:
+        id: { type: string, example: OPT-201 }
+        name: { type: string }
+        category: { type: string }
+        severity: { type: string }
+        priority: { type: string }
+        ruleSets: { type: array, items: { type: string, enum: [CORE, FULL] } }
+        renderedOnly: { type: boolean }
+        why: { type: string }
+        fix: { type: string }
+        fixBefore: { type: string }
+        fixAfter: { type: string }
+        wcag: { type: string }
+        origin: { type: string }
   responses:
     BadRequest:
       description: Invalid input
@@ -107,6 +236,18 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     TooManyRequests:
       description: Rate limited; see the RateLimit-* and Retry-After headers
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    PayloadTooLarge:
+      description: TOO_LARGE — the HTML or the fetched page is over 2 MB
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    UnsupportedMediaType:
+      description: The body must be JSON
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unprocessable:
+      description: NOT_HTML, FETCH_TIMEOUT or RENDER_TIMEOUT — the target couldn't be scanned
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: The resource is already in that state
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 paths:
   /api/v1/auth/signup:
@@ -390,6 +531,358 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/scan:
+    post:
+      tags: [Scans]
+      summary: Run a scan
+      description: Anonymous callers get the 9 CORE rules (static, stored PUBLIC). Verified users get all 17 (URL input rendered in Chromium, stored PRIVATE). Pre-flight failures, including SSRF_BLOCKED, store nothing.
+      security: [{}, { cookieAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateScanInput' } } }
+      responses:
+        '201':
+          description: The completed scan report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/ScanReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [Scans]
+      summary: List your scans (cursor pagination)
+      description: Newest first.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [RUNNING, COMPLETED, FAILED] } }
+        - { name: inputType, in: query, schema: { type: string, enum: [HTML, URL, GYM] } }
+        - { name: triggeredBy, in: query, schema: { type: string, enum: [USER, API_TOKEN] } }
+        - { name: commitSHA, in: query, schema: { type: string } }
+        - { name: prNumber, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Scans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/ScanSummary' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/scan/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans]
+      summary: Get one scan report
+      description: PUBLIC scans, or the caller's own; anything else is 404.
+      security: [{}, { cookieAuth: [] }]
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/ScanReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Scans]
+      summary: Change a scan's title or visibility (share it)
+      description: Owner only.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 120 }
+                visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+      responses:
+        '200': { description: Updated scan summary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Scans]
+      summary: Delete a scan, its findings and its screenshot
+      description: Owner only.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /client/v1/scan:
+    post:
+      tags: [Scans (token API)]
+      summary: Run a scan
+      description: Runs the FULL rule set; URL input renders in Chromium. Accepts the CI fields. Needs `scan:create:own`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateScanInput' } } }
+      responses:
+        '201':
+          description: The completed scan report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/ScanReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [Scans (token API)]
+      summary: List your scans (cursor pagination)
+      description: Newest first. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [RUNNING, COMPLETED, FAILED] } }
+        - { name: inputType, in: query, schema: { type: string, enum: [HTML, URL, GYM] } }
+        - { name: triggeredBy, in: query, schema: { type: string, enum: [USER, API_TOKEN] } }
+        - { name: commitSHA, in: query, schema: { type: string } }
+        - { name: prNumber, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Scans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/ScanSummary' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /client/v1/scan/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans (token API)]
+      summary: Get one scan report
+      description: The token owner's scans only. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/ScanReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Scans (token API)]
+      summary: Change a scan's title or visibility (share it)
+      description: Owner only. Needs `scan:edit:own`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 120 }
+                visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+      responses:
+        '200': { description: Updated scan summary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Scans (token API)]
+      summary: Delete a scan, its findings and its screenshot
+      description: Owner only. Needs `scan:delete:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/apitoken:
+    post:
+      tags: [API tokens]
+      summary: Create an API token (the token is returned once, in this response only)
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, permissions]
+              properties:
+                name: { type: string, maxLength: 64 }
+                permissions: { type: array, minItems: 1, items: { type: string, enum: ['scan:create:own', 'scan:view:own', 'scan:edit:own', 'scan:delete:own'] } }
+                expiresAt: { type: [string, 'null'], format: date-time, description: At least one day ahead; null never expires. }
+      responses:
+        '201':
+          description: The token, with `token` set this one time
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/APIToken' }
+                      - { type: object, properties: { token: { type: string, example: 'opt_3f9a1c07be42_…' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [API tokens]
+      summary: List your API tokens (cursor pagination; never includes the secret)
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/APIToken' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/apitoken/permissions:
+    get:
+      tags: [API tokens]
+      summary: The permissions a token can be granted
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Permission names and descriptions }
+  /api/v1/apitoken/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [API tokens]
+      summary: Get one of your API tokens
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: The token }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [API tokens]
+      summary: Rename a token or replace its permissions
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 64 }
+                permissions: { type: array, minItems: 1, items: { type: string } }
+      responses:
+        '200': { description: Updated token }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [API tokens]
+      summary: Delete a token for good (its scans stay)
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/apitoken/{id}/revoke:
+    patch:
+      tags: [API tokens]
+      summary: Revoke a token; requests with it then get 401 TOKEN_REVOKED
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Revoked token }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/rules:
+    get:
+      tags: [Rules]
+      summary: The rule catalog
+      parameters:
+        - { name: set, in: query, schema: { type: string, enum: [CORE, FULL], default: FULL } }
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/Rule' } }
+  /api/v1/rules/{id}:
+    get:
+      tags: [Rules]
+      summary: One rule, with why agents fail, the fix and its origin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, example: OPT-201 } }
+      responses:
+        '200': { description: The rule }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/gym:
+    get:
+      tags: [Gym]
+      summary: The broken/fixed fixture pairs, kitchen-sink and perfect
+      responses:
+        '200': { description: Gym pages }
+  /gym/pages/{file}:
+    get:
+      tags: [Gym]
+      summary: A fixture page, served sandboxed
+      parameters:
+        - { name: file, in: path, required: true, schema: { type: string, example: opt-101-broken.html } }
+      responses:
+        '200': { description: The page, content: { text/html: {} } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /gym/redirect-private:
+    get:
+      tags: [Gym]
+      summary: SSRF test fixture — a fixed 302 to http://127.0.0.1/
+      responses:
+        '302': { description: Redirect to loopback }
   /api/v1/openapi.yaml:
     get:
       tags: [Operations]

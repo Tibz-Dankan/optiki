@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Tibz-Dankan/optiki/internal/constants"
-	"github.com/Tibz-Dankan/optiki/internal/handlers/auth"
 	"github.com/Tibz-Dankan/optiki/internal/middlewares"
 	"github.com/Tibz-Dankan/optiki/internal/pkg"
 	"github.com/Tibz-Dankan/optiki/internal/routes"
@@ -46,10 +45,6 @@ func main() {
 	app.Use(middlewares.SetUserInRequest)
 
 	routes.AppRoutes(app)
-
-	if os.Getenv("SEED_DEMO") == "true" {
-		auth.SeedDemoAccounts()
-	}
 
 	var port string
 

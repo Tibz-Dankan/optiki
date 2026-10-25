@@ -13,10 +13,15 @@ install:
 	@go mod tidy
 	@go mod download
 
-# Runs the unit tests (no database needed)
+# Runs the unit tests (no database needed; the rendered-scan tests use local Chrome and skip without it)
 .PHONY: test
 test:
 	@go test -race ./internal/...
+
+# Rewrites the engine's golden reports; review the diff before committing
+.PHONY: golden
+golden:
+	@go test ./internal/engine/ -run TestGoldenReports -update
 
 # Builds the server into ./bin
 .PHONY: build

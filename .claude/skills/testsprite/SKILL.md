@@ -93,19 +93,19 @@ Keep this in step with `optiki.md` §10 and the README table.
 | A15 | API | A wrong reset code is rejected, and after five wrong guesses even the right code is refused | OTP brute-force defense |
 | A16 | API | A token with project permissions creates a project and a scan linked to it; deleting the project keeps the scan | Projects via token |
 | U1 | UI | "Try a demo scan" shows an overall score and four category scores as text | First-run experience |
-| U2 | UI | Loading the "Ring" example and scanning lists OPT-101 with a "How to fix" snippet | Core flow |
-| U3 | UI | Switching to the fixed variant makes OPT-101 pass and raises the score | Feedback loop |
+| U2 | UI | On /scan, pressing "Load example OPT-101 broken" opens a report listing OPT-101 with a "How to fix OPT-101" section | Core flow |
+| U3 | UI | Pressing "Load example OPT-101 fixed" opens a report where OPT-101 passes and the score is higher | Feedback loop |
 | U4 | UI | Scanning a private address shows "This address isn't allowed" | Error UX |
 | U5 | UI | A shared report link opens the same score and findings | Persistence |
 | U6 | UI | The rules catalog page for OPT-201 shows WCAG 2.5.3 and its origin note | Docs |
 | U7 | UI | A signed-out scan shows the "9 core rules" banner and Stable as "needs rendered scan" | Honest tiers and modes |
 | U8 | UI | The Gym index lists the pairs, and a broken page shows its banner | Gym |
-| U9 | UI | Creating an API token shows it once, the table then shows it masked, and revoking marks it Revoked | Token flow |
+| U9 | UI | Creating an API token shows it once ("Copy your new API token"), the table then shows `opt_…_••••`, and "Revoke token <name>" marks it Revoked | Token flow |
 | U10 | UI | Creating a project from the dashboard and scanning into it lists the scan on the project page | Project flow |
 | U11 | UI | Signing up lands on the "Verify your email" gate | Account flow |
 | U12 | UI | Signing in with the seeded account opens the dashboard; signing out returns to sign-in | Session flow |
 
-A12–A15, U11 and U12 cover what exists today. The rest land with their features.
+A1–A15 and U1–U9, U11, U12 cover what exists today; A16 and U10 wait for projects. Rendered-scan tests (A9's rendered half, U-tests on screenshots) need a public URL the production API can reach, such as `https://example.com/` or the API's own `/gym/pages/…`.
 
 ## Credit hygiene
 

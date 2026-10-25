@@ -5,8 +5,9 @@ description: >-
   Use whenever adding or changing anything under server/ — a route, handler,
   middleware, model, schema field, migration, pkg util, constant, email
   template, scans (anonymous, signed-in and API-token callers, rule sets,
-  static fetch and rendered Chromium scans, storage), projects, API tokens
-  and their permissions, the /client/v1 token API, or the deploy/container
+  static fetch and rendered Chromium scans, storage), scan screenshots in S3
+  (attachments, presigned URLs), projects, API tokens and their permissions,
+  the /client/v1 token API, or the deploy/container
   setup — or when asked where backend code belongs, how responses and errors
   are shaped, what needs tests, or how to wire a new domain end to end. The
   engine's own rules live in the engine skill. Does not apply to client/.
@@ -27,18 +28,19 @@ The API is deployed at `https://optikiapi.tuliime.com` and the client separately
 | `references/data-model.md` | Adding or changing any table, column, index, FK or seed; writing a migration |
 | `references/scans.md` | Anything about scans: who gets which rule set, the create pipeline, fetching or rendering a URL, storage, read/list/update/delete, rate limits |
 | `references/api-tokens.md` | Token format, `AuthAPI`, permissions, token management endpoints, the `/client/v1` surface |
-| `references/projects.md` | Project CRUD and how scans attach to projects |
+| `references/attachments.md` | Scan screenshots: the S3 client, the `attachments` table, upload/link/sign/delete, presigned URLs |
+| `references/projects.md` | Project CRUD and how scans attach to projects (not built yet) |
 
 ## 1. The tree
 
 ```
 server/
-  cmd/main.go                  Fiber app, global middleware, env checks, seeds, port, Listen
+  cmd/main.go                  Fiber app, global middleware, env checks, port, Listen
   Makefile                     make run · install · test · build
   internal/
     routes/routes.go           THE only route table — every path in the app
     handlers/<domain>/         one file per endpoint, package == folder name
-                               auth/ appearance/ docs/ health/ status/ — then scan/ project/ apitoken/ rules/ gym/
+                               auth/ appearance/ docs/ health/ status/ scan/ apitoken/ rules/ gym/ (project/ later)
     middlewares/               one file per middleware
     models/
       db.go                    Postgres singleton + AutoMigrate list
@@ -300,7 +302,8 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 | `NormalizeEmail`, `IsValidEmail`, `ValidateInput`, `ValidateQueryLimit`, `IsValidTheme` | input handling |
 | `GetClientBaseURL()`, `AllowedOrigins()` | `APP_BASE_URL` — the **client's** origin (`https://optikii.netlify.app`) — used in email links and as the CORS allow-list (plus `http://localhost:5173`) |
 | `NewReasonError`, `DefaultErrorHandler`, `StatusCodeName`, `ListQueryError` | the error contract (§ 4) |
-| `FetchPublicPage`, `PublicDialer` | **the only way to fetch a user-supplied URL**, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
+| `FetchPublicPage`, `ValidatePublicURL`, `PublicDialer` | **the only way to fetch a user-supplied URL**, its pre-flight check, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
+| `S3Configured`, `S3()` → `PutObject`, `DeleteObject`, `PresignGet` | the one S3 client, built once from env; signing is local (`references/attachments.md`) |
 
 Adding an email is three edits: a template in `templates/email/` supplying the `content` and `preheader` blocks the layout expects, a `subject…` constant in `email.go`, and a `Send…` method delegating to `renderAndSend`.
 
@@ -316,6 +319,7 @@ Adding an email is three edits: a template in `templates/email/` supplying the `
 | `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
 | `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
+| `S3_ACCESS_KEY_ID`, `S3_ACCESS_KEY`, `S3_BUCKET_NAME`, `AWS_REGION` (+ optional `S3_ENDPOINT`, `S3_USE_PATH_STYLE`) | scan screenshots; without them rendered scans are stored without one |
 | `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified TestSprite accounts, created on boot if missing |
 
 Ports: 8000 (local), 8001 (deployed).
@@ -332,6 +336,8 @@ Ports: 8000 (local), 8001 (deployed).
   - size and time budgets
   - Blocked → `NewReasonError(400, "SSRF_BLOCKED", …)`. `references/scans.md` has the full rules and the Chrome flags.
 - **Never render user HTML.** Scan input is parsed by the engine and only ever returned as escaped snippets, and raw HTML is never stored.
+- **Attachments are private.** The bucket has no public access; clients only get 30-minute presigned URLs, signed on each read and never stored. Deleting a scan deletes its screenshot object.
+- **Gym pages are served sandboxed** (`Content-Security-Policy: sandbox …`): they run on the API's origin, so they get an opaque origin and no network.
 - **No file uploads, no multipart.** Scan input is JSON (`html`, `url`, or `gym`).
 - **OTPs**: single use, expire, and burn after `RESET_PASSWORD_OTP_MAX_ATTEMPTS` wrong guesses. Forgot-password never reveals whether an account exists. A password reset revokes every other session.
 - **No secrets in the repo** — only `.env.example`.
@@ -341,8 +347,8 @@ Ports: 8000 (local), 8001 (deployed).
 
 **Only the deterministic core and the security boundaries get Go tests:**
 
-- `engine/`
-- `snapshot/`
+- `engine/` (rules, golden reports, invariants — `make golden` rewrites the goldens)
+- `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it)
 - `pkg/fetchPublicPage` and `pkg/publicDialer`
 - `pkg/apiToken`
 
@@ -379,6 +385,7 @@ CRUD handlers ship without Go tests; they are covered by the TestSprite API suit
 - **A destructive change shipped without its manual migration** (removing a field from a struct, a rename, a retype), or a new `NOT NULL` column without a default.
 - **`db.Save` on an existing row**; a once-only state change without a conditional update.
 - Fetching a user-supplied URL with anything but `pkg.FetchPublicPage`; launching Chrome without the proxy; rendering or storing user HTML; multipart endpoints.
+- Storing a presigned or permanent S3 URL; a public bucket; failing a scan because the screenshot upload failed; a second S3 client.
 - Deciding the rule set inside the engine, or anywhere but `resolveScanCaller`.
 - A second copy of a handler for `/client/v1` when the behaviour matches `/api/v1`.
 - A token route without `RequirePermission`; a token that can manage tokens; a permission outside `data.APITokenPermissions`.
