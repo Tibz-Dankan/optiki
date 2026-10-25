@@ -25,7 +25,7 @@ API tokens look like `opt_<prefix>_<token>`. Each one is shown once, belongs to 
 1. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and `/health` answers through Traefik on the server.
 2. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
 
-Every PR also gets a client preview at `https://deploy-preview-<PR number>--optikii.netlify.app`. The preview talks to the production API, so a feature that needs a new endpoint ships as a backend PR first. The API has no previews.
+A PR to `main` runs **CI Previews** instead (`ci-previews.yaml`). It first deploys the PR's server to Contabo, the same full deployment as above, and then deploys the client to `https://deploy-preview-<PR number>--optikii.netlify.app`. The preview therefore calls an API running the PR's own code. Until the next merge, production runs whichever PR deployed last.
 
 ## What the suite covers
 
