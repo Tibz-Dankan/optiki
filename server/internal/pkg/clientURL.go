@@ -1,16 +1,24 @@
 package pkg
 
-import (
-	"os"
-	"strings"
-
-	"github.com/Tibz-Dankan/optiki/internal/constants"
-)
-
-// GetClientBaseURL returns the public origin of this deployment (APP_BASE_URL), with no trailing slash
+// GetClientBaseURL returns the frontend origin for the current
+//
+//	environment, with no trailing slash.
 func GetClientBaseURL() string {
-	if baseURL := os.Getenv("APP_BASE_URL"); baseURL != "" {
-		return strings.TrimSuffix(baseURL, "/")
+	appEnv := GetAppEnv()
+
+	switch appEnv {
+	case "local_development":
+		return "http://localhost:5173"
+	case "deployed_production":
+		return "https://optikii.netlify.app"
 	}
-	return constants.LOCAL_CLIENT_ORIGIN
+
+	return ""
+}
+
+// GetClientAppBaseURL returns the origin of the given frontend for the current
+//
+//	environment, with no trailing slash.
+func GetClientAppBaseURL() string {
+	return GetClientBaseURL()
 }
