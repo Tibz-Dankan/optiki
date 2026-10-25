@@ -32,7 +32,7 @@ Consequences worth stating outright:
 - **Always `import type { … }`** for types — `verbatimModuleSyntax` requires it.
 - **No `enum`, no `namespace`, no parameter properties** — `erasableSyntaxOnly` rejects them. Use string unions (`type TTheme = 'light' | 'dark' | 'system'`).
 - **There is no frontend test tooling** (no vitest/jest). The UI is verified by the TestSprite suite (see the `testsprite` skill) and, once it exists, by the optikí GitHub Action scanning the app. Do not add test files unless asked.
-- **API hosts come only from `constants/urls.ts`.** Never branch on `window.location.hostname`, hard-code a host anywhere else, or add a `VITE_*` URL. There are no per-PR previews; a new environment means a new branch in that one file.
+- **API hosts come only from `constants/urls.ts`.** Never branch on `window.location.hostname`, hard-code a host anywhere else, or add a `VITE_*` URL. PR previews (`deploy-preview-<n>--optikii.netlify.app`) are production builds and use the production API on purpose; a new environment means a new branch in that one file.
 - **Cookies cross sites.** Every call sends `credentials: 'include'`. The server sets the session cookies `SameSite=None; Secure` when deployed, so they reach `optikiapi.tuliime.com` from `optikii.netlify.app`. Browsers that block third-party cookies (Safari) will drop them; the fix is to serve the client from a `*.tuliime.com` domain, not a client-side workaround.
 
 Commands:

@@ -2,8 +2,8 @@
 name: testsprite
 description: >-
   How optikí is verified with TestSprite (Hackathon Season 4): the
-  portal-built suite, where it runs (the trigger is still to be decided —
-  there are no per-PR previews), how to write test plans an AI testing agent
+  portal-built suite, where it runs (the UI suite runs on every PR against
+  its Netlify deploy preview), how to write test plans an AI testing agent
   executes reliably (lessons from the Season 3 winners), seeded test accounts,
   the A/U test map (anonymous vs signed-in scans, API tokens and permissions,
   projects, accounts), credit hygiene, sabotage PRs, and keeping the README
@@ -19,17 +19,24 @@ description: >-
 | | URL |
 |---|---|
 | Client | `https://optikii.netlify.app` (Netlify, deployed from `main`) |
+| Client, per PR | `https://deploy-preview-<PR number>--optikii.netlify.app` (Netlify draft deploy) |
 | API | `https://optikiapi.tuliime.com` (Contabo, deployed from `main`) |
 | OpenAPI for API mode | `https://optikiapi.tuliime.com/api/v1/openapi.yaml` |
 
-There are **no per-PR preview URLs** and no subdomain-per-PR DNS. Both deploy workflows run on push to `main` only.
+**The trigger.** `netlify-deploy.yaml` also runs on every PR and deploys a preview under the alias `deploy-preview-<PR number>`. When it is live, the action posts a `Netlify` commit status. The TestSprite GitHub App has a **Pull Request** trigger on the UI project:
 
-> **TODO — trigger and target not decided yet.** Until they are, don't write workflow steps, Target URL patterns or "Block PR until tests pass" settings into plans or docs. Open questions:
-> - Does the TestSprite GitHub App run on PRs against the production URLs above (testing `main`, not the PR)?
-> - Should it run after each deploy to `main`?
-> - Or should the client move to Netlify deploy previews?
->
-> Once decided, record the trigger here and in the README.
+- It fires on that `Netlify` status.
+- Its Target URL pattern is `https://deploy-preview-{pr}--optikii.netlify.app`.
+- **Block PR until tests pass** is on, and **Include draft PRs** is off.
+
+TestSprite re-runs the portal suite against each preview and comments the results on the PR. It doesn't write new tests: add them in the portal.
+
+Rules that follow from it:
+
+- **The preview client talks to the production API.** The API has no previews. Its CORS allow-list admits `https://*--optikii.netlify.app` (`server/internal/pkg/isAllowedOrigin.go`). A PR is therefore tested against `main`'s API, so a feature that needs a new endpoint ships as a backend PR first (merged and deployed), then the frontend PR.
+- **Draft PRs don't run TestSprite** (credit control). Open WIP as a draft, and mark it "Ready for review" to run the suite. Each push to a ready PR re-runs it.
+- **UI test plans navigate by path** ("Navigate to /scan"), never a full `https://optikii.netlify.app/…` URL. Otherwise a PR run silently tests production.
+- **The API project (A-tests) isn't on the PR trigger.** It would only re-test production. Run it from the portal at milestones.
 
 Later, the optikí GitHub Action will scan each PR using an API token. It is a second gate beside TestSprite, built after the core features.
 
@@ -113,9 +120,9 @@ S3 teams burned through credits (Timeora: ~150 → ~74) and one deleted tests by
 
 ## Sabotage PRs (proof that the gate holds)
 
-These need a PR-level gate, so they wait for the trigger decision above. Open each, let it fail, and close it unmerged — then link it from the README:
+Open each as a ready (non-draft) PR, let it fail, and close it unmerged — then link it from the README:
 
-1. **S1 engine:** disable OPT-101's ancestor check → A1/A3 go red → merge blocked.
+1. **S1 engine:** disable OPT-101's ancestor check → A1/A3 go red → merge blocked. **Not caught by the PR trigger:** server code never reaches a preview, and the A-tests aren't on it. S1 needs a backend gate (e.g. a workflow running `make test` on PRs) — not decided yet.
 2. **S2 UI:** wrap the score gauge in `role="img"` and drop its text → U1 goes red (and, once it exists, the optikí Action) → merge blocked.
 
 ## README "What the suite covers"

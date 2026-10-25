@@ -25,11 +25,11 @@ API tokens look like `opt_<prefix>_<token>`. Each one is shown once, belongs to 
 1. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and `/health` answers through Traefik on the server.
 2. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
 
-There are no per-PR preview deployments.
+Every PR also gets a client preview at `https://deploy-preview-<PR number>--optikii.netlify.app`. The preview talks to the production API, so a feature that needs a new endpoint ships as a backend PR first. The API has no previews.
 
 ## What the suite covers
 
-Built in the TestSprite portal. *Where and when it runs is still being decided* (see [optiki.md §10](optiki.md#10-test-strategy)). The last column links the PR where a test caught a real problem.
+Built in the TestSprite portal. The UI tests run on every ready (non-draft) PR against its Netlify preview, and a red run blocks the merge (see [optiki.md §10](optiki.md#10-test-strategy)). The API tests run from the portal against production. The last column links the PR where a test caught a real problem.
 
 | Test | Type | What it proves | Caught something in |
 |---|---|---|---|
@@ -151,7 +151,11 @@ Verify a sending domain in Resend, then put the API key and an address on that d
 ### 6. TestSprite
 
 - In the portal, create a project for `https://optikii.netlify.app`. Add the demo credentials and the PRD from [optiki.md §12](optiki.md#12-prd-paste-into-the-testsprite-portal).
-- **TODO:** decide where and when the suite runs (there are no per-PR previews), then install the GitHub App and set branch protection to match.
+- Install the TestSprite GitHub App on this repo (Workspace Settings → Connections → Integrations → GitHub).
+- In the UI project's **GitHub Action** tab, add a **Pull Request** trigger:
+  - **Event:** the `Netlify` commit status, posted once the preview is live.
+  - **Target URL pattern:** `https://deploy-preview-{pr}--optikii.netlify.app`
+  - **Block PR until tests pass:** on. **Include draft PRs:** off.
 
 ## Security notes
 
