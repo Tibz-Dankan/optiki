@@ -22,7 +22,7 @@ API tokens look like `opt_<prefix>_<token>`. Each one is shown once, belongs to 
 
 ## How changes ship
 
-1. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and port 8001 answers on the server.
+1. Merging to `main` runs **Build and Deploy To Contabo**. It builds one Docker image with the commit baked in, pushes it to Docker Hub, and rolls it out to the `optiki-backend` service on the shared Contabo server. It finishes once the service is running and `/health` answers through Traefik on the server.
 2. The same merge deploys the client to Netlify (**Deploy Optiki Client to Netlify**).
 
 There are no per-PR preview deployments.
@@ -52,17 +52,17 @@ See [optiki.md §10](optiki.md#10-test-strategy).
 
 ## Run it locally
 
-You need Go 1.24+ (the 1.26 toolchain downloads itself), Node 24, pnpm 10 and Postgres.
+You need Go 1.24+ (the 1.26 toolchain downloads itself), Node 24, pnpm 10, Postgres, and Chrome or Chromium installed. No Docker: every feature works locally, through the same code paths as production.
 
 ```bash
-# 1. A database (any Postgres works; this matches server/.env.example)
-docker run -d --name optiki-pg -p 5432:5432 \
-  -e POSTGRES_USER=optiki -e POSTGRES_PASSWORD=optiki -e POSTGRES_DB=optiki postgres:17-alpine
+# 1. A local database (any Postgres install works)
+createdb optiki
 
 # 2. The API on http://localhost:8000
 cd server
-cp .env.example .env            # then set JWT_SECRET to the output of: openssl rand -hex 32
-make run                        # tables are created on first boot
+cp .env.example .env            # set JWT_SECRET (openssl rand -hex 32), OPTIKI_DEV_DSN_LOCAL to your database,
+                                # and the production bucket's S3_* values for screenshots
+make run                        # tables are created and the demo accounts seeded on first boot
 
 # 3. The client on http://localhost:5173, talking to the local API
 cd ../client
@@ -70,8 +70,16 @@ pnpm install
 pnpm dev:local                  # plain `pnpm dev` talks to the production API
 ```
 
-- Without `RESEND_API_KEY`, the server prints each email to its console instead of sending it, so you can open verification links and read reset codes.
-- To get a ready, verified account, set `SEED_DEMO=true` and the `DEMO_*` values in `server/.env`.
+Out of the box:
+
+- **Demo accounts:** sign in as `demo@example.com` / `optiki-demo-1` (or `demo2@example.com` / `optiki-demo-2`). Both are verified, so they get FULL rendered scans and API tokens.
+- **Rendered scans** use your installed Chromium or Chrome. Leave `CHROME_BIN` empty and the server finds it on your PATH; only the Docker image sets it.
+- **Screenshots** go to the real S3 bucket, just like production, once its `S3_*` values are in `server/.env`. Without them, scans are stored without screenshots.
+- **Emails** are printed to the server console when `RESEND_API_KEY` is empty, so you can open verification links and read reset codes.
+- At boot, the server warns about a missing Chrome, S3 or Resend setup.
+
+Notes:
+
 - `make test` runs the Go tests; the rendered-scan tests drive your local Chrome/Chromium and skip without one. `make golden` rewrites the engine's golden reports. `pnpm lint` and `pnpm build` check the client.
 - Locally, URL scans can't reach `localhost` (the SSRF guard blocks it, as intended); scan a public URL or use the Gym examples.
 
@@ -90,7 +98,7 @@ scripts/   optiki-deploy.sh (run on the server by the deploy workflow)
 The backend runs on the Contabo server that also hosts tuliime-backend and content-agent. It is the `optiki-backend` service of their shared Docker Swarm stack, `app-stack`, which is defined by **tuliime-backend's `docker-compose.yaml`** (on the server at `~/docker-compose.yaml`).
 
 - Tuliime's **Traefik** is the only ingress and gets certificates from Let's Encrypt.
-- The service is limited to 2 CPUs and 3 GB RAM and listens on 8001, which is also published on the host. **Keep 8001 closed in the firewall**, so nothing bypasses Traefik.
+- The service is limited to 2 CPUs and 3 GB RAM and listens on 8001. **That port is not published on the host.** Traefik reaches it over the stack's overlay network, and only Traefik's 80/443 are open, so nothing bypasses Traefik.
 - The database is an external Postgres (`OPTIKI_PROD_DSN`). The client is a static build on Netlify.
 
 ### 1. DNS
@@ -103,8 +111,8 @@ Point an A record for `optikiapi.tuliime.com` at the server. There are no previe
 # From your machine
 scp server/.env.example <user>@<server>:~/optiki.env
 
-# On the server: fill in OPTIKI_PROD_DSN, JWT_SECRET, Resend and the DEMO_* accounts,
-# set APP_BASE_URL=https://optikii.netlify.app (the client's origin: email links and CORS),
+# On the server: fill in OPTIKI_PROD_DSN, JWT_SECRET and Resend,
+# replace the template's public DEMO_* accounts with your own,
 # and, for scan screenshots, S3_ACCESS_KEY_ID, S3_ACCESS_KEY, S3_BUCKET_NAME and AWS_REGION
 # (a private bucket; scans work without it, just without screenshots)
 chmod 600 ~/optiki.env

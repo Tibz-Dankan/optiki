@@ -161,7 +161,7 @@ URL scans in `FULL` are rendered, so the 3 rendered-only rules apply. HTML and G
   CI / scripts ──Bearer opt_<prefix>_<token>──► /client/v1/scan, /client/v1/project
 
 Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) → Docker Hub → SSH →
-               scripts/optiki-deploy.sh → docker stack deploy → wait for 1/1 and :8001
+               scripts/optiki-deploy.sh → docker stack deploy → wait for 1/1 and /health via Traefik
              → "Deploy Optiki Client to Netlify": pnpm build → Netlify
 ```
 
@@ -169,9 +169,10 @@ Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) �
 
 - **Client and API on different sites.**
   - The client is a static build on Netlify; the API is a long-lived container on the shared Contabo server.
-  - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows exactly `APP_BASE_URL` (the Netlify origin) with credentials.
+  - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows the Netlify origin from `GetClientBaseURL` with credentials.
   - Browsers that block third-party cookies (Safari) won't keep the session. The fix is a `*.tuliime.com` custom domain for the client (§15).
 - **No per-PR previews and no environment tags.** One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
+- **Every feature runs locally too, without Docker.** Nothing is gated on the environment; only config differs (DSN, port, cookie flags, client origin, and the console fallback for email). Rendered scans use the installed Chromium, screenshots go to the same real S3 bucket as production, and `.env.example` seeds verified demo accounts.
 - **Rendered scans on the server.**
   - Each rendered scan also captures a full-page JPEG screenshot. It is stored in a private S3 bucket as an attachment and returned with a 30-minute presigned URL; without S3 configured, scans still work, without screenshots.
   - The image already ships Chromium. Verified users' and tokens' URL scans render there, with every request Chrome makes forced through an in-process forward proxy that only dials public addresses.
@@ -325,7 +326,7 @@ ScanFinding{id, scanID, ruleID, category, severity, fingerprint, position, docum
   - Anonymous scans: 30 per 10 minutes per IP, URL scans 5 per minute.
   - Signed-in users and tokens: 60 per 10 minutes each.
   - Auth routes: 20 per minute per IP. All send `RateLimit-*` headers.
-  - The client IP comes from Traefik's `X-Real-IP`. That is trustworthy only because Traefik is the only ingress, so **host port 8001 must stay firewalled**.
+  - The client IP comes from Traefik's `X-Real-IP`. That needs Traefik to be the only ingress, so **port 8001 is never published on the host**: Swarm's ingress mesh bypasses UFW. Traefik still passes a client-sent `X-Real-IP` through (`forwardedHeaders.insecure=true`); that is a follow-up.
 - **Auth:**
   - Passwords are hashed with bcrypt (minimum 8 characters).
   - Access and refresh JWTs are in `HttpOnly`, `Secure`, `SameSite=None` cookies (cross-site client). CORS allows only the client's origin, plus the Vite dev server locally.
@@ -454,10 +455,10 @@ Table columns: test → UI/API → what it proves → the PR where it caught som
 The README's "Deploying" section has the exact commands.
 
 - [x] **DNS:** an A record for `optikiapi.tuliime.com` → the Contabo server. No wildcard and no preview subdomains.
-- [x] **Server:** `~/optiki.env` (from `server/.env.example`) with `OPTIKI_PROD_DSN`, `JWT_SECRET`, `APP_BASE_URL=https://optikii.netlify.app`, Resend and the demo accounts. The `optiki-backend` service is in tuliime's `docker-compose.yaml`.
+- [x] **Server:** `~/optiki.env` (from `server/.env.example`) with `OPTIKI_PROD_DSN`, `JWT_SECRET`, Resend and the demo accounts. The `optiki-backend` service is in tuliime's `docker-compose.yaml`.
 - [x] **GitHub secrets** for both deploy workflows (Docker Hub, Contabo SSH, Netlify).
 - [ ] **Production DB:** run the one-off SQL in `.claude/skills/backend/references/data-model.md` (§ Migrations) if the database predates the `env` removal.
-- [ ] **Firewall:** host port 8001 closed to the internet (Traefik is the only way in).
+- [ ] **Ports:** no container port published on the host; only Traefik's 80/443 (Traefik is the only way in).
 - [ ] **Resend:** verify the sending domain (the test sender only delivers to your own address).
 - [ ] **TestSprite portal project:** the client URL, demo credentials and the PRD (§12). Trigger and target: **TODO**.
 - [ ] **Branch protection on `main`:** decide the required checks along with the TestSprite trigger.
@@ -540,7 +541,7 @@ The README's "Deploying" section has the exact commands.
 | A schema change that AutoMigrate can't apply (drop, rename, retype) breaks inserts in the one production database | Additive-only migrations; destructive changes ship with manual SQL run before the deploy (backend skill § 6) |
 | SSRF through the rendered browser (subresources, redirects, rebinding) | Every Chrome request goes through the public-only forward proxy; loopback is proxied too; WebRTC UDP disabled; A7 covers the URL path |
 | Rendering load on a 2-CPU service | At most 2 concurrent renders, then `429 RENDERER_BUSY`; anonymous scans never render; per-user and per-token rate limits |
-| Port 8001 published on the host lets a client bypass Traefik and spoof `X-Real-IP` | Keep 8001 firewalled; Traefik is the only ingress |
+| A published container port lets a client bypass Traefik and spoof `X-Real-IP` (Swarm's ingress mesh bypasses UFW) | No `ports:` on any app service; only Traefik publishes 80/443 |
 | Leaked or over-privileged API tokens | Shown once, hashed, optional expiry, revocable, `:own` permissions only, no token management by tokens |
 | chromedp/cdproto API drift | Pin versions; fall back to collector-only rendered mode |
 | Email delivery (Resend test sender only reaches your own inbox) | Verify the domain; TestSprite never depends on email (seeded verified accounts) |

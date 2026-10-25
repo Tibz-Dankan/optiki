@@ -14,6 +14,7 @@ fi
 echo "Deploying new image: $NEW_IMAGE"
 
 SERVICE="app-stack_optiki-backend"
+HOST="optikiapi.tuliime.com"
 
 # Create the project directory if it doesn't exist
 mkdir -p ~/app
@@ -62,8 +63,8 @@ else
 fi
 docker stack deploy -c docker-compose.yaml app-stack --with-registry-auth
 
-# Wait for backend service to be running and available on port 8001
-echo "Waiting for backend service to start and be available on port 8001..."
+# Wait for backend service to be running and healthy behind Traefik
+echo "Waiting for backend service to start and answer https://$HOST/health..."
 
 check_service() {
   echo "  Checking service existence..."
@@ -78,19 +79,15 @@ check_service() {
     return 1
   fi
 
-  echo "  Checking port 8001..."
-  if ! timeout 5 bash -c "</dev/tcp/localhost/8001" &>/dev/null; then
-    echo "  Port 8001 not accessible"
+  # No container port is published on the host, so check through Traefik on loopback.
+  # -k: the connection is to 127.0.0.1, and the origin cert may be Traefik's default one.
+  echo "  Checking health endpoint through Traefik..."
+  if ! curl -fsSk -o /dev/null --max-time 5 --resolve "$HOST:443:127.0.0.1" "https://$HOST/health"; then
+    echo "  Health endpoint not responding"
     return 1
   fi
 
-  echo "  Port 8001 is accessible"
-
-  # echo "  Checking health endpoint..."
-  # if ! curl -s -f -o /dev/null http://localhost:8001/health; then
-  #   echo "  Health endpoint not responding"
-  #   return 1
-  # fi
+  echo "  Health endpoint is responding"
 
   return 0
 }
@@ -104,7 +101,7 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
   echo "Checking if backend service is running (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
 
   if check_service; then
-    echo "Backend service is now running and available on port 8001!"
+    echo "Backend service is now running and healthy at https://$HOST!"
     break
   fi
 

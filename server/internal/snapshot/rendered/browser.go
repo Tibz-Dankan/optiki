@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -66,6 +67,21 @@ func (r *Renderer) Build(ctx context.Context, targetURL, route string) (engine.S
 	return snapshot, result, err
 }
 
+// ChromePath returns CHROME_BIN, else the first Chrome or Chromium found on PATH (or in macOS's default
+// location), else "" when rendered scans have no browser to run
+func ChromePath() string {
+	if binary := os.Getenv("CHROME_BIN"); binary != "" {
+		return binary
+	}
+	for _, name := range []string{"chromium", "chromium-browser", "google-chrome", "google-chrome-stable",
+		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
 func (r *Renderer) browser() (context.Context, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -82,7 +98,7 @@ func (r *Renderer) browser() (context.Context, error) {
 		chromedp.Flag("mute-audio", true),
 		chromedp.Flag("hide-scrollbars", true),
 	)
-	if binary := os.Getenv("CHROME_BIN"); binary != "" {
+	if binary := ChromePath(); binary != "" {
 		options = append(options, chromedp.ExecPath(binary))
 	}
 	if os.Getenv("CHROMEDP_NO_SANDBOX") == "true" {
