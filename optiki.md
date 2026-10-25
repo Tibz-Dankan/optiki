@@ -15,7 +15,7 @@
     - The API is on the shared Contabo server: a Docker Swarm service behind tuliime's Traefik, at `https://optikiapi.tuliime.com`.
     - The client is on Netlify, at `https://optikii.netlify.app`.
     - One production Postgres database.
-    - **Per-PR client previews** at `https://deploy-preview-<PR number>--optikii.netlify.app` (Netlify draft deploys from GitHub Actions). They talk to the production API, which has no previews.
+    - **Per-PR client previews** at `https://deploy-preview-<PR number>--optikii.netlify.app` (Netlify draft deploys from `ci-previews.yaml`, which first deploys the PR's server to production). They talk to the production API.
   - API tokens belong to users and carry gradescript-style permissions. Projects are optional groupings of scans.
   - The repo structure follows the gradescript project (`client/` + `server/`); §17 lists where optikí departs from it.
   - Accounts use email + password, email verification, and password reset by emailed code.
@@ -171,7 +171,7 @@ Push to main → "Build and Deploy To Contabo": build image (GIT_SHA baked in) �
   - The client is a static build on Netlify; the API is a long-lived container on the shared Contabo server.
   - Auth cookies are therefore `SameSite=None; Secure` when deployed, and CORS allows the Netlify origin from `GetClientBaseURL`, and its previews (`https://*--optikii.netlify.app`), with credentials.
   - Browsers that block third-party cookies (Safari) won't keep the session. The fix is a `*.tuliime.com` custom domain for the client (§15).
-- **Client previews only, and no environment tags.** Each PR gets a Netlify preview of the client that talks to the production API. One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
+- **One API, no environment tags.** Each PR deploys its server to production, then a Netlify preview of the client that talks to it. One production database; local development uses its own database. Migrations stay additive, and anything destructive is a manual SQL migration run before the deploy that needs it.
 - **Every feature runs locally too, without Docker.** Nothing is gated on the environment; only config differs (DSN, port, cookie flags, client origin, and the console fallback for email). Rendered scans use the installed Chromium, screenshots go to the same real S3 bucket as production, and `.env.example` seeds verified demo accounts.
 - **Rendered scans on the server.**
   - Each rendered scan also captures a full-page JPEG screenshot. It is stored in a private S3 bucket as an attachment and returned with a 30-minute presigned URL; without S3 configured, scans still work, without screenshots.
@@ -439,7 +439,7 @@ Built in the **portal**. The TestSprite GitHub App runs the UI tests on every re
 
 ### Sabotage PRs (proof that the gates hold the merge; close them unmerged and link them in the README)
 
-S2 uses the TestSprite PR trigger. S1 still waits for a backend gate: server code never reaches a preview, so the PR trigger can't see it.
+S2 uses the TestSprite PR trigger. S1's server goes live on its PR, but the A-tests aren't on the PR trigger yet. After closing a sabotage PR, re-run the last **Build and Deploy To Contabo** run on `main` to put `main` back in production.
 
 1. **S1 (engine):** disable OPT-101's ancestor check. A1/A3 go red and the merge is blocked.
 2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. U1 fails (and the optikí Action, once it exists), and the merge is blocked.

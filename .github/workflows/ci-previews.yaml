@@ -1,0 +1,108 @@
+# PR previews, in order: deploy this PR's server to Contabo (a full deployment, same as contabo-deploy.yaml),
+# then deploy its client to https://deploy-preview-<PR number>--optikii.netlify.app, which TestSprite tests.
+# The preview goes live only after the API it calls runs this PR's code.
+name: CI Previews
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# A new push to the same PR waits for the running deploy instead of racing it
+concurrency:
+  group: ci-previews-${{ github.event.number }}
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # optiki-deploy.sh deploys the compose file's :latest tag, so the PR's image must be pushed as :latest too
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: GIT_SHA=${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:${{ github.sha }}, ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:latest
+
+  deploy:
+    name: Deploy to Server
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SERVER: ${{ secrets.CONTABO_USERNAME }}@${{ secrets.CONTABO_HOST }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSHKEY }}
+
+      - name: Adding Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.CONTABO_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Copy deploy script using SSH
+        run: scp scripts/optiki-deploy.sh "$SERVER":~
+
+      - name: Deploy to Contabo using SSH
+        run: |
+          ssh "$SERVER" "chmod +x ~/optiki-deploy.sh && ~/optiki-deploy.sh ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:${{ github.sha }}"
+
+  preview:
+    name: Deploy Netlify Preview
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./client
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Install PNPM
+        run: npm install -g pnpm@11
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      # No production-branch: this workflow only ever makes draft deploys, named by the alias
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2.0.0
+        with:
+          publish-dir: "./client/dist"
+          alias: deploy-preview-${{ github.event.number }}
+          github-token: ${{ secrets.ACCESS_TOKEN_GITHUB }}
+          deploy-message: "Deploy preview from GitHub Actions"
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 2

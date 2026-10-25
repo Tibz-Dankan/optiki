@@ -23,7 +23,7 @@ description: >-
 | API | `https://optikiapi.tuliime.com` (Contabo, deployed from `main`) |
 | OpenAPI for API mode | `https://optikiapi.tuliime.com/api/v1/openapi.yaml` |
 
-**The trigger.** `netlify-deploy.yaml` also runs on every PR and deploys a preview under the alias `deploy-preview-<PR number>`. When it is live, the action posts a `Netlify` commit status. The TestSprite GitHub App has a **Pull Request** trigger on the UI project:
+**The trigger.** On every PR to `main`, `ci-previews.yaml` deploys the PR's server to Contabo (the same full deployment as `contabo-deploy.yaml`). Then it deploys the client as a Netlify draft under the alias `deploy-preview-<PR number>`. When the preview is live, the action posts a `Netlify` commit status. `contabo-deploy.yaml` and `netlify-deploy.yaml` run only on merges to `main`. The TestSprite GitHub App has a **Pull Request** trigger on the UI project:
 
 - It fires on that `Netlify` status.
 - Its Target URL pattern is `https://deploy-preview-{pr}--optikii.netlify.app`.
@@ -33,8 +33,11 @@ TestSprite re-runs the portal suite against each preview and comments the result
 
 Rules that follow from it:
 
-- **The preview client talks to the production API.** The API has no previews. Its CORS allow-list admits `https://*--optikii.netlify.app` (`server/internal/pkg/isAllowedOrigin.go`). A PR is therefore tested against `main`'s API, so a feature that needs a new endpoint ships as a backend PR first (merged and deployed), then the frontend PR.
-- **Draft PRs don't run TestSprite** (credit control). Open WIP as a draft, and mark it "Ready for review" to run the suite. Each push to a ready PR re-runs it.
+- **The preview calls the production API, which runs the PR's own server by then.** Its CORS allow-list admits `https://*--optikii.netlify.app` (`server/internal/pkg/isAllowedOrigin.go`).
+  - Until the next merge, production runs whichever PR deployed last. With two PRs open, the last deploy wins, so keep one PR active while testing.
+  - A PR closed unmerged (sabotage PRs included) leaves its server live. Restore `main` by re-running the last **Build and Deploy To Contabo** run on `main` from the Actions tab.
+  - A PR's GORM AutoMigrate runs against the production database, so schema changes stay additive.
+- **Draft PRs don't run TestSprite** (credit control). Mark the PR "Ready for review" to run the suite; each push to a ready PR re-runs it. CI Previews still deploys on drafts.
 - **UI test plans navigate by path** ("Navigate to /scan"), never a full `https://optikii.netlify.app/…` URL. Otherwise a PR run silently tests production.
 - **The API project (A-tests) isn't on the PR trigger.** It would only re-test production. Run it from the portal at milestones.
 
@@ -123,7 +126,7 @@ S3 teams burned through credits (Timeora: ~150 → ~74) and one deleted tests by
 
 Open each as a ready (non-draft) PR, let it fail, and close it unmerged — then link it from the README:
 
-1. **S1 engine:** disable OPT-101's ancestor check → A1/A3 go red → merge blocked. **Not caught by the PR trigger:** server code never reaches a preview, and the A-tests aren't on it. S1 needs a backend gate (e.g. a workflow running `make test` on PRs) — not decided yet.
+1. **S1 engine:** disable OPT-101's ancestor check → A1/A3 go red → merge blocked. S1's server does go live on its PR, but the A-tests aren't on the PR trigger. It's caught only if a UI test sees the change, or once the API project gets a PR trigger too (not set up).
 2. **S2 UI:** wrap the score gauge in `role="img"` and drop its text → U1 goes red (and, once it exists, the optikí Action) → merge blocked.
 
 ## README "What the suite covers"
