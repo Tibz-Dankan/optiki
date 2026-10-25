@@ -386,38 +386,9 @@ There are no frontend unit tests (gradescript's convention). The checks Vitest w
 
 ### Layer 2: TestSprite suite
 
-Built in the **portal**. The TestSprite GitHub App runs the UI tests on every ready (non-draft) PR against its Netlify preview (`https://deploy-preview-{pr}--optikii.netlify.app`) and blocks the merge on red. The API tests run from the portal against production. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
+Built in the **portal**, UI tests only. The TestSprite GitHub App runs them on every ready (non-draft) PR against its Netlify preview (`https://deploy-preview-{pr}--optikii.netlify.app`) and blocks the merge on red. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
 
-| # | Type | Scenario (named as a behavior) | Proves |
-|---|---|---|---|
-| A1 | API | An anonymous scan of the kitchen-sink fixture runs `CORE` and fails exactly the 9 P0 rules | Engine correctness, anonymous tier |
-| A2 | API | Scanning the perfect fixture scores 100 with zero findings | No false positives |
-| A3 | API | Each broken/fixed pair fails and then passes its own rule | Every rule, both directions |
-| A4 | API | Scanning the same HTML twice returns the same report hash | Determinism |
-| A5 | API | Empty body, both `html` and `url`, HTML over 2 MB, or the wrong content type is rejected (400 / 400 / 413 / 415) | Validation |
-| A6 | API | Scanning the API's own `/gym/pages/perfect.html` URL returns a completed report | Real fetch path |
-| A7 | API | `127.0.0.1`, `localhost`, `169.254.169.254`, `[::1]`, `10.0.0.1`, `2130706433`, `file://` and the redirect fixture are all blocked with `SSRF_BLOCKED` | SSRF defense |
-| A8 | API | Exceeding the anonymous scan limit returns 429 with `RateLimit-*` headers | Rate limiter |
-| A9 | API | A scan by the signed-in seeded user runs `FULL` with 17 rule results and is private | Signed-in tier |
-| A10 | API | A token with only `scan:create:own` scans (201), gets 403 `MISSING_PERMISSION` listing scans, and 401 `TOKEN_REVOKED` once revoked; the secret is never returned again | Token scoping |
-| A11 | API | User B gets 404 on user A's private scan, project and token; an anonymous scan's link is readable by anyone | Ownership / IDOR |
-| A12 | API | The OpenAPI spec and health endpoint respond, and health reports the commit | Contract |
-| A13 | API | Sign-up returns a session, and the new user stays unverified (verified-only routes answer `403 EMAIL_NOT_VERIFIED`) | Verification gate |
-| A14 | API | Forgot-password gives the same answer for an unknown email and a known one | No account enumeration |
-| A15 | API | A wrong reset code is rejected, and after five wrong guesses even the right code is refused | OTP brute-force defense |
-| A16 | API | A token with project permissions creates a project and a scan linked to it; deleting the project keeps the scan | Projects via token *(Should)* |
-| U1 | UI | "Try a demo scan" shows an overall score and four category scores as text | First-run experience |
-| U2 | UI | Loading the "Ring" example and scanning lists OPT-101 with a "How to fix" snippet | Core flow |
-| U3 | UI | Switching to the fixed variant makes OPT-101 pass and raises the score | Feedback loop |
-| U4 | UI | Scanning a private address shows "This address isn't allowed" | Error UX |
-| U5 | UI | A shared report link opens the same score and findings | Persistence |
-| U6 | UI | The rules catalog page for OPT-201 shows WCAG 2.5.3 and its origin note | Docs |
-| U7 | UI | A signed-out scan shows the "9 core rules" banner and Stable as "needs rendered scan" | Honest tiers and modes |
-| U8 | UI | The Gym index lists the pairs, and a broken page shows its banner | Gym |
-| U9 | UI | Creating an API token shows it once, then masked; revoking marks it Revoked | Token flow |
-| U10 | UI | Creating a project and scanning into it lists the scan on the project page | Project flow *(Should)* |
-| U11 | UI | Signing up lands on the "Verify your email" gate | Account flow |
-| U12 | UI | Signing in with the seeded account opens the dashboard; signing out returns to sign-in | Session flow |
+The cases and their steps are in [`testsprite/ui-test-plan.md`](testsprite/ui-test-plan.md): U1–U6 scan signed out (Gym examples, a static URL scan of `https://docease-v2.netlify.app`, SSRF and form errors), and U7–U10 sign in with the demo account (dashboard, a rendered URL scan with a screenshot, making a scan public, deleting one). There are no API, sign-up or password-reset tests.
 
 **Authoring rules (the S3 lessons):**
 - One verb per step, and one decisive assertion.
@@ -428,8 +399,8 @@ Built in the **portal**. The TestSprite GitHub App runs the UI tests on every re
 
 **Data setup:**
 - The API boots with `SEED_DEMO=true` and creates **verified** demo accounts from `DEMO_*` variables if they're missing.
-- TestSprite can't read an inbox. Tests that need a verified user sign in with a seeded account; sign-up tests stop at the verification gate.
-- There is one shared production database, so tests use unique emails and names, never assert totals, and revoke the tokens they create.
+- TestSprite can't read an inbox, so signed-in tests use a seeded account, and there are no sign-up tests.
+- There is one shared production database, so tests assert on the scan they just created and never on history order or totals.
 
 ### Layer 3: the optikí GitHub Action *(Later)*
 
@@ -439,10 +410,10 @@ Built in the **portal**. The TestSprite GitHub App runs the UI tests on every re
 
 ### Sabotage PRs (proof that the gates hold the merge; close them unmerged and link them in the README)
 
-S2 uses the TestSprite PR trigger. S1's server goes live on its PR, but the A-tests aren't on the PR trigger yet. After closing a sabotage PR, re-run the last **Build and Deploy To Contabo** run on `main` to put `main` back in production.
+Both use the TestSprite PR trigger. After closing a sabotage PR, re-run the last **Build and Deploy To Contabo** run on `main` to put `main` back in production.
 
-1. **S1 (engine):** disable OPT-101's ancestor check. A1/A3 go red and the merge is blocked.
-2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. U1 fails (and the optikí Action, once it exists), and the merge is blocked.
+1. **S1 (engine):** disable OPT-101's ancestor check. The broken page passes, U1 goes red and the merge is blocked.
+2. **S2 (UI):** wrap the score gauge in `role="img"` and drop its text. U3 fails (and the optikí Action, once it exists), and the merge is blocked.
 
 ### README "What the suite covers" (required by S4)
 
@@ -460,7 +431,7 @@ The README's "Deploying" section has the exact commands.
 - [ ] **Production DB:** run the one-off SQL in `.claude/skills/backend/references/data-model.md` (§ Migrations) if the database predates the `env` removal.
 - [ ] **Ports:** no container port published on the host; only Traefik's 80/443 (Traefik is the only way in).
 - [ ] **Resend:** verify the sending domain (the test sender only delivers to your own address).
-- [ ] **TestSprite portal project:** the client URL, demo credentials and the PRD (§12). Trigger and target: **TODO**.
+- [ ] **TestSprite portal project:** the client URL, demo credentials, the PRD (§12) and the cases from `testsprite/ui-test-plan.md`. Trigger: the PR trigger on the `Netlify` status (README §6).
 - [ ] **Branch protection on `main`:** decide the required checks along with the TestSprite trigger.
 
 ---
