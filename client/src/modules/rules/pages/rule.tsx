@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { categoryLabels, severityLabels } from '@constants/scan'
 import { isHttpError } from '@api/http-error'
 import { rulesAPI, rulesKeys } from '@api/rules'
+import { getCodeLanguage } from '@utils/get-code-language'
 import { Badge } from '@shared/ui/badge'
+import { CodeBlock } from '@shared/ui/code-block'
 import { Skeleton } from '@shared/ui/skeleton'
 import { NotFoundError } from '@shared/pages/not-found-error'
 import { HomeLayout } from '@modules/home/layout/home-layout'
@@ -75,22 +77,18 @@ export const Rule: React.FC = () => {
               </h2>
               <p className='mt-2'>{data.data.fix}</p>
               <div className='mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    Before
-                  </p>
-                  <pre className='mt-1 overflow-x-auto rounded bg-muted p-3 text-xs'>
-                    <code>{data.data.fixBefore}</code>
-                  </pre>
-                </div>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    After
-                  </p>
-                  <pre className='mt-1 overflow-x-auto rounded bg-muted p-3 text-xs'>
-                    <code>{data.data.fixAfter}</code>
-                  </pre>
-                </div>
+                <CodeBlock
+                  title='Before'
+                  language={getCodeLanguage(data.data.fixBefore)}
+                  code={data.data.fixBefore}
+                  copyLabel='Copy before example'
+                />
+                <CodeBlock
+                  title='After'
+                  language={getCodeLanguage(data.data.fixAfter)}
+                  code={data.data.fixAfter}
+                  copyLabel='Copy after example'
+                />
               </div>
             </section>
 
