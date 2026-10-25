@@ -302,7 +302,7 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 | `GenerateNumericCode(n)`, `GenerateRandomState()` | `crypto/rand` OTPs and URL-safe tokens |
 | `Email{Recipient}` + `SendWelcome`/`SendVerifyEmail`/`SendResetPassword` | Resend, templates embedded. With no `RESEND_API_KEY` in local dev the email is logged instead; deployed, it is an error |
 | `NormalizeEmail`, `IsValidEmail`, `ValidateInput`, `ValidateQueryLimit`, `IsValidTheme` | input handling |
-| `GetClientBaseURL()`, `AllowedOrigins()` | the **client's** origin per `GetAppEnv()`, hardcoded in `clientURL.go`: `http://localhost:5173` locally, `https://optikii.netlify.app` deployed. Used in email links and as the CORS allow-list, which always includes `http://localhost:5173` |
+| `GetClientBaseURL()`, `AllowedOrigins()` | the **client's** origin per `GetAppEnv()`, hardcoded in `clientURL.go`: `http://localhost:5173` locally, `https://optikii.netlify.app` deployed. Used in email links and as the CORS allow-list, which always includes `http://localhost:5173` and the client's Netlify previews (`https://*--optikii.netlify.app`, matched by `IsAllowedOrigin`, the `AllowOriginsFunc`) |
 | `NewReasonError`, `DefaultErrorHandler`, `StatusCodeName`, `ListQueryError` | the error contract (§ 4) |
 | `FetchPublicPage`, `ValidatePublicURL`, `PublicDialer` | **the only way to fetch a user-supplied URL**, its pre-flight check, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
 | `S3Configured`, `S3()` → `PutObject`, `DeleteObject`, `PresignGet` | the one S3 client, built once from env; signing is local (`references/attachments.md`) |
@@ -360,6 +360,7 @@ Ports: 8000 (local), 8001 (deployed).
 - `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it)
 - `pkg/fetchPublicPage` and `pkg/publicDialer`
 - `pkg/apiToken`
+- `pkg/isAllowedOrigin` (the credentialed CORS allow-list)
 
 CRUD handlers ship without Go tests; they are covered by the TestSprite API suite (see the `testsprite` skill). Don't add test files elsewhere unless asked.
 
@@ -402,7 +403,7 @@ CRUD handlers ship without Go tests; they are covered by the TestSprite API suit
 - Unquoted camelCase columns in raw SQL; a GORM struct declared anywhere but `schema.go`.
 - `errors.New(constants.ErrNotPermitted)` instead of the `ErrNotPermittedError` sentinel; a 5xx for something the user must act on.
 - Secrets, tokens, codes, DSNs, submitted HTML or full URLs with query strings in logs; publishing a container port to the internet.
-- A test file outside `engine/`, `snapshot/`, `pkg/fetchPublicPage`, `pkg/publicDialer` and `pkg/apiToken`.
+- A test file outside `engine/`, `snapshot/`, `pkg/fetchPublicPage`, `pkg/publicDialer`, `pkg/apiToken` and `pkg/isAllowedOrigin`.
 - A JSDoc-style or multi-paragraph comment explaining what a handler does.
 
 ## 15. Before you call it done

@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"strings"
 
 	"github.com/Tibz-Dankan/optiki/internal/constants"
 	"github.com/Tibz-Dankan/optiki/internal/middlewares"
@@ -33,7 +32,7 @@ func main() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     strings.Join(pkg.AllowedOrigins(), ","),
+		AllowOriginsFunc: pkg.IsAllowedOrigin,
 		AllowHeaders:     "Origin, Content-Type, Accept",
 		ExposeHeaders:    "Content-Length, X-Email-Verification-Sent, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset",
 		AllowCredentials: true,
