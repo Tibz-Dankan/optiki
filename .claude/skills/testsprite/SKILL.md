@@ -5,8 +5,8 @@ description: >-
   portal-built suite, where it runs (the UI suite runs on every PR against
   its Netlify deploy preview), how to write test plans an AI testing agent
   executes reliably (lessons from the Season 3 winners), seeded test accounts,
-  the A/U test map (anonymous vs signed-in scans, API tokens and permissions,
-  projects, accounts), credit hygiene, sabotage PRs, and keeping the README
+  the UI test map (signed-out and signed-in scanning, kept in
+  testsprite/ui-test-plan.md), credit hygiene, sabotage PRs, and keeping the README
   "What the suite covers" table current. Use when adding or changing a feature
   that needs a test, writing or fixing a TestSprite plan, debugging a blocked
   or failed run, or preparing the submission.
@@ -21,7 +21,6 @@ description: >-
 | Client | `https://optikii.netlify.app` (Netlify, deployed from `main`) |
 | Client, per PR | `https://deploy-preview-<PR number>--optikii.netlify.app` (Netlify draft deploy) |
 | API | `https://optikiapi.tuliime.com` (Contabo, deployed from `main`) |
-| OpenAPI for API mode | `https://optikiapi.tuliime.com/api/v1/openapi.yaml` |
 
 **The trigger.** On every PR to `main`, `ci-previews.yaml` deploys the PR's server to Contabo (the same full deployment as `contabo-deploy.yaml`). Then it deploys the client as a Netlify draft under the alias `deploy-preview-<PR number>`. When the preview is live, the action posts a `Netlify` commit status. `contabo-deploy.yaml` and `netlify-deploy.yaml` run only on merges to `main`. The TestSprite GitHub App has a **Pull Request** trigger on the UI project:
 
@@ -39,7 +38,8 @@ Rules that follow from it:
   - A PR's GORM AutoMigrate runs against the production database, so schema changes stay additive.
 - **Draft PRs don't run TestSprite** (credit control). Mark the PR "Ready for review" to run the suite; each push to a ready PR re-runs it. CI Previews still deploys on drafts.
 - **UI test plans navigate by path** ("Navigate to /scan"), never a full `https://optikii.netlify.app/…` URL. Otherwise a PR run silently tests production.
-- **The API project (A-tests) isn't on the PR trigger.** It would only re-test production. Run it from the portal at milestones.
+- **The suite is UI only.** There is no API project; API tests were dropped.
+- **Run Behavior: "Log in once per run" is off** (signed-out cases need a fresh browser) **and "Always use planned steps" is on.**
 
 Later, the optikí GitHub Action will scan each PR using an API token. It is a second gate beside TestSprite, built after the core features.
 
@@ -56,20 +56,17 @@ S4 rules that bite:
 ## Test accounts and data
 
 - The API boots with `SEED_DEMO=true` and creates **verified** accounts from `DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) if they don't exist. Store those credentials only in the TestSprite portal and `~/optiki.env` on the server.
-- There is **one production database** shared by every run, and nothing is reset between runs. Tests must tolerate leftovers:
-  - Use unique emails (with a timestamp) when a test signs up.
-  - Use unique names for projects and tokens.
-  - Assert on what this run created, never on a total count.
-- Tests that create a token **revoke or delete it** at the end. A user can hold at most 25 active tokens, and leaked test tokens would hit that limit.
-- TestSprite can't read inboxes. Tests that need a verified user sign in with a seeded account; sign-up tests assert the "Verify your email" gate; password-reset tests assert the generic forgot-password response and that a wrong code is rejected.
-- Anonymous scan tests need no account. They must *not* send the seeded account's cookies, or they get the `FULL` rule set.
+- There is **one production database** shared by every run, and nothing is reset between runs. Tests must tolerate leftovers: assert on the scan this case just created, never on history order or a total count. Signed-in cases can run at once on the same account.
+- **No sign-up or password-reset tests** (TestSprite can't read inboxes). Signed-in cases sign in with the seeded account.
+- Signed-out scan cases need no account. They must *not* carry the seeded account's session, or they get the `FULL` rule set.
+- URL scans use `https://docease-v2.netlify.app`, a client-rendered app: static signed out, rendered with a screenshot signed in. Anonymous URL scans are limited to 5 a minute per IP, so keep them to a couple per run.
 
 ## Writing plans the AI tester executes reliably (Season 3 lessons)
 
 - **One verb per step, one decisive assertion.** Never "verify A or B" — verbose either/or assertions block verdicts even when the page is right (Nora).
 - **`Navigate to` only on step 1.** Everything after is clicks and typing.
 - **Describe outcomes, not selectors** — the agent locates targets by accessible name; a guessed CSS selector or literal label defeats it.
-- **Name the test as a behavior** ("Signing up lands on the verify-email gate"), and rename it when its scope changes — a stale name steers the agent (Nora).
+- **Name the test as a behavior** ("Scanning the Perfect page example scores 100"), and rename it when its scope changes — a stale name steers the agent (Nora).
 - **Name look-alike controls by widget type and exclude the sibling** ("the Sign out button in the confirmation dialog, not the menu item") (Ouroboros L5).
 - **Assert settled end-states, never animation** (Ouroboros L2). **Assume a desktop viewport** — the runner doesn't resize (Nora).
 - **Use "Load example" buttons**, never make the agent type long HTML.
@@ -82,41 +79,20 @@ The UI makes this easier by following the frontend skill's agent-legibility rule
 
 ## The suite map
 
-Keep this in step with `optiki.md` §10 and the README table.
+The steps for every case live in **`testsprite/ui-test-plan.md`**, the reviewed copy of what's in the portal. Change a case there and in the portal in the same PR, and keep this table, `optiki.md` §10 and the README table in step.
 
-| # | Type | Scenario (named as a behavior) | Proves |
-|---|---|---|---|
-| A1 | API | An anonymous scan of the kitchen-sink fixture runs `ruleSet CORE` and fails exactly the 9 P0 rules | Engine correctness, anonymous tier |
-| A2 | API | Scanning the perfect fixture scores 100 with zero findings | No false positives |
-| A3 | API | Each broken/fixed pair fails and then passes its own rule | Every rule, both directions |
-| A4 | API | Scanning the same HTML twice returns the same `reportHash` | Determinism |
-| A5 | API | Empty body, both `html` and `url`, HTML over 2 MB, or the wrong content type is rejected (400 / 400 / 413 / 415) | Validation |
-| A6 | API | Scanning the API's own `/gym/pages/perfect.html` URL returns a completed report | Real fetch path |
-| A7 | API | `127.0.0.1`, `localhost`, `169.254.169.254`, `[::1]`, `10.0.0.1`, `2130706433`, `file://` and `/gym/redirect-private` are all blocked with `SSRF_BLOCKED` | SSRF defense |
-| A8 | API | Exceeding the anonymous scan limit returns 429 with `RateLimit-*` headers | Rate limiter |
-| A9 | API | A scan by the signed-in seeded user runs `ruleSet FULL`, returns 17 rule results, and is `PRIVATE` | Signed-in tier |
-| A10 | API | A token with only `scan:create:own` scans (201), gets 403 `MISSING_PERMISSION` listing scans, and gets 401 `TOKEN_REVOKED` once revoked; listing tokens never returns the secret | Token scoping |
-| A11 | API | User B gets 404 on user A's private scan, project and token; an anonymous scan's link is readable by anyone | Ownership / IDOR |
-| A12 | API | The OpenAPI spec and `/health` respond; health reports the deployed commit | Contract |
-| A13 | API | Sign-up returns a session, and the new user stays unverified (verified-only routes answer `403 EMAIL_NOT_VERIFIED`) | Verification gate |
-| A14 | API | Forgot-password gives the same answer for an unknown email and a known one | No account enumeration |
-| A15 | API | A wrong reset code is rejected, and after five wrong guesses even the right code is refused | OTP brute-force defense |
-| A16 | API | A token with project permissions creates a project and a scan linked to it; deleting the project keeps the scan | Projects via token |
-| A17 | API | `POST /api/v1/sitevisit` with path `/scans/<any id>` answers 201 with `page: "Scan Report"`; a bad `capturedAt` or `anonymousID` is 400; `POST /api/v1/auth/user/<another user's id>/anony-reconcile` is 403 | Site visit capture and reconcile ownership |
-| U1 | UI | "Try a demo scan" shows an overall score and four category scores as text | First-run experience |
-| U2 | UI | On /scan, pressing "Load example OPT-101 broken" opens a report listing OPT-101 with a "How to fix OPT-101" section | Core flow |
-| U3 | UI | Pressing "Load example OPT-101 fixed" opens a report where OPT-101 passes and the score is higher | Feedback loop |
-| U4 | UI | Scanning a private address shows "This address isn't allowed" | Error UX |
-| U5 | UI | A shared report link opens the same score and findings | Persistence |
-| U6 | UI | The rules catalog page for OPT-201 shows WCAG 2.5.3 and its origin note | Docs |
-| U7 | UI | A signed-out scan shows the "9 core rules" banner and Stable as "needs rendered scan" | Honest tiers and modes |
-| U8 | UI | The Gym index lists the pairs, and a broken page shows its banner | Gym |
-| U9 | UI | Creating an API token shows it once ("Copy your new API token"), the table then shows `opt_…_••••`, and "Revoke token <name>" marks it Revoked | Token flow |
-| U10 | UI | Creating a project from the dashboard and scanning into it lists the scan on the project page | Project flow |
-| U11 | UI | Signing up lands on the "Verify your email" gate | Account flow |
-| U12 | UI | Signing in with the seeded account opens the dashboard; signing out returns to sign-in | Session flow |
-
-A1–A15 and U1–U9, U11, U12 cover what exists today; A16 and U10 wait for projects. Rendered-scan tests (A9's rendered half, U-tests on screenshots) need a public URL the production API can reach, such as `https://example.com/` or the API's own `/gym/pages/…`.
+| # | Scenario (named as a behavior) | Proves |
+|---|---|---|
+| U1 | Scanning the OPT-101 broken example fails OPT-101 and shows how to fix it | A rule fails on its broken page; the fix is shown |
+| U2 | Scanning the OPT-101 fixed example passes OPT-101 | The rule passes once fixed |
+| U3 | Scanning the Perfect page example scores 100 | No false positives |
+| U4 | A signed-out URL scan of docease-v2 runs statically with the 9 core rules | Anonymous tier, real fetch |
+| U5 | Scanning a private address shows "This address isn't allowed" | SSRF blocking in the UI |
+| U6 | An address without https:// is rejected before scanning | Form validation |
+| U7 | Signing in with the demo account opens the dashboard | Session flow |
+| U8 | A signed-in URL scan of docease-v2 renders in a real browser | Signed-in tier: rendered + screenshot |
+| U9 | Making a signed-in scan public updates its visibility | Private by default; sharing |
+| U10 | Deleting a scan from its report returns to the Scans page | Owner delete |
 
 ## Credit hygiene
 
@@ -126,9 +102,9 @@ S3 teams burned through credits (Timeora: ~150 → ~74) and one deleted tests by
 
 Open each as a ready (non-draft) PR, let it fail, and close it unmerged — then link it from the README:
 
-1. **S1 engine:** disable OPT-101's ancestor check → A1/A3 go red → merge blocked. S1's server does go live on its PR, but the A-tests aren't on the PR trigger. It's caught only if a UI test sees the change, or once the API project gets a PR trigger too (not set up).
-2. **S2 UI:** wrap the score gauge in `role="img"` and drop its text → U1 goes red (and, once it exists, the optikí Action) → merge blocked.
+1. **S1 engine:** disable OPT-101's ancestor check (`HiddenBy`) → the broken page passes → U1 goes red → merge blocked. CI Previews deploys the sabotaged server first, so re-run the last **Build and Deploy To Contabo** on `main` after closing it.
+2. **S2 UI:** wrap the score gauge in `role="img"` and drop its text → U3 goes red (and, once it exists, the optikí Action) → merge blocked.
 
 ## README "What the suite covers"
 
-Required by S4. One row per test: test · UI/API · what it proves · the PR where it caught something. Update it in the same PR that adds or changes a test.
+Required by S4. One row per test: test · UI · what it proves · the PR where it caught something. Update it in the same PR that adds or changes a test.

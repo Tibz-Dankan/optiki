@@ -29,26 +29,20 @@ A PR to `main` runs **CI Previews** instead (`ci-previews.yaml`). It first deplo
 
 ## What the suite covers
 
-Built in the TestSprite portal. The UI tests run on every ready (non-draft) PR against its Netlify preview, and a red run blocks the merge (see [optiki.md §10](optiki.md#10-test-strategy)). The API tests run from the portal against production. The last column links the PR where a test caught a real problem.
+UI tests only, built in the TestSprite portal. They run on every ready (non-draft) PR against its Netlify preview, and a red run blocks the merge. The steps for each case are in [testsprite/ui-test-plan.md](testsprite/ui-test-plan.md). The last column links the PR where a test caught a real problem.
 
 | Test | Type | What it proves | Caught something in |
 |---|---|---|---|
-| A12 OpenAPI spec and `/health` respond; health reports the deployed commit | API | The contract TestSprite reads exists, and the deploy isn't stale | — |
-| A13 Sign-up returns a session, and the new user stays unverified | API | Verified-only routes answer `403 EMAIL_NOT_VERIFIED` until the emailed link is used | — |
-| A14 Forgot-password answers the same for unknown and known emails | API | No account enumeration | — |
-| A15 A wrong reset code is rejected; after five wrong guesses even the right code is refused | API | Reset codes can't be brute-forced | — |
-| U11 Signing up lands on the "Verify your email" gate | UI | The sign-up flow and the verification gate | — |
-| U12 Signing in with the seeded account opens the dashboard; signing out returns to sign-in | UI | Session lifecycle in the browser | — |
-
-Coming with the engine:
-
-- determinism, and every rule on its broken and fixed Gym pages
-- the core vs full rule sets
-- input validation, SSRF blocking and rate limits
-- sharing and the rules catalog
-- API token permissions and revocation, ownership, and projects
-
-See [optiki.md §10](optiki.md#10-test-strategy).
+| U1 Scanning the OPT-101 broken example fails OPT-101 and shows how to fix it | UI | A rule fails on its broken Gym page, and the finding explains the fix | — |
+| U2 Scanning the OPT-101 fixed example passes OPT-101 | UI | The same rule passes once the page is fixed | — |
+| U3 Scanning the Perfect page example scores 100 | UI | No false positives | — |
+| U4 A signed-out URL scan of docease-v2 runs statically with the 9 core rules | UI | The anonymous tier, and a real fetch of a public site | — |
+| U5 Scanning a private address shows "This address isn't allowed" | UI | SSRF blocking, surfaced in the UI | — |
+| U6 An address without https:// is rejected before scanning | UI | URL validation in the form | — |
+| U7 Signing in with the demo account opens the dashboard | UI | The session flow for the seeded account | — |
+| U8 A signed-in URL scan of docease-v2 renders in a real browser | UI | The signed-in tier: rendered scans with a screenshot | — |
+| U9 Making a signed-in scan public updates its visibility | UI | Signed-in scans start private; the owner can share them | — |
+| U10 Deleting a scan from its report returns to the Scans page | UI | The owner can delete a scan | — |
 
 ## Run it locally
 
@@ -151,6 +145,7 @@ Verify a sending domain in Resend, then put the API key and an address on that d
 ### 6. TestSprite
 
 - In the portal, create a project for `https://optikii.netlify.app`. Add the demo credentials and the PRD from [optiki.md §12](optiki.md#12-prd-paste-into-the-testsprite-portal).
+- Add the cases from [testsprite/ui-test-plan.md](testsprite/ui-test-plan.md) (Add More Tests → Add Test Manually). In Run Behavior, turn **Log in once per run** off and **Always use planned steps** on.
 - Install the TestSprite GitHub App on this repo (Workspace Settings → Connections → Integrations → GitHub).
 - In the UI project's **GitHub Action** tab, add a **Pull Request** trigger:
   - **Event:** the `Netlify` commit status, posted once the preview is live.
