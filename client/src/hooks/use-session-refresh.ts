@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import type { TAuthResponse } from '@typings/auth'
 import { useAuthStore } from '@stores/auth'
 import { endSession } from '@utils/end-session'
+import { reconcileAnonymousUser } from '@utils/reconcile-anonymous-user'
 import { refreshSession } from '@utils/refresh-session'
 
 const REFRESH_THRESHOLD_MS = 15 * 60 * 1000
@@ -22,6 +23,7 @@ export const useSessionRefresh = () => {
         accessTokenExpiresAt: data.session.accessTokenExpiresAt,
         refreshTokenExpiresAt: data.session.refreshTokenExpiresAt,
       })
+      reconcileAnonymousUser(data.session.userID)
     },
   })
 

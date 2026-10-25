@@ -16,6 +16,7 @@ import { Rule } from '@modules/rules/pages/rule'
 import { Rules } from '@modules/rules/pages/rules'
 import { Scan } from '@modules/scan/pages/scan'
 import { ScanReport } from '@modules/scan/pages/scan-report'
+import { PageCapturer } from '@modules/shared/ui/page-capturer'
 
 export const App: React.FC = () => {
   const { isAuthenticatedPath } = useIsAuthenticatedPath()
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter>
+      <PageCapturer />
       {!isLoggedIn && (
         <Routes>
           <Route path='/' element={<Home />} />

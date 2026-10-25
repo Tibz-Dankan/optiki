@@ -137,3 +137,16 @@ export type TRevokeSessionResponse = TServerResponseStatus & {
     isCurrentSession: boolean
   }
 }
+
+export type TReconcileAnonymousUserInput = {
+  userID: string
+  anonymousID: string
+}
+
+export type TReconcileAnonymousUserResponse = TServerResponseStatus & {
+  data: {
+    anonymousID: string
+    userID: string
+    linkedVisits: number
+  }
+}

@@ -39,6 +39,17 @@ var MAX_REQUEST_BODY_SIZE int64 = 4 << 20
 var AUTH_RATE_LIMIT = 20
 var AUTH_RATE_LIMIT_WINDOW = 60 * time.Second
 
+var SITE_VISIT_RATE_LIMIT = 60
+var SITE_VISIT_RATE_LIMIT_WINDOW = 60 * time.Second
+var MAX_SITE_VISIT_PATH_LENGTH = 512
+var MAX_DEVICE_NAME_LENGTH = 64
+var UNKNOWN_DEVICE_NAME = "Unknown"
+
+// ip-api.com's free tier is HTTP-only and allows 45 lookups a minute; each IP is looked up once.
+var IP_GEOLOCATION_URL = "http://ip-api.com/json/"
+var IP_GEOLOCATION_TIMEOUT = 5 * time.Second
+var IP_GEOLOCATION_MAX_BYTES int64 = 64 << 10
+
 var API_TOKEN_PREFIX = "opt"
 var API_TOKEN_PREFIX_BYTES = 6
 var API_TOKEN_SECRET_BYTES = 32

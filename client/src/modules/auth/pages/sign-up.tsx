@@ -6,6 +6,7 @@ import { Loader2, UserPlus } from 'lucide-react'
 import type { TAuthResponse } from '@typings/auth'
 import { authAPI, authKeys } from '@api/auth'
 import { useAuthStore } from '@stores/auth'
+import { reconcileAnonymousUser } from '@utils/reconcile-anonymous-user'
 import { Button } from '@shared/ui/button'
 import {
   Card,
@@ -44,6 +45,7 @@ export const SignUp: React.FC = () => {
     mutationFn: authAPI.signUp,
     onSuccess: (response: TAuthResponse) => {
       updateSession(response.session)
+      reconcileAnonymousUser(response.session.userID)
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       navigate(response.redirectToPath, {
         replace: true,

@@ -2,7 +2,7 @@
 
 Every GORM struct lives in `internal/models/schema.go`, and every table is listed in the `AutoMigrate` call in `internal/models/db.go`.
 
-- **Built:** the account tables, plus permissions, API tokens, attachments, scans, rule results and findings.
+- **Built:** the account tables, plus permissions, API tokens, attachments, scans, rule results and findings, and the site-visit tables (devices, locations, site visits, anonymous user links).
 - **Not built yet:** `projects`, and with it `scans.projectID` and the `project:*` permissions. That part of this file is the target design; it lands additively.
 
 Conventions that apply to every table:
@@ -23,7 +23,12 @@ users ─┬─< sessions        (CASCADE)
        ├─< api_tokens      (CASCADE) ─< api_token_permissions >─ permissions (seeded)
        ├─< attachments     (CASCADE)
        ├─< scans           (CASCADE)
+       ├─< devices         (CASCADE; userID NULL rows are shared by anonymous visitors)
+       ├─< site_visits     (SET NULL)
+       ├─< anonymous_user_links (CASCADE)
        └─< projects        (CASCADE)                         — not built yet
+devices     ─< site_visits (SET NULL)
+locations   ─< site_visits (SET NULL; one row per public IP, no owner)
 api_tokens  ─< scans       (SET NULL: deleting a token keeps its scans)
 attachments ─< scans       (scans.screenshotAttachmentID, SET NULL; the scan delete removes it explicitly)
 projects    ─< scans       (SET NULL)                        — not built yet
@@ -65,6 +70,67 @@ The last three relationships are added in the PR that adds each table.
   - They are `json:"-"`, and sessions only leave the server through `sessionResponseData`.
 - `OTP`: `userID`, `OTP` (SHA-256 of the code), `type` (`RESET_PASSWORD`, `VERIFY_EMAIL`), `isUsed`, `isVerified`, `attempts`, `expiresAt`.
 - `Appearance`: `userID`, `theme` (`light`, `dark`, `system`).
+
+## Site visits
+
+The capture flow and the reconcile rules are in `references/site-visits.md`.
+
+```go
+type Device struct {
+	ID        string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID    *string   `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
+	Name      string    `gorm:"column:name;size:64;not null;index" json:"name"`
+	CreatedAt time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+
+type Location struct {
+	ID        string          `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	IP        string          `gorm:"column:ip;size:45;not null;uniqueIndex" json:"ip"`
+	Info      json.RawMessage `gorm:"column:info;type:jsonb;default:null" json:"info"`
+	CreatedAt time.Time       `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt time.Time       `gorm:"column:updatedAt;index" json:"updatedAt"`
+}
+
+type SiteVisit struct {
+	ID          string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID      *string    `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
+	AnonymousID string     `gorm:"column:anonymousID;type:uuid;not null;index" json:"anonymousID"`
+	DeviceID    *string    `gorm:"column:deviceID;type:uuid;default:null;index" json:"deviceID"`
+	LocationID  *string    `gorm:"column:locationID;type:uuid;default:null;index" json:"locationID"`
+	Page        string     `gorm:"column:page;size:64;not null;index" json:"page"`
+	Path        string     `gorm:"column:path;size:512;not null;index" json:"path"`
+	CapturedAt  time.Time  `gorm:"column:capturedAt;not null;index" json:"capturedAt"`
+	LinkedAt    *time.Time `gorm:"column:linkedAt;default:null" json:"linkedAt"`
+	CreatedAt   time.Time  `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt   time.Time  `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User     *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Device   *Device   `gorm:"foreignKey:DeviceID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Location *Location `gorm:"foreignKey:LocationID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+}
+
+type AnonymousUserLink struct {
+	ID          string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	AnonymousID string    `gorm:"column:anonymousID;type:uuid;not null;uniqueIndex" json:"anonymousID"`
+	UserID      string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
+	LinkedAt    time.Time `gorm:"column:linkedAt;not null;index" json:"linkedAt"`
+	CreatedAt   time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+```
+
+- `devices`: one row per `(userID, name)`, plus one shared row per name with `userID NULL` for anonymous visits. `Device.FindOrCreate` uses quoted `Where` strings, because a struct condition ignores a nil `UserID` and would match a user's row.
+- `locations`: one row per public IP; `ip` is unique, and a concurrent first insert uses `ON CONFLICT DO NOTHING` before re-reading. `info` is ip-api.com's JSON, stored only on `"status":"success"`. A non-public IP or a failed lookup gets no row, and the visit's `locationID` stays null.
+- `site_visits`: `page` is resolved on the server from `path` (`pkg.ResolvePageName`). `deviceID` and `locationID` are nullable, so a failed lookup never loses the visit. `linkedAt` is set when reconciliation gives an anonymous visit its owner.
+- `anonymous_user_links`: one row per anonymous ID (unique), written by `AnonymousUserLink.Link` in the same transaction that sets `userID` and `linkedAt` on that ID's ownerless visits.
 
 ## API tokens and permissions
 
@@ -344,6 +410,7 @@ type ScanFinding struct {
 ```go
 err = gormDB.AutoMigrate(
 	&User{}, &Session{}, &OTP{}, &Appearance{},
+	&Device{}, &Location{}, &SiteVisit{}, &AnonymousUserLink{},
 	&Permission{}, &APIToken{}, &APITokenPermission{},
 	&Attachment{},
 	&Scan{}, &ScanRuleResult{}, &ScanFinding{},

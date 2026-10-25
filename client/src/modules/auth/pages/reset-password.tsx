@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import type { TAuthResponse } from '@typings/auth'
 import { authAPI, authKeys } from '@api/auth'
 import { useAuthStore } from '@stores/auth'
+import { reconcileAnonymousUser } from '@utils/reconcile-anonymous-user'
 import { Button } from '@shared/ui/button'
 import {
   Card,
@@ -41,6 +42,7 @@ export const ResetPassword: React.FC = () => {
     mutationFn: authAPI.resetPassword,
     onSuccess: (response: TAuthResponse) => {
       updateSession(response.session)
+      reconcileAnonymousUser(response.session.userID)
       toast.success('Password updated.')
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       navigate(response.redirectToPath, { replace: true })

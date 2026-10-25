@@ -10,6 +10,7 @@ import (
 	"github.com/Tibz-Dankan/optiki/internal/handlers/health"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/rules"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/scan"
+	"github.com/Tibz-Dankan/optiki/internal/handlers/sitevisit"
 	"github.com/Tibz-Dankan/optiki/internal/handlers/status"
 	"github.com/Tibz-Dankan/optiki/internal/middlewares"
 	"github.com/gofiber/fiber/v2"
@@ -35,6 +36,7 @@ func AppRoutes(app *fiber.App) {
 	authGroup.Get("/user/session", middlewares.Auth, middlewares.VerifiedEmail, auth.GetActiveSessions)
 	authGroup.Patch("/user/session/:sessionID/revoke", middlewares.Auth, middlewares.VerifiedEmail, auth.RevokeSession)
 	authGroup.Patch("/user/:id/change-password", middlewares.Auth, middlewares.VerifiedEmail, auth.ChangePassword)
+	authGroup.Post("/user/:id/anony-reconcile", middlewares.Auth, auth.ReconcileAnonymousUser)
 	authGroup.Patch("/user/:id", middlewares.Auth, middlewares.VerifiedEmail, auth.UpdateUser)
 
 	// Appearance
@@ -76,6 +78,12 @@ func AppRoutes(app *fiber.App) {
 	apiTokenGroup.Patch("/:id/revoke", middlewares.Auth, middlewares.VerifiedEmail, apitoken.RevokeAPIToken)
 	apiTokenGroup.Patch("/:id", middlewares.Auth, middlewares.VerifiedEmail, apitoken.UpdateAPIToken)
 	apiTokenGroup.Delete("/:id", middlewares.Auth, middlewares.VerifiedEmail, apitoken.DeleteAPIToken)
+
+	// Site visit
+	siteVisitGroup := app.Group("/api/v1/sitevisit", func(c *fiber.Ctx) error {
+		return c.Next()
+	})
+	siteVisitGroup.Post("/", middlewares.OptionalAuth, middlewares.SiteVisitRateLimit, sitevisit.PostSiteVisit)
 
 	// Rules
 	app.Get("/api/v1/rules", rules.GetRules)

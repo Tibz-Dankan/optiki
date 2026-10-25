@@ -99,6 +99,7 @@ Keep this in step with `optiki.md` §10 and the README table.
 | A14 | API | Forgot-password gives the same answer for an unknown email and a known one | No account enumeration |
 | A15 | API | A wrong reset code is rejected, and after five wrong guesses even the right code is refused | OTP brute-force defense |
 | A16 | API | A token with project permissions creates a project and a scan linked to it; deleting the project keeps the scan | Projects via token |
+| A17 | API | `POST /api/v1/sitevisit` with path `/scans/<any id>` answers 201 with `page: "Scan Report"`; a bad `capturedAt` or `anonymousID` is 400; `POST /api/v1/auth/user/<another user's id>/anony-reconcile` is 403 | Site visit capture and reconcile ownership |
 | U1 | UI | "Try a demo scan" shows an overall score and four category scores as text | First-run experience |
 | U2 | UI | On /scan, pressing "Load example OPT-101 broken" opens a report listing OPT-101 with a "How to fix OPT-101" section | Core flow |
 | U3 | UI | Pressing "Load example OPT-101 fixed" opens a report where OPT-101 passes and the score is higher | Feedback loop |

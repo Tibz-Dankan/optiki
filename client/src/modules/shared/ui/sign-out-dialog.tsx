@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authAPI } from '@api/auth'
+import { useAnonymousStore } from '@stores/anonymous'
 import { useAppearanceStore } from '@stores/appearance'
 import { useAuthStore } from '@stores/auth'
 import { ConfirmDialog } from '@shared/ui/confirm-dialog'
@@ -18,6 +19,7 @@ export const SignOutDialog: React.FC<SignOutDialogProps> = ({
   const location = useLocation()
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const clearAppearance = useAppearanceStore((state) => state.clearAppearance)
+  const clearAnonymousID = useAnonymousStore((state) => state.clearAnonymousID)
 
   const { mutate, isPending } = useMutation({
     mutationFn: authAPI.signOut,
@@ -25,6 +27,7 @@ export const SignOutDialog: React.FC<SignOutDialogProps> = ({
     onSettled: () => {
       clearAuth()
       clearAppearance()
+      clearAnonymousID()
       navigate(
         `/auth/signin?redirectTo=${encodeURIComponent(location.pathname)}`,
         { replace: true }

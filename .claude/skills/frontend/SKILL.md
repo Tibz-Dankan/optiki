@@ -45,12 +45,12 @@ Commands:
 
 ```
 client/src/
-├── api/          one class per resource + its query-key factory  (auth, appearance, scan, api-token, rules, gym, http-error)
+├── api/          one class per resource + its query-key factory  (auth, appearance, scan, api-token, rules, gym, site-visit, http-error)
 ├── constants/    urls.ts (SERVER_URL, API_URL, API_ORIGIN), scan.ts, api-token.ts, fonts.ts, session.ts
 ├── hooks/        cross-cutting hooks — use-session-refresh.ts, use-get-me.ts, use-mobile.ts, …
 ├── providers/    app-wide context — theme, font, direction, layout, search, react-query, index.tsx
 ├── routes/       user-routes.tsx, auth-routes.tsx, render-*.tsx
-├── stores/       zustand stores — auth.ts, appearance.ts
+├── stores/       zustand stores — auth.ts, appearance.ts, anonymous.ts
 ├── styles/       index.css (Tailwind entry) + theme.css (design tokens)
 ├── types/        T-prefixed aliases, one file per domain  (alias @typings)
 ├── utils/        one function per file — classname.ts, cookies.ts, end-session.ts, refresh-session.ts,
@@ -185,7 +185,7 @@ optikí audits pages for AI-agent and screen-reader legibility. Its own UI is dr
 
 ## Recipes
 
-**Add a page** → create `modules/<module>/pages/<name>.tsx` (no `-page`), then add one `TPage` entry to `routes/user-routes.tsx`. That single entry produces the route, the sidebar item, **and** the ⌘K command-menu entry. A public page (`/scan`, `/scans/:id`, `/rules`, `/rules/:id`, `/gym`) instead gets a `<Route>` in **every** tree in `App.tsx`. → `references/routing.md`
+**Add a page** → create `modules/<module>/pages/<name>.tsx` (no `-page`), then add one `TPage` entry to `routes/user-routes.tsx`. That single entry produces the route, the sidebar item, **and** the ⌘K command-menu entry. A public page (`/scan`, `/scans/:id`, `/rules`, `/rules/:id`, `/gym`) instead gets a `<Route>` in **every** tree in `App.tsx`. Either way, add the path → page name entry to `server/internal/data/siteVisitPageNames.go`, or its visits are recorded as "Page Not Found". → `references/routing.md`
 
 **Add an API resource** → `src/api/<resource>.ts`: a class with arrow-property methods, a singleton export, and a `<resource>Keys` factory. → `references/data-layer.md`
 
@@ -201,9 +201,7 @@ optikí audits pages for AI-agent and screen-reader legibility. Its own UI is dr
 
 ## What was deliberately dropped from GradeScript
 
-Anonymous-user and site-visit tracking (`PageCapturer`, `siteVisitPageNames`), the admin tree (`/a/*`), Google sign-in, the sign-in OTP, devices and geolocation, avatars and every file upload, organizations, billing, banners, the separate developer console. Don't reintroduce them by pattern-matching on GradeScript code.
-
-Anonymous visitors *can* scan; that is a product feature, not GradeScript's anonymous-user tracking. Nothing identifies or tracks them.
+The admin tree (`/a/*`), Google sign-in, the sign-in OTP, avatars and every file upload, organizations, billing, banners, the separate developer console. Don't reintroduce them by pattern-matching on GradeScript code.
 
 **Ported from the GradeScript console:** the API-key screens become optikí's API-token settings page (`references/feature-pages.md`):
 
@@ -211,6 +209,21 @@ Anonymous visitors *can* scan; that is a product feature, not GradeScript's anon
 - the create dialog with permission checkboxes and expiry presets
 - the shown-once dialog that can't be dismissed by an outside click
 - the revoke and delete confirmations
+
+## Site visits
+
+Ported from GradeScript, capture only (there is no page that reads visits):
+
+- `<PageCapturer />` is the first child of `<BrowserRouter>` in `App.tsx` and renders `null`. `useCapturePageVisit` posts `{ path, capturedAt, anonymousID, device }` to `POST /sitevisit` on every pathname change.
+  - `path` is `pathname` only, never the query string.
+  - `device` is `getBrowserLabel(navigator.userAgent)`.
+  - The same pathname twice in a row is skipped: remounts (StrictMode, `App` swapping route trees) would otherwise double-count it.
+  - The mutation overrides the global error toast with a no-op, so a failed capture never reaches the visitor.
+- **The server resolves the page name** from the path (`server/internal/data/siteVisitPageNames.go`). The client keeps no copy of that table.
+- `stores/anonymous.ts` persists one `anonymousID` per browser. Read it through `getAnonymousID()` (`@utils/get-anonymous-id`), which creates and persists the ID on first use: zustand's `persist` writes nothing until a `set`, so an ID made in the initial state would change on every load.
+- After any new session (sign-in, sign-up, reset-password, session refresh), call `reconcileAnonymousUser(userID)` from `@utils/reconcile-anonymous-user`. It is fire-and-forget and links that browser's anonymous visits to the user.
+- Every sign-out path (`sign-out-dialog.tsx`, `use-sign-out-locally.ts`, `end-session.ts`) calls `clearAnonymousID()` beside `clearAuth()`, so later anonymous browsing isn't linked to the previous user.
+- The device and anonymous ID travel in the request body, not as global `X-Device`/`X-Anonymous-ID` headers as in GradeScript. Custom headers would need a CORS change, and a PR preview built before that change reached production would break every API call.
 
 ## References
 
