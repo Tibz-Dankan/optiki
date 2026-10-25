@@ -215,8 +215,6 @@ function checkIsActive(pathname: string, page: TPage, mainNav = false) {
   return (
     path === page.path ||
     !!page.children?.some((child) => child.path === path) ||
-    (mainNav &&
-      path.split('/')[1] !== '' &&
-      path.split('/')[1] === page.path.split('/')[1])
+    (mainNav && path.startsWith(`${page.path}/`))
   )
 }
