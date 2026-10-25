@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perfect page · optikí Gym</title>
+<style>
+body { font: 16px/1.5 system-ui, sans-serif; margin: 0; color: #111827; background: #ffffff; }
+.banner { background: #fef3c7; color: #78350f; padding: 8px 16px; font-weight: 600; }
+.banner.fixed { background: #dcfce7; color: #14532d; }
+main, .content { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+button, .btn { font: inherit; padding: 8px 14px; border: 1px solid #9ca3af; border-radius: 6px; background: #f9fafb; color: #111827; cursor: pointer; }
+.btn { display: inline-block; }
+.card { display: block; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; color: inherit; }
+label, input { display: block; margin: 4px 0 12px; } ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Perfect page</h1>
+<p>Every control here is named, labelled and exposed, and nothing moves after load.</p>
+<nav aria-label="Sections"><a href="#signup">Sign up</a> · <a href="#status">Status</a></nav>
+<h2 id="signup">Sign up</h2>
+<form>
+<label for="perfect-name">Full name</label>
+<input id="perfect-name" type="text" autocomplete="name">
+<label for="perfect-email">Email</label>
+<input id="perfect-email" type="email" autocomplete="email" aria-describedby="perfect-email-hint">
+<p id="perfect-email-hint">We only use it to send your reports.</p>
+<button type="submit">Create account</button>
+</form>
+<h2 id="status">Status</h2>
+<svg role="img" aria-label="Uptime 99.9%" width="160" height="48" viewBox="0 0 160 48"><text x="0" y="36" font-size="32">99.9%</text></svg>
+<p><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%224%22%20fill%3D%22%236366f1%22%2F%3E%3C%2Fsvg%3E" alt="optikí logo" width="24" height="24"></p>
+<ul>
+<li>Invoice #41 <button type="button">Delete invoice #41</button></li>
+<li>Invoice #42 <button type="button">Delete invoice #42</button></li>
+</ul>
+<iframe srcdoc="&lt;p&gt;Plot 12, Kampala Road&lt;/p&gt;" title="Map of the Kampala office" width="320" height="120"></iframe>
+<dialog aria-labelledby="perfect-dialog-title"><h2 id="perfect-dialog-title">All set</h2><form method="dialog"><button>Close</button></form></dialog>
+</main>
+</body>
+</html>

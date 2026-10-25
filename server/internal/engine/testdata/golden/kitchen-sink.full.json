@@ -1,0 +1,488 @@
+{
+  "engineVersion": "0.1.0",
+  "ruleSet": "FULL",
+  "rulesetHash": "bea0639241a770f261192d06d518abbad5fc3b1ac3cebb2b971137992b9cd3dc",
+  "mode": "STATIC",
+  "url": "",
+  "route": "/gym/pages/kitchen-sink.html",
+  "title": "Kitchen sink · optikí Gym",
+  "lang": "en",
+  "nodeCount": 64,
+  "controlCount": 13,
+  "scores": {
+    "overall": 0,
+    "operable": 0,
+    "perceivable": 0,
+    "stable": null,
+    "discoverable": 0
+  },
+  "counts": {
+    "findings": 15,
+    "critical": 2,
+    "serious": 6,
+    "moderate": 6,
+    "minor": 1,
+    "rulesPassed": 0,
+    "rulesFailed": 14,
+    "rulesNotApplicable": 0,
+    "rulesNeedRendered": 3
+  },
+  "rules": [
+    {
+      "ruleID": "OPT-101",
+      "position": 1,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-102",
+      "position": 2,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-103",
+      "position": 3,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 2
+    },
+    {
+      "ruleID": "OPT-104",
+      "position": 4,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-105",
+      "position": 5,
+      "category": "OPERABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-106",
+      "position": 6,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-107",
+      "position": 7,
+      "category": "OPERABLE",
+      "priority": "P2",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-201",
+      "position": 8,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-202",
+      "position": 9,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-203",
+      "position": 10,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-204",
+      "position": 11,
+      "category": "PERCEIVABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-205",
+      "position": 12,
+      "category": "PERCEIVABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-301",
+      "position": 13,
+      "category": "STABLE",
+      "priority": "P1",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-302",
+      "position": 14,
+      "category": "STABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-401",
+      "position": 15,
+      "category": "DISCOVERABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-402",
+      "position": 16,
+      "category": "DISCOVERABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "FAIL",
+      "findingsCount": 1
+    },
+    {
+      "ruleID": "OPT-403",
+      "position": 17,
+      "category": "DISCOVERABLE",
+      "priority": "P1",
+      "severity": "MINOR",
+      "weight": 1,
+      "result": "FAIL",
+      "findingsCount": 1
+    }
+  ],
+  "findings": [
+    {
+      "ruleID": "OPT-101",
+      "category": "OPERABLE",
+      "severity": "CRITICAL",
+      "fingerprint": "22fe5bfc8cd82e1eb5a14dffcc08e70a78104110694b16df60735870db490382",
+      "position": 1,
+      "documentOrder": 30,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(2) \u003e div \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Seek to iteration 1",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eSeek to iteration 1\u003c/button\u003e",
+      "message": "This button sits inside role=\"img\", so agents can't see or press it.",
+      "evidence": {
+        "hiddenBy": "ROLE_IMG",
+        "hidingAncestorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(2) \u003e div"
+      }
+    },
+    {
+      "ruleID": "OPT-102",
+      "category": "OPERABLE",
+      "severity": "CRITICAL",
+      "fingerprint": "84258603b79e188c536ac6f5cfa9c3718a9b7c574450552ea7c9316f83f72133",
+      "position": 2,
+      "documentOrder": 37,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(3) \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cbutton type=\"button\"\u003e\u003c/button\u003e",
+      "message": "This button has no accessible name, so agents can't tell what it does.",
+      "evidence": {}
+    },
+    {
+      "ruleID": "OPT-103",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "1d147a419d222217b28fac6739eae3d7ffb296779c52e6056fe3cb2ffcce66cb",
+      "position": 3,
+      "documentOrder": 45,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(1)",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Iteration 2",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eIteration 2\u003c/button\u003e",
+      "message": "2 buttons are all named \"Iteration 2\", so agents can't tell them apart.",
+      "evidence": {
+        "inRepeatedRow": false,
+        "peerPaths": [
+          "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(2)"
+        ],
+        "sharedName": "Iteration 2"
+      }
+    },
+    {
+      "ruleID": "OPT-103",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "64aa49f81b0da0e9fa001ec2fd85d02ca22ad986efd9903ccf3c74230aa3c9d2",
+      "position": 4,
+      "documentOrder": 48,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(2)",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Iteration 2",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eIteration 2\u003c/button\u003e",
+      "message": "2 buttons are all named \"Iteration 2\", so agents can't tell them apart.",
+      "evidence": {
+        "inRepeatedRow": false,
+        "peerPaths": [
+          "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(4) \u003e button:nth-of-type(1)"
+        ],
+        "sharedName": "Iteration 2"
+      }
+    },
+    {
+      "ruleID": "OPT-104",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "a65021568be1bcf3ecbe6d3c571a337ef21cb72b7f25bd538e947aa2ed23fe79",
+      "position": 5,
+      "documentOrder": 55,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(5) \u003e div",
+      "tag": "div",
+      "role": "generic",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cdiv class=\"btn\" onclick=\"this.textContent='Saved'\"\u003eSave draft\u003c/div\u003e",
+      "message": "This \u003cdiv\u003e has an onclick handler but isn't a control, so agents can't find it as one.",
+      "evidence": {
+        "trigger": "ONCLICK"
+      }
+    },
+    {
+      "ruleID": "OPT-105",
+      "category": "OPERABLE",
+      "severity": "MODERATE",
+      "fingerprint": "3be1a07629885829d350792fbdc019f3b3c202dfbbd9a79e60371c6dbdb1393d",
+      "position": 6,
+      "documentOrder": 62,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e a \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Remove",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\"\u003eRemove\u003c/button\u003e",
+      "message": "This button is inside a link, so one click can mean two actions.",
+      "evidence": {
+        "outerPath": "html \u003e body \u003e div:nth-of-type(2) \u003e a",
+        "outerRole": "link"
+      }
+    },
+    {
+      "ruleID": "OPT-106",
+      "category": "OPERABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "04dbc0eb79be1617d0d6726b5e1eff1acf297a7eed40534704042b5c2587fe2c",
+      "position": 7,
+      "documentOrder": 69,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(6) \u003e input",
+      "tag": "input",
+      "role": "textbox",
+      "accessibleName": "Email",
+      "nameFrom": "PLACEHOLDER",
+      "snippet": "\u003cinput type=\"email\" placeholder=\"Email\"\u003e",
+      "message": "This field's only label is its placeholder \"Email\", which disappears as soon as something is typed.",
+      "evidence": {
+        "placeholderOnly": true
+      }
+    },
+    {
+      "ruleID": "OPT-107",
+      "category": "OPERABLE",
+      "severity": "MODERATE",
+      "fingerprint": "a7dc71dc50e7385d70cf3fa9d30f4de122123f304281c199cc584d38dde5a532",
+      "position": 8,
+      "documentOrder": 75,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(7) \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Delete report",
+      "nameFrom": "CONTENT",
+      "snippet": "\u003cbutton type=\"button\" onclick=\"return confirm('Delete this report?')\"\u003eDelete report\u003c/button\u003e",
+      "message": "This onclick calls confirm(), which opens a browser dialog many agents can't see or answer.",
+      "evidence": {
+        "attribute": "onclick",
+        "call": "confirm"
+      }
+    },
+    {
+      "ruleID": "OPT-201",
+      "category": "PERCEIVABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "72dd7631fdc5590c914cd06caea8ca0b65ffc66eced5b1d7458617f3864d6eee",
+      "position": 9,
+      "documentOrder": 82,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(8) \u003e button",
+      "tag": "button",
+      "role": "button",
+      "accessibleName": "Help",
+      "nameFrom": "ARIA_LABEL",
+      "snippet": "\u003cbutton type=\"button\" aria-label=\"Help\"\u003ePress ? for shortcuts\u003c/button\u003e",
+      "message": "The visible text \"Press ? for shortcuts\" isn't part of the accessible name \"Help\", so an agent told to click the text won't find it.",
+      "evidence": {
+        "accessibleName": "Help",
+        "visibleText": "Press ? for shortcuts"
+      }
+    },
+    {
+      "ruleID": "OPT-202",
+      "category": "PERCEIVABLE",
+      "severity": "SERIOUS",
+      "fingerprint": "217fc57d5a19b517926b8442b83d0cc569cdec636ebac4d9226ed8b70d99562f",
+      "position": 10,
+      "documentOrder": 89,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(9) \u003e svg",
+      "tag": "svg",
+      "role": "img",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003csvg role=\"img\" width=\"160\" height=\"48\" viewbox=\"0 0 160 48\"\u003e98.2%\u003c/svg\u003e",
+      "message": "This SVG shows \"98.2%\" but gives agents no text for it.",
+      "evidence": {
+        "graphic": "SVG",
+        "textContent": "98.2%"
+      }
+    },
+    {
+      "ruleID": "OPT-203",
+      "category": "PERCEIVABLE",
+      "severity": "MODERATE",
+      "fingerprint": "dc06bc42fb64977f0f429192a00aa0fb9c5c11792f2a38fc50edb24ca69cb34e",
+      "position": 11,
+      "documentOrder": 98,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(10) \u003e a \u003e img",
+      "tag": "img",
+      "role": "img",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cimg src=\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%224%22%20fill%3D%22%236366f1%22%2F%3E%3C%2Fsvg%3E\" width=\"24\" height=\"24\"\u003e",
+      "message": "This image has no alt attribute, so agents don't know what it shows.",
+      "evidence": {}
+    },
+    {
+      "ruleID": "OPT-205",
+      "category": "PERCEIVABLE",
+      "severity": "MODERATE",
+      "fingerprint": "aa10cc926721ce214337ed717bcc6783a0292a4ad8145d3d405b3e13db2ba631",
+      "position": 12,
+      "documentOrder": 115,
+      "selectorPath": "#q",
+      "tag": "input",
+      "role": "searchbox",
+      "accessibleName": "Search products",
+      "nameFrom": "NATIVE",
+      "snippet": "\u003cinput id=\"q\" type=\"search\" aria-describedby=\"search-hint\"\u003e",
+      "message": "This aria-describedby points at missing ids \"search-hint\", so its label or description is lost.",
+      "evidence": {
+        "attributes": [
+          "aria-describedby"
+        ],
+        "duplicateIDs": [],
+        "missingIDs": [
+          "search-hint"
+        ]
+      }
+    },
+    {
+      "ruleID": "OPT-401",
+      "category": "DISCOVERABLE",
+      "severity": "MODERATE",
+      "fingerprint": "70a99476aa13f010b609da0a23faa193b8032bbd00433dde4f01d5901c154a07",
+      "position": 13,
+      "documentOrder": 0,
+      "selectorPath": "html",
+      "tag": "html",
+      "role": "generic",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003chtml lang=\"en\"\u003eIntentionally broken: one violation of every rule Kitchen sink Hidden control Seek to iteration 1 Unnamed control Look-alike controls Iteration 2 Iteration 2 Cl…\u003c/html\u003e",
+      "message": "The page has no main landmark, so agents can't confirm where they are or find the content.",
+      "evidence": {
+        "missing": [
+          "main"
+        ]
+      }
+    },
+    {
+      "ruleID": "OPT-402",
+      "category": "DISCOVERABLE",
+      "severity": "MODERATE",
+      "fingerprint": "285dad299307238ad9a88e2ca9899a7ee992a84a7d4dfd79d4f272692a65a9cd",
+      "position": 14,
+      "documentOrder": 124,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(14)",
+      "tag": "div",
+      "role": "dialog",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003cdiv role=\"dialog\" class=\"card\"\u003eDelete project? Keep project\u003c/div\u003e",
+      "message": "This dialog has no accessible name, so agents can't tell which dialog opened.",
+      "evidence": {}
+    },
+    {
+      "ruleID": "OPT-403",
+      "category": "DISCOVERABLE",
+      "severity": "MINOR",
+      "fingerprint": "e0affc4dee71543675aa2862a8ab087109a6b01d8e5fb2fa8185162755c2a3b8",
+      "position": 15,
+      "documentOrder": 135,
+      "selectorPath": "html \u003e body \u003e div:nth-of-type(2) \u003e div:nth-of-type(15) \u003e iframe",
+      "tag": "iframe",
+      "role": "iframe",
+      "accessibleName": "",
+      "nameFrom": "",
+      "snippet": "\u003ciframe srcdoc=\"\u003cp\u003ePlot 12, Kampala Road\u003c/p\u003e\" width=\"320\" height=\"120\"\u003e\u003c/iframe\u003e",
+      "message": "This frame has no title, so agents don't know what's inside before entering it.",
+      "evidence": {}
+    }
+  ],
+  "reportHash": "f20a8f3913789ae72a965b0f90964fff1db3e6cf45ac6870f3b9e0f0dcc6a245"
+}

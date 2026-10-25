@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPT-302 · Layout shift (broken) · optikí Gym</title>
+<style>
+body { font: 16px/1.5 system-ui, sans-serif; margin: 0; color: #111827; background: #ffffff; }
+.banner { background: #fef3c7; color: #78350f; padding: 8px 16px; font-weight: 600; }
+.banner.fixed { background: #dcfce7; color: #14532d; }
+main, .content { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+button, .btn { font: inherit; padding: 8px 14px; border: 1px solid #9ca3af; border-radius: 6px; background: #f9fafb; color: #111827; cursor: pointer; }
+.btn { display: inline-block; }
+.card { display: block; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; color: inherit; }
+
+main { max-width: none; }
+</style>
+</head>
+<body>
+<div class="banner">Intentionally broken for OPT-302</div>
+<main>
+<h1>Latest news</h1>
+<div id="promo"></div>
+<p>The loop ran 14 times this week. Each run scanned the preview, compared it with the base branch, and posted the delta on the pull request.</p>
+<p>Two runs found new serious findings: a masked label on the share button and a canvas chart without a text equivalent. Both were fixed before merge.</p>
+<p>Next week the scanner gains rendered checks for tiny text, late controls and layout shift, so the stable category gets a score of its own.</p>
+<p>Thanks to everyone who reported false positives. Repeated row actions are now downgraded to moderate, and identical links to the same page no longer count as look-alikes.</p>
+<p>The loop ran 14 times this week. Each run scanned the preview, compared it with the base branch, and posted the delta on the pull request.</p>
+<p>Two runs found new serious findings: a masked label on the share button and a canvas chart without a text equivalent. Both were fixed before merge.</p>
+<p>Next week the scanner gains rendered checks for tiny text, late controls and layout shift, so the stable category gets a score of its own.</p>
+<p>Thanks to everyone who reported false positives. Repeated row actions are now downgraded to moderate, and identical links to the same page no longer count as look-alikes.</p>
+<p>The loop ran 14 times this week. Each run scanned the preview, compared it with the base branch, and posted the delta on the pull request.</p>
+<p>Two runs found new serious findings: a masked label on the share button and a canvas chart without a text equivalent. Both were fixed before merge.</p>
+<p>Next week the scanner gains rendered checks for tiny text, late controls and layout shift, so the stable category gets a score of its own.</p>
+<p>Thanks to everyone who reported false positives. Repeated row actions are now downgraded to moderate, and identical links to the same page no longer count as look-alikes.</p>
+</main>
+<script>setTimeout(function () { var promo = document.getElementById('promo'); promo.style.height = '520px'; promo.style.background = '#e0e7ff'; }, 600);</script>
+</body>
+</html>

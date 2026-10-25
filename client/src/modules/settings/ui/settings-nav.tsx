@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { UserCog, Wrench } from 'lucide-react'
+import { KeyRound, UserCog, Wrench } from 'lucide-react'
 import { cn } from '@utils/classname'
 import { buttonVariants } from '@shared/ui/button'
 import { ScrollArea } from '@shared/ui/scroll-area'
@@ -14,6 +14,7 @@ import {
 const navItems = [
   { title: 'General', segment: '', icon: UserCog },
   { title: 'Account', segment: '/account', icon: Wrench },
+  { title: 'API tokens', segment: '/api-tokens', icon: KeyRound },
 ]
 
 const settingsPath = '/u/settings'

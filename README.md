@@ -7,7 +7,7 @@ Built for **TestSprite Hackathon Season 4** ("One week. One loop. Every PR."). T
 - **App:** https://optikii.netlify.app
 - **API:** https://optikiapi.tuliime.com (OpenAPI at [`/api/v1/openapi.yaml`](https://optikiapi.tuliime.com/api/v1/openapi.yaml))
 
-> **Status:** the scaffold is live: accounts, the app shell and both deploys. The scan engine lands next ([roadmap](optiki.md#13-pr-roadmap)).
+> **Status:** accounts and both deploys are live. Scans (all 17 rules, static and rendered, with screenshots), API tokens, the rules catalog and the Gym are built on `feat/scans-and-tokens` and being split into PRs. Projects come next ([roadmap](optiki.md#13-pr-roadmap)).
 
 ## What you'll be able to do
 
@@ -72,7 +72,8 @@ pnpm dev:local                  # plain `pnpm dev` talks to the production API
 
 - Without `RESEND_API_KEY`, the server prints each email to its console instead of sending it, so you can open verification links and read reset codes.
 - To get a ready, verified account, set `SEED_DEMO=true` and the `DEMO_*` values in `server/.env`.
-- `make test` runs the Go tests. `pnpm lint` and `pnpm build` check the client.
+- `make test` runs the Go tests; the rendered-scan tests drive your local Chrome/Chromium and skip without one. `make golden` rewrites the engine's golden reports. `pnpm lint` and `pnpm build` check the client.
+- Locally, URL scans can't reach `localhost` (the SSRF guard blocks it, as intended); scan a public URL or use the Gym examples.
 
 ## Repository layout
 
@@ -103,7 +104,9 @@ Point an A record for `optikiapi.tuliime.com` at the server. There are no previe
 scp server/.env.example <user>@<server>:~/optiki.env
 
 # On the server: fill in OPTIKI_PROD_DSN, JWT_SECRET, Resend and the DEMO_* accounts,
-# and set APP_BASE_URL=https://optikii.netlify.app (the client's origin: email links and CORS)
+# set APP_BASE_URL=https://optikii.netlify.app (the client's origin: email links and CORS),
+# and, for scan screenshots, S3_ACCESS_KEY_ID, S3_ACCESS_KEY, S3_BUCKET_NAME and AWS_REGION
+# (a private bucket; scans work without it, just without screenshots)
 chmod 600 ~/optiki.env
 mkdir -p ~/app/optiki && cp ~/optiki.env ~/app/optiki/.env
 docker login                          # only if the Docker Hub repository is private

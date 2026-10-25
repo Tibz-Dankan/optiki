@@ -1,0 +1,204 @@
+{
+  "engineVersion": "0.1.0",
+  "ruleSet": "FULL",
+  "rulesetHash": "bea0639241a770f261192d06d518abbad5fc3b1ac3cebb2b971137992b9cd3dc",
+  "mode": "STATIC",
+  "url": "",
+  "route": "/gym/pages/perfect.html",
+  "title": "Perfect page · optikí Gym",
+  "lang": "en",
+  "nodeCount": 36,
+  "controlCount": 7,
+  "scores": {
+    "overall": 100,
+    "operable": 100,
+    "perceivable": 100,
+    "stable": null,
+    "discoverable": 100
+  },
+  "counts": {
+    "findings": 0,
+    "critical": 0,
+    "serious": 0,
+    "moderate": 0,
+    "minor": 0,
+    "rulesPassed": 14,
+    "rulesFailed": 0,
+    "rulesNotApplicable": 0,
+    "rulesNeedRendered": 3
+  },
+  "rules": [
+    {
+      "ruleID": "OPT-101",
+      "position": 1,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-102",
+      "position": 2,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "CRITICAL",
+      "weight": 10,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-103",
+      "position": 3,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-104",
+      "position": 4,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-105",
+      "position": 5,
+      "category": "OPERABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-106",
+      "position": 6,
+      "category": "OPERABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-107",
+      "position": 7,
+      "category": "OPERABLE",
+      "priority": "P2",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-201",
+      "position": 8,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-202",
+      "position": 9,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-203",
+      "position": 10,
+      "category": "PERCEIVABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-204",
+      "position": 11,
+      "category": "PERCEIVABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-205",
+      "position": 12,
+      "category": "PERCEIVABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-301",
+      "position": 13,
+      "category": "STABLE",
+      "priority": "P1",
+      "severity": "SERIOUS",
+      "weight": 7,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-302",
+      "position": 14,
+      "category": "STABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "NEEDS_RENDERED",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-401",
+      "position": 15,
+      "category": "DISCOVERABLE",
+      "priority": "P0",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-402",
+      "position": 16,
+      "category": "DISCOVERABLE",
+      "priority": "P1",
+      "severity": "MODERATE",
+      "weight": 3,
+      "result": "PASS",
+      "findingsCount": 0
+    },
+    {
+      "ruleID": "OPT-403",
+      "position": 17,
+      "category": "DISCOVERABLE",
+      "priority": "P1",
+      "severity": "MINOR",
+      "weight": 1,
+      "result": "PASS",
+      "findingsCount": 0
+    }
+  ],
+  "findings": [],
+  "reportHash": "4255256df462269f7374c6ac65d24b6579d4cad10c4ef4779c3d6f192b02fab8"
+}

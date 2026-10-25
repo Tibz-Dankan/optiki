@@ -1,18 +1,23 @@
-# Feature pages: scans, projects, API tokens, rules, Gym
+# Feature pages: scans, API tokens, rules, Gym
 
-What each feature module contains and which server contract it reads. The server side is in the backend skill (`references/scans.md`, `projects.md`, `api-tokens.md`); the shapes below mirror those responses. Every page follows `theme-and-ui.md`, every form `forms.md`, every dialog the one-dialog-per-file rule.
+What each feature module contains and which server contract it reads. The server side is in the backend skill (`references/scans.md`, `api-tokens.md`, `attachments.md`); the types below mirror those responses. Every page follows `theme-and-ui.md`, every form `forms.md`, and every dialog the one-dialog-per-file rule.
+
+Projects are designed (backend `references/projects.md`) but not built. There is no `project` module yet.
 
 ## Routes
 
 | Path | Tree | Module · page | Notes |
 |---|---|---|---|
+| `/` | all three | `home/pages/home.tsx` → `Home` | "Try a demo scan" scans the kitchen-sink Gym page and opens its report |
 | `/scan` | all three | `scan/pages/scan.tsx` → `Scan` | the playground |
-| `/scans/:id` | all three | `scan/pages/scan-report.tsx` → `ScanReport` | one report; share link |
-| `/rules`, `/rules/:id` | all three | `rules/pages/rules.tsx`, `rule.tsx` | catalog |
-| `/gym` | all three | `gym/pages/gym.tsx` | fixture index; links open `/gym/pages/<id>.html` on the API origin |
+| `/scans/:id` | all three | `scan/pages/scan-report.tsx` → `ScanReport` | one report; the share link |
+| `/rules`, `/rules/:id` | all three | `rules/pages/rules.tsx` → `Rules`, `rule.tsx` → `Rule` | catalog |
+| `/gym` | all three | `gym/pages/gym.tsx` → `Gym` | fixture index; links open `API_ORIGIN` + `/gym/pages/<id>.html` |
+| `/u/dashboard` | user | `dashboard/pages/dashboard.tsx` | recent scans (the 5 latest) |
 | `/u/scans` | user | `scan/pages/scans.tsx` → `Scans` | history, a `TPage` under "General" |
-| `/u/projects`, `/u/projects/:id` | user | `project/pages/projects.tsx`, `project.tsx` | `TPage`s under "General" (`:id` with `showInSidebar: false`) |
-| `/u/settings/api-tokens` | user | `api-token/pages/api-tokens.tsx` → `APITokens` | a child of Settings |
+| `/u/settings/api-tokens` | user | `api-token/pages/api-tokens.tsx` → `APITokens` | a Settings child, plus an entry in `settings/ui/settings-nav.tsx` |
+
+Every public page wraps itself in **`HomeLayout`** (`home/layout/home-layout.tsx`): the logo, the Scan / Rules / Gym nav, the theme switch, sign-in or "Open dashboard", `<main id='content'>`, and the footer.
 
 Public pages render for everyone, and the server decides what each visitor gets. The page reads `ruleSet`, `mode` and `isOwner` from the response; it never infers them from the route tree.
 
@@ -20,69 +25,30 @@ Public pages render for everyone, and the server decides what each visitor gets.
 
 | File | Class · singleton | Keys | Types file |
 |---|---|---|---|
-| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update(id, input)`, `delete(id)` | `scanKeys = { all, list(filters), detail(id) }` | `types/scan.ts` |
-| `api/project.ts` | `ProjectAPI` · `projectAPI`: `create`, `getAll`, `getOne`, `update`, `delete` | `projectKeys = { all, list(), detail(id) }` | `types/project.ts` |
-| `api/api-token.ts` | `APITokenAPI` · `apiTokenAPI`: `create`, `getAll`, `getPermissions`, `update`, `revoke`, `delete` | `apiTokenKeys = { all, list(), permissions() }` | `types/api-token.ts` |
-| `api/rules.ts` | `RulesAPI` · `rulesAPI`: `getAll(set?)`, `getOne(id)` | `rulesKeys = { all, list(set), detail(id) }` | `types/rules.ts` |
+| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update({id, title?, visibility?})`, `delete({id})` | `scanKeys = { all, list(filters), detail(id) }` | `types/scan.ts` |
+| `api/api-token.ts` | `APITokenAPI` · `apiTokenAPI`: `create`, `getAll(limit, cursor)`, `getPermissions`, `update`, `revoke`, `delete` | `apiTokenKeys = { all, list(), permissions() }` | `types/api-token.ts` |
+| `api/rules.ts` | `RulesAPI` · `rulesAPI`: `getAll()` (FULL), `getOne(id)` | `rulesKeys = { all, list(), detail(id) }` | `types/rules.ts` |
 | `api/gym.ts` | `GymAPI` · `gymAPI`: `getAll` | `gymKeys = { all, list() }` | `types/gym.ts` |
 
-All of these use `SERVER_URL` (`/api/v1`). The client never calls `/client/v1`.
+- All of these use `SERVER_URL` (`/api/v1`). The client never calls `/client/v1`; `API_URL` appears only in the token dialog's curl sample.
+- `API_ORIGIN` (in `constants/urls.ts`) is the API's own origin, for linking Gym pages.
+- Labels, tones, reason-code messages and page sizes live in `constants/scan.ts` and `constants/api-token.ts`.
+- One-function utils: `describe-scan-target.ts` (title → URL → Gym page → HTML), `get-api-token-status.ts` (adds `EXPIRING` within 7 days), `get-api-token-expires-at.ts` (preset → ISO date).
 
-Core types (string unions, ISO date strings, nullable where the server sends `null`):
+The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `TScanInputType`, `TScanTriggeredBy`, `TScanVisibility`, `TSeverity`, `TRuleCategory`, `TRuleResult`), plus:
 
-```ts
-export type TScanRuleSet = 'CORE' | 'FULL'
-export type TScanMode = 'STATIC' | 'RENDERED'
-export type TScanStatus = 'RUNNING' | 'COMPLETED' | 'FAILED'
-export type TScanInputType = 'HTML' | 'URL' | 'GYM'
-export type TScanTriggeredBy = 'ANONYMOUS' | 'USER' | 'API_TOKEN'
-export type TScanVisibility = 'PRIVATE' | 'PUBLIC'
-export type TSeverity = 'CRITICAL' | 'SERIOUS' | 'MODERATE' | 'MINOR'
-export type TRuleCategory = 'OPERABLE' | 'PERCEIVABLE' | 'STABLE' | 'DISCOVERABLE'
-export type TRuleResult = 'PASS' | 'FAIL' | 'NOT_APPLICABLE' | 'NEEDS_RENDERED'
-
-export type TScanScores = {
-  overall: number | null
-  operable: number | null
-  perceivable: number | null
-  stable: number | null
-  discoverable: number | null
-}
-
-export type TScanSummary = {
-  id: string
-  title: string | null
-  visibility: TScanVisibility
-  status: TScanStatus
-  triggeredBy: TScanTriggeredBy
-  inputType: TScanInputType
-  mode: TScanMode
-  ruleSet: TScanRuleSet
-  isOwner: boolean
-  target: { url: string | null; finalURL: string | null; gymPageID: string | null; route: string; httpStatus: number | null; pageTitle: string | null; pageLang: string | null }
-  scores: TScanScores
-  counts: { findings: number; critical: number; serious: number; moderate: number; minor: number; rulesPassed: number; rulesFailed: number; rulesNotApplicable: number; rulesNeedRendered: number; findingsTruncated: boolean }
-  project: { id: string; name: string } | null
-  error: { code: string; message: string } | null
-  createdAt: string
-}
-
-export type TScanReport = TScanSummary & { rules: TScanRuleResult[]; findings: TScanFinding[] }
-
-export type TAPITokenPermission =
-  | 'scan:create:own' | 'scan:view:own' | 'scan:edit:own' | 'scan:delete:own'
-  | 'project:create:own' | 'project:view:own' | 'project:edit:own' | 'project:delete:own'
-export type TAPITokenStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED'
-export type TCreatedAPIToken = TAPIToken & { token: string }
-```
+- `TScanSummary`: with `scores`, `counts`, `engine`, `timing`, `error`, and `screenshot: TScanScreenshot | null`
+- `TScanReport = TScanSummary & { rules; findings }`
+- `TScanScreenshot = { id, url, expiresAt, contentType, size, width, height }`
 
 ## Scan playground (`/scan`)
 
-- Three inputs, as tabs: **Paste HTML** (a `<textarea>` with a label), **URL** (an `<input type="url">`), **Gym example** (a list of "Load example" buttons, one per pair, named by scene and rule: "Load example Ring (OPT-101, broken)").
-  - TestSprite never types long HTML; it presses a Load example button.
-- One **Scan** button submits `scanAPI.create`. On success, navigate to `/scans/:id`. Signed-in users' scans also invalidate `scanKeys.all`.
-- A verified user also sees an optional title and a project picker (their projects).
-- Error states, keyed on `error.error`:
+- Three tabs (`@shared/ui/tabs`):
+  - **Gym example** (default): `scan/ui/gym-examples.tsx`. Buttons named by rule and variant ("Load example OPT-101 broken", "Load example Kitchen sink (every rule broken)"). **A Load example button scans immediately**: one click, short TestSprite plans.
+  - **URL**: `url-scan-form.tsx`, Formik + Yup. The text says whether the scan will render (verified) or run statically.
+  - **Paste HTML**: `html-scan-form.tsx`, with a 2 MB check in Yup.
+- The page owns the one `scanAPI.create` mutation. On success it invalidates `scanKeys.all` and navigates to `/scans/:id`.
+- A local `onError` replaces the global toast with an inline `role='alert'`, keyed on `error.error` through `scanErrorMessages`:
 
 | Reason | Message |
 |---|---|
@@ -90,76 +56,63 @@ export type TCreatedAPIToken = TAPIToken & { token: string }
 | `TOO_LARGE` | "That page is over 2 MB" |
 | `NOT_HTML` | "That address didn't return an HTML page" |
 | `FETCH_TIMEOUT` / `RENDER_TIMEOUT` | "That page took too long to load" |
-| `RENDERER_BUSY` / 429 | "Too many scans — try again in N seconds" (from `Retry-After`) |
-
-- Show these inline under the form (`role='alert'`), and replace the global toast with a local `onError`.
+| `RENDERER_BUSY` | "Too many scans are rendering — try again in a few seconds" |
+| `TOO_MANY_REQUESTS` | "Slow down — too many scans. Try again in a minute" |
 
 ## Report (`/scans/:id`)
 
-- The header shows:
-  - the overall score and the four category scores **as visible numbers**
-  - a gauge, which is a decorative SVG with `aria-hidden` (the numbers are the accessible content)
-  - a category with `null` shows "—"; a `NEEDS_RENDERED` category says "needs rendered scan"
-- Badges show `mode` (Static / Rendered) and `ruleSet`.
-  - On `CORE`, a banner: "Ran the 9 core rules. Sign in to run all 17 and render URLs." The sign-in link carries `?redirectTo=` back to `/scan`.
-- The rules list is grouped by category. Each rule shows ID, name, severity and result, with a link to `/rules/:id`.
-- Each failing rule's findings show:
-  - the severity
-  - `message`
-  - `accessibleName`, `selectorPath`, and the `snippet` as escaped text in `<pre><code>`
-  - the rule's "How to fix" before/after, from the rules catalog
-- Owner controls appear only when `isOwner`:
-  - **Share** toggles `visibility`; its name says the state ("Make scan public" / "Make scan private").
-  - **Copy link**.
-  - **Delete scan**, through `delete-scan-dialog.tsx`.
-- A `FAILED` scan shows its `error.message` and a "Scan again" button that prefills the playground.
-- A 404 shows `NotFoundError`. That covers missing scans and other users' private ones alike; don't explain which.
+- **Header**: the target (`describeScanTarget`), source and time, and badges for Rendered/Static, "All 17 rules"/"9 core rules", and Public/Private. Owner actions (`scan/ui/scan-owner-actions.tsx`) appear only when `isOwner`:
+  - "Make scan public" / "Make scan private"
+  - "Copy link"
+  - "Delete scan", through `delete-scan-dialog.tsx`
+- **`rule-set-banner.tsx`**: on `CORE`, "Ran the 9 core rules. Sign in to run all 17 rules…" (`?redirectTo=/scan`). On a static `FULL` scan, it says how many rules need a rendered page.
+- **`score-summary.tsx`**:
+  - The overall score and the four category scores **as visible text**, with each category's question.
+  - The gauge is a decorative SVG with `aria-hidden`.
+  - `null` shows "—", or "Needs rendered scan" when every rule in that category is `NEEDS_RENDERED`.
+- **`scan-screenshot.tsx`**:
+  - When `screenshot` is set: a "Page screenshot" heading and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
+  - An "Open full-size screenshot" link.
+  - The report query uses `staleTime` and `refetchInterval` of 25 minutes, so the 30-minute link is replaced before it expires.
+- **`rule-results.tsx`**: rules grouped by category. Each rule shows its ID (linking to `/rules/:id`), name, severity and result (Pass / Fail · n findings / Not applicable / Needs rendered scan). Failing rules list their findings in `finding-card.tsx`:
+  - the severity and `message`
+  - the accessible name and selector path
+  - the `snippet` **as text in `<pre><code>`**
+  - a `<details>` "How to fix OPT-xxx" with the catalog's fix and before/after
+- A `FAILED` scan shows `error.message` instead of the scores.
+- A 400 or 404 renders `NotFoundError`. That covers missing scans and other users' private ones alike.
+- Report grids use `grid-cols-[minmax(0,1fr)]`. A plain `1fr` track grows to fit a long snippet and the page scrolls sideways.
 
-## Scan history (`/u/scans`)
+## Scan history (`/u/scans`) and dashboard
 
-- A `useInfiniteQuery` table: target, title, scores, mode, rule set, project, created, status. Plus "Load more scans".
-- Filters: project, status, input type, triggered by. Changing one resets the list.
-- Row actions are named per row ("Open scan of /pricing", "Delete scan of /pricing").
-
-## Projects (`/u/projects`, `/u/projects/:id`)
-
-- The list is a table: name, repository, scans count, latest score, last scanned. "New project" opens `create-project-dialog.tsx` (name, description, base URL, repository).
-- The detail page shows the project fields, with Edit (`edit-project-dialog.tsx`) and Delete (`delete-project-dialog.tsx`). The delete copy says "Its scans stay in your history". Below that, the project's scans (`scanAPI.getAll` with `projectID`), and "Scan this project", which opens `/scan` prefilled with `baseURL` and the project.
-- Projects created by a token show "Created by token <name>" when `apiTokenID` is set.
+- `useInfiniteQuery` over `scanKeys.list(filters)`, with "Load more scans" and status and source filters (shadcn `Select` with `aria-label`s).
+- Row actions are named per row: "Open scan of <target>", "Delete scan of <target>".
+- No screenshots in lists; screenshots appear on the report only.
+- The dashboard shows the 5 most recent scans ("Open scan of …"), "See all scans", and "Scan a page".
 
 ## API tokens (`/u/settings/api-tokens`)
 
 Ported from the GradeScript console's API-key page.
 
-- **Table** columns:
-  - Name
-  - Token: `opt_<prefix>_••••` in monospace
-  - Permissions: badges
-  - Status: Active / Expiring soon (within 7 days) / Expired / Revoked
-  - Expires · Last used · Created
-  - Actions: a dropdown with "Edit token <name>", "Revoke token <name>" (disabled when revoked), "Delete token <name>"
-- **`create-api-token-dialog.tsx`**:
-  - Formik + Yup: name required, ≤ 64.
-  - At least one permission. Checkboxes come from `apiTokenAPI.getPermissions`, each with its description; `scan:create:own` and `scan:view:own` are ticked by default.
-  - Expiry presets 30 days (default), 90 days, 1 year, custom (≥ tomorrow), or "No expiry" with a warning.
-- **`api-token-created-dialog.tsx`**, shown once with the `token` from the create response:
-  - It **can't be closed by an outside click or Escape** (`onInteractOutside` / `onEscapeKeyDown` → `preventDefault`).
-  - A Copy button, a warning ("You won't see this token again"), and a curl sample built from `API_URL`:
-    ```bash
-    curl -X POST "$OPTIKI_API_URL/scan" \
-      -H "Authorization: Bearer $OPTIKI_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d '{"url":"https://example.com"}'
-    ```
-  - An "I've saved my token" button. The token lives only in the dialog's local state, and is dropped when it closes. Never in a store, a query cache entry, or `localStorage`.
-- `edit-api-token-dialog.tsx` (name, permissions), `revoke-api-token-dialog.tsx` and `delete-api-token-dialog.tsx` (both `ConfirmDialog`). Every mutation invalidates `apiTokenKeys.all`.
+- **Table** columns: Name · Token (`opt_<prefix>_••••`) · Permissions (badges) · Status (`api-token-status-badge.tsx`: Active / Expiring soon / Expired / Revoked) · Expires · Last used · Actions.
+  - Actions is `api-token-actions.tsx`, a `DropdownMenu modal={false}`.
+  - Its trigger's sr-only name is "Actions for token <name>"; its items are "Edit token <name>", "Revoke token <name>" (disabled when revoked) and "Delete token <name>".
+- **`create-api-token-dialog.tsx`**: Formik + Yup — a name (≤ 64) and at least one permission.
+  - Checkboxes (`permission-checkboxes.tsx`, from `getPermissions`) with descriptions; create and view are ticked by default.
+  - Expiry presets 30 days (default), 90 days, 1 year, or no expiry (with a warning).
+- **`api-token-created-dialog.tsx`**, shown once:
+  - It **can't be closed by an outside click or Escape**, and has no close button.
+  - The token is shown in a `<code>`, with "Copy token" and a curl sample built from `API_URL`.
+  - "I've saved my token" closes it. The token lives only in the page's state until then: never in a store, the query cache or `localStorage`.
+- `edit-api-token-dialog.tsx` (name and permissions); `revoke-api-token-dialog.tsx` and `delete-api-token-dialog.tsx` (`ConfirmDialog`). Every mutation invalidates `apiTokenKeys.all`.
 
 ## Rules (`/rules`, `/rules/:id`) and Gym (`/gym`)
 
-- `/rules` lists every rule grouped by category, with ID, name, severity, priority and a "Core" / "Full" tag.
-- `/rules/:id` shows:
-  - why agents fail
-  - the fix with its before/after snippets (as text)
-  - the WCAG reference
-  - the origin note
-- `/gym` lists the pairs from `gymAPI.getAll`. Each has "Open broken page" / "Open fixed page" links (to the API origin's `/gym/pages/…`) and "Scan broken page" / "Scan fixed page" buttons that prefill the playground.
+- `/rules` lists the 17 rules by category, with ID and name (a link), severity, a Core/Full badge, and "Rendered only".
+- `/rules/:id` shows the summary, badges, "Why agents fail", "How to fix" with before/after (as text), WCAG and origin.
+- `/gym` shows a card per pair: "Open OPT-xxx broken page" / "Open OPT-xxx fixed page" (new tab, on the API origin) and "Scan OPT-xxx broken page", which runs the scan and opens the report.
+
+## Checked against optikí itself
+
+- Rendered through optikí's own engine (`FULL`, all 17 rules), `/`, `/scan`, `/rules`, `/rules/OPT-201`, `/gym` and `/auth/signin` all score 100.
+- A headless walkthrough found every control by its visible name: demo scan, Gym example, SSRF error, sign-in, rendered report with screenshot, share, token create → shown once → revoke, history, dashboard.

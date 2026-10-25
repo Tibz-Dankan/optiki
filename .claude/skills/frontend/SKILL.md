@@ -45,8 +45,8 @@ Commands:
 
 ```
 client/src/
-├── api/          one class per resource + its query-key factory  (auth.ts, appearance.ts, http-error.ts)
-├── constants/    urls.ts (SERVER_URL, API_URL), fonts.ts, session.ts
+├── api/          one class per resource + its query-key factory  (auth, appearance, scan, api-token, rules, gym, http-error)
+├── constants/    urls.ts (SERVER_URL, API_URL, API_ORIGIN), scan.ts, api-token.ts, fonts.ts, session.ts
 ├── hooks/        cross-cutting hooks — use-session-refresh.ts, use-get-me.ts, use-mobile.ts, …
 ├── providers/    app-wide context — theme, font, direction, layout, search, react-query, index.tsx
 ├── routes/       user-routes.tsx, auth-routes.tsx, render-*.tsx
@@ -62,15 +62,15 @@ client/src/
         └── ui/      components for that area
 ```
 
-Feature modules still to come follow the same shape:
+Feature modules (same shape):
 
 - `scan`: playground, report, history
 - `rules`: catalog
 - `gym`: fixture index
-- `project`: list and detail
 - `api-token`: token management under settings
+- `project` comes with projects
 
-`references/feature-pages.md` has their pages, routes, API classes, keys and types.
+`home/layout/home-layout.tsx` is the shell for every public page. `references/feature-pages.md` has the pages, routes, API classes, keys and types.
 
 The non-obvious calls — get these wrong and the code stops matching the codebase:
 

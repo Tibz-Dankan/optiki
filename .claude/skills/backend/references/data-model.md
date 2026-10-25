@@ -1,6 +1,9 @@
 # Data model
 
-Every GORM struct lives in `internal/models/schema.go`, and every table is listed in the `AutoMigrate` call in `internal/models/db.go`. This file is the full target schema. The four account tables exist today; the scan, project and token tables land with their features.
+Every GORM struct lives in `internal/models/schema.go`, and every table is listed in the `AutoMigrate` call in `internal/models/db.go`.
+
+- **Built:** the account tables, plus permissions, API tokens, attachments, scans, rule results and findings.
+- **Not built yet:** `projects`, and with it `scans.projectID` and the `project:*` permissions. That part of this file is the target design; it lands additively.
 
 Conventions that apply to every table:
 
@@ -18,11 +21,12 @@ users ─┬─< sessions        (CASCADE)
        ├─< otps            (CASCADE)
        ├── appearances     (CASCADE, one per user — checked in createAppearance.go)
        ├─< api_tokens      (CASCADE) ─< api_token_permissions >─ permissions (seeded)
-       ├─< projects        (CASCADE)
-       └─< scans           (CASCADE)
-projects   ─< scans        (SET NULL: deleting a project keeps its scans)
-api_tokens ─< scans        (SET NULL: deleting a token keeps its scans)
-api_tokens ─< projects     (SET NULL: the token that created the project)
+       ├─< attachments     (CASCADE)
+       ├─< scans           (CASCADE)
+       └─< projects        (CASCADE)                         — not built yet
+api_tokens  ─< scans       (SET NULL: deleting a token keeps its scans)
+attachments ─< scans       (scans.screenshotAttachmentID, SET NULL; the scan delete removes it explicitly)
+projects    ─< scans       (SET NULL)                        — not built yet
 scans ─┬─< scan_rule_results (CASCADE)
        └─< scan_findings     (CASCADE)
 ```
@@ -116,7 +120,30 @@ type APITokenPermission struct {
 - `permissions` is a **reference table** seeded from `internal/data/permissions.go`: no `userID`, nothing user-written. Both foreign keys in the join are typed `uuid`. gradescript's string-typed IDs forced `::text` casts in every join.
 - `api-tokens.md` has the token rules; this file only has their storage.
 
-## Projects
+## Attachments
+
+```go
+type Attachment struct {
+	ID          string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID      *string   `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
+	Type        string    `gorm:"column:type;not null;index" json:"type"` // SCAN_SCREENSHOT
+	Key         string    `gorm:"column:key;size:255;not null;uniqueIndex" json:"-"`
+	ContentType string    `gorm:"column:contentType;size:64;not null" json:"contentType"`
+	Size        int64     `gorm:"column:size;not null" json:"size"`
+	Width       *int      `gorm:"column:width;default:null" json:"width"`
+	Height      *int      `gorm:"column:height;default:null" json:"height"`
+	CreatedAt   time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+```
+
+- `key` is the S3 object key (`scan-screenshots/<scanID>.jpg`). No URL is ever stored; reads sign a 30-minute link.
+- `attachments.md` has the full rules.
+
+## Projects (not built yet)
 
 ```go
 type Project struct {
@@ -149,12 +176,12 @@ One row per scan: one page, one input, one rule set.
 ```go
 type Scan struct {
 	ID          string  `gorm:"column:id;type:uuid;primaryKey" json:"id"`
-	UserID      *string `gorm:"column:userID;type:uuid;default:null;index:idx_scans_user_created,priority:1" json:"userID"`
-	ProjectID   *string `gorm:"column:projectID;type:uuid;default:null;index:idx_scans_project_created,priority:1" json:"projectID"`
-	APITokenID  *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
-	TriggeredBy string  `gorm:"column:triggeredBy;not null;index" json:"triggeredBy"`           // ANONYMOUS, USER, API_TOKEN
-	Visibility  string  `gorm:"column:visibility;not null;default:'PRIVATE'" json:"visibility"` // PRIVATE, PUBLIC
-	Title       *string `gorm:"column:title;size:120;default:null" json:"title"`
+	UserID                 *string `gorm:"column:userID;type:uuid;default:null;index:idx_scans_user_created,priority:1" json:"userID"`
+	APITokenID             *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
+	ScreenshotAttachmentID *string `gorm:"column:screenshotAttachmentID;type:uuid;default:null;index" json:"screenshotAttachmentID"`
+	TriggeredBy            string  `gorm:"column:triggeredBy;not null;index" json:"triggeredBy"`           // ANONYMOUS, USER, API_TOKEN
+	Visibility             string  `gorm:"column:visibility;not null;default:'PRIVATE'" json:"visibility"` // PRIVATE, PUBLIC
+	Title                  *string `gorm:"column:title;size:120;default:null" json:"title"`
 
 	InputType     string  `gorm:"column:inputType;not null" json:"inputType"` // HTML, URL, GYM
 	TargetURL     *string `gorm:"column:targetURL;default:null" json:"targetURL"`
@@ -212,13 +239,13 @@ type Scan struct {
 	PRNumber   *int    `gorm:"column:prNumber;default:null" json:"prNumber"`
 	RunURL     *string `gorm:"column:runURL;default:null" json:"runURL"`
 
-	CreatedAt time.Time `gorm:"column:createdAt;index;index:idx_scans_user_created,priority:2;index:idx_scans_project_created,priority:2" json:"createdAt"`
+	CreatedAt time.Time `gorm:"column:createdAt;index;index:idx_scans_user_created,priority:2" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
 
 	// Relationships
 	User        *User             `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	Project     *Project          `gorm:"foreignKey:ProjectID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
 	APIToken    *APIToken         `gorm:"foreignKey:APITokenID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Screenshot  *Attachment       `gorm:"foreignKey:ScreenshotAttachmentID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
 	RuleResults []*ScanRuleResult `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 	Findings    []*ScanFinding    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
@@ -228,7 +255,7 @@ What each group of columns records:
 
 | Group | Columns | Notes |
 |---|---|---|
-| Ownership | `userID`, `projectID`, `apiTokenID`, `triggeredBy`, `visibility`, `title` | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`. Everything else starts `PRIVATE` |
+| Ownership | `userID`, `apiTokenID`, `screenshotAttachmentID`, `triggeredBy`, `visibility`, `title` (and `projectID` once projects land) | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`. Everything else starts `PRIVATE` |
 | Input | `inputType` … `pageLang` | `targetURL` is what was asked for, `finalURL` where redirects ended. `inputSha256`/`inputBytes` describe the HTML actually analysed (pasted, fetched or rendered). The HTML itself is never stored |
 | Engine | `mode` … `controlCount` | `ruleSet` and `rulesetHash` say exactly which rules ran. `reportHash` is the engine's hash of the canonical report JSON |
 | Lifecycle | `status` … `analyzeMs` | Scans run synchronously, so a row moves `RUNNING` → `COMPLETED` or `FAILED` inside one request. A `RUNNING` row older than a minute was interrupted (a container restart) |
@@ -297,12 +324,16 @@ type ScanFinding struct {
 
 | Rule | `evidence` |
 |---|---|
-| OPT-101 | `{"hiddenBy":"ARIA_HIDDEN"\|"ROLE_IMG"\|"PRESENTATIONAL_CHILDREN"\|"HIDDEN_ATTR"\|"DISPLAY_NONE","hidingAncestorPath":"…"}` |
+| OPT-101 | `{"hiddenBy":"ARIA_HIDDEN"\|"ROLE_IMG"\|"PRESENTATIONAL_CHILDREN"\|"IGNORED","hidingAncestorPath":"…"}` (controls hidden from everyone — `hidden`, `display:none` — aren't flagged) |
 | OPT-103 | `{"sharedName":"Delete","peerPaths":["…"],"inRepeatedRow":true}` |
 | OPT-104 | `{"trigger":"ONCLICK"\|"TABINDEX"\|"ANCHOR_WITHOUT_HREF"\|"CURSOR_POINTER"}` |
+| OPT-105 | `{"outerPath":"…","outerRole":"link"}` |
+| OPT-106 | `{"placeholderOnly":true}` |
+| OPT-107 | `{"call":"confirm","attribute":"onclick"}`, or page-level `{"dialogs":["alert"]}` |
 | OPT-201 | `{"visibleText":"Press ? for shortcuts","accessibleName":"Help"}` |
 | OPT-202 | `{"graphic":"SVG"\|"CANVAS","textContent":"…"}` |
-| OPT-205 | `{"attribute":"aria-labelledby","missingIDs":["…"],"duplicateIDs":[]}` |
+| OPT-205 | `{"attributes":["aria-describedby"],"missingIDs":["…"],"duplicateIDs":[]}` |
+| OPT-401 | `{"missing":["title","h1","main"]}` |
 | OPT-204 | `{"fontPx":10.5}` |
 | OPT-301 | `{"firstSeenMs":1800}` |
 | OPT-302 | `{"cls":0.23}` |
@@ -314,14 +345,16 @@ type ScanFinding struct {
 err = gormDB.AutoMigrate(
 	&User{}, &Session{}, &OTP{}, &Appearance{},
 	&Permission{}, &APIToken{}, &APITokenPermission{},
-	&Project{},
+	&Attachment{},
 	&Scan{}, &ScanRuleResult{}, &ScanFinding{},
 )
 ```
 
+`&Project{}` goes before `&Scan{}` when projects land.
+
 Parents come before children, so each foreign key's target exists.
 
-`Permission` is seeded on every boot, after AutoMigrate (`models.Permission{}.Seed(data.APITokenPermissions)`, called from `cmd/main.go` like `SeedDemoAccounts`):
+`Permission` is seeded on every boot by `handlers/auth/initSeed.go` (`InitializeDataSeeding`, run from the package's `init()`, after the `models` package has connected and migrated). It seeds the permissions first, then the demo accounts when `SEED_DEMO=true`. Today the list holds the four `scan:*:own` permissions. Because it runs at import time, any test that imports `handlers/auth` would need a database; tests stay out of handler packages (SKILL.md § 12).
 
 - It is idempotent: it inserts missing names and updates changed descriptions.
 - It never deletes. Retiring a permission is a manual migration.

@@ -9,4 +9,7 @@ if (import.meta.env.MODE === 'localhost') {
   API_URL = 'https://optikiapi.tuliime.com/client/v1'
 }
 
-export { API_URL, SERVER_URL }
+// The API's own origin, which also serves the Gym fixture pages.
+const API_ORIGIN = new URL(SERVER_URL).origin
+
+export { API_ORIGIN, API_URL, SERVER_URL }

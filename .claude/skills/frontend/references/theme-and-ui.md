@@ -134,7 +134,9 @@ const buttonVariants = cva('inline-flex items-center justify-center …', {
 
 Hand-written widgets in the same folder (`password-input`, `form-field`, `confirm-dialog`, `theme-switch`, `profile-dropdown`, `command-menu`, `search`, …) use the app's `export const X: React.FC<XProps>` style.
 
-`table` is installed and used by `settings/ui/active-sessions-section.tsx`; use it for every list (scans, projects, API tokens). Notably absent: shadcn `form` (Formik instead), `calendar`, `toast` (sonner instead). Add `checkbox` with the shadcn CLI when the token permission picker lands; `@radix-ui/react-checkbox` is already a dependency.
+`table`, `tabs`, `textarea` and `checkbox` are installed; use `table` for every list. Notably absent: shadcn `form` (Formik instead), `calendar`, `toast` (sonner instead).
+
+**After `pnpm dlx shadcn@latest add …`, check the generated imports.** The CLI can add the umbrella `radix-ui` package and an unrelated npm package named `cn`. Remove both, and import from `@radix-ui/react-<name>` and `@utils/classname` like the other primitives.
 
 ## Providers
 
@@ -180,7 +182,7 @@ Provider-scoped state that only the authenticated shell needs (`SearchProvider`,
 |---|---|---|
 | `AuthenticatedLayout` | `shared/layout/authenticated-layout.tsx` | `/u/*` |
 | `AuthLayout` | `auth/layout/auth-layout.tsx` | each `/auth/*` page renders it itself |
-| Public page shell (inline in the page today) | `home/pages/home.tsx` | `/` — extract a `home/layout/home-layout.tsx` once a second public page (`/scan`, `/scans/:id`, `/rules`, `/gym`) needs the same header |
+| `HomeLayout` | `home/layout/home-layout.tsx` | every public page (`/`, `/scan`, `/scans/:id`, `/rules`, `/rules/:id`, `/gym`) — header with the Scan / Rules / Gym nav, `<main id='content'>`, footer |
 
 `AuthenticatedLayout` composes `SearchProvider` → `LayoutProvider` → `SidebarProvider` → `SkipToMain` + `AppSidebar` + `SidebarInset`, reading the sidebar's open state from the `sidebar_state` cookie. `AppSidebar` maps `routes.groups` to `<NavGroup>`, so navigation follows from the route config.
 

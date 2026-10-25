@@ -26,20 +26,25 @@ The rule catalog is `optiki.md` §3 (ID, flags-when, fix, severity · mode · pr
 ```
 server/internal/
   engine/
-    model.go            Node, Snapshot, Finding, RuleMeta, Report, Options
-    roles.go            implicit ARIA roles, widget roles, presentational-children roles
+    model.go            Node, Snapshot, Issue, Finding, RuleMeta, Rule, RuleSet, Report
+    roles.go            implicit ARIA roles, widget/action/field roles, presentational-children roles
+    annotate.go         Annotate(*Snapshot): exposure (HiddenBy), role, interactivity, name, selector path
     accname.go          the accessible-name subset (static mode)
-    ruleSets.go         CORE and FULL — which rule IDs each contains
+    text.go             TextContent, ExposedText, NormalizeName, IsHiddenFromEveryone
     score.go            per-category and overall scores
     fingerprint.go      stable finding identity across commits
-    engine.go           Scan(snapshot, options) Report — runs the set's rules, sorts, scores, hashes
+    engine.go           Scan(snapshot, ruleSet) Report — runs the set's rules, builds findings, sorts, scores, hashes; Snippet
+    engine_test.go      golden reports (make golden), determinism, score invariants, fingerprint stability
     rules/
-      registry.go       the ordered list of every rule
+      registry.go       All() — every rule in catalog order — and Find(id)
+      ruleSets.go       Set("CORE" | "FULL") and SetsFor(meta); CORE is derived from Priority == P0
+      helpers.go        shared unexported helpers
       opt101HiddenControl.go  +  opt101HiddenControl_test.go
       …                 one file per rule, named opt<ID><Name>.go
     testdata/golden/    kitchen-sink.core.json, kitchen-sink.full.json, perfect.core.json, perfect.full.json
   snapshot/static/      golang.org/x/net/html → engine.Snapshot
-  snapshot/rendered/    chromedp + the server's Chromium → engine.Snapshot (+ proxy.go, the SSRF-safe forward proxy)
+  snapshot/rendered/    chromedp + the server's Chromium → engine.Snapshot + Result (screenshot)
+                        browser.go (Renderer, render slots), build.go, proxy.go (the SSRF-safe forward proxy)
   gym/
     gym.go              //go:embed pages/*.html — Page(id) and List()
     pages/opt-101-broken.html, opt-101-fixed.html, …, kitchen-sink.html, perfect.html
@@ -47,7 +52,7 @@ server/internal/
 
 ## Hard rules
 
-1. **Pure.** `engine/` imports no `models`, `handlers`, Fiber, network, filesystem, clock or randomness. Input is a `Snapshot` plus `Options`; output is a `Report`. That purity is why it can be tested exhaustively.
+1. **Pure.** `engine/` imports no `models`, `handlers`, Fiber, network, filesystem, clock or randomness. Input is a `Snapshot` plus a `RuleSet`; output is a `Report`. That purity is why it can be tested exhaustively.
 2. **Deterministic.** The same snapshot and options give a byte-identical report JSON.
    - Findings are sorted by (rule ID, document order).
    - Maps are never iterated for output order.
@@ -60,7 +65,7 @@ server/internal/
    - *why agents fail*, and *how to fix* with a before/after snippet
    - a WCAG reference where one exists
    - its origin: the S3 failure it comes from, or "baseline"
-5. **The engine doesn't know who is asking.** The caller passes `Options.RuleSet`. Choosing it from the session or token is the backend's job (`resolveScanCaller`).
+5. **The engine doesn't know who is asking.** The caller passes `rules.Set(name)`. Choosing the name from the session or token is the backend's job (`resolveScanCaller`). The set is passed in, not named in options, because `engine` can't import `rules`: that would be an import cycle.
 
 ## Rule sets
 
@@ -69,8 +74,8 @@ server/internal/
 | `CORE` | the 9 P0 rules: 101, 102, 103, 104, 106, 201, 202, 203, 401 | anonymous scans (no session, or an unverified one) |
 | `FULL` | all 17: `CORE` plus P1 105, 205, 402, 403, 204, 301, 302 and P2 107 | verified users and API tokens |
 
-- `RuleMeta.Priority` (`P0`, `P1`, `P2`) is the source of truth: `CORE` is exactly the P0 rules. `ruleSets.go` derives both sets from the registry, so adding a rule never means editing a second list.
-- `engine.Scan` runs only the rules in the set, in registry order. Rules outside the set don't appear in the report at all — not as passes, not as n/a.
+- `RuleMeta.Priority` (`P0`, `P1`, `P2`) is the source of truth: `CORE` is exactly the P0 rules. `rules/ruleSets.go` derives both sets from the registry, so adding a rule never means editing a second list.
+- `engine.Scan(snapshot, set)` runs only the rules in the set, in registry order. Rules outside the set don't appear in the report at all — not as passes, not as n/a.
 - `rulesetHash` = SHA-256 over the set's sorted `ruleID@ruleVersion` entries. Two reports compare only when their `rulesetHash` matches.
 - Of the 17 rules, 14 can run statically and 3 are rendered-only (204, 301, 302). A `FULL` static scan therefore reports those 3 as `NEEDS_RENDERED`, and a static scan has no Stable score.
 
@@ -78,28 +83,38 @@ server/internal/
 
 ```go
 type Node struct {
-    ID, Parent  int
-    Children    []int
-    Tag         string
-    Attrs       map[string]string
-    Text        string   // own text, whitespace-normalized
-    Role, Name  string   // static: computed here; rendered: Chrome's
-    NameFrom    string   // ARIA_LABELLEDBY | ARIA_LABEL | NATIVE | CONTENT | TITLE | PLACEHOLDER
-    Interactive bool
-    Exposed     bool     // present (not ignored) in the accessibility tree
-    Path        string   // stable selector path: tag:nth-of-type chain from the nearest id
+    ID, Parent         int
+    Children           []int
+    Tag, Namespace     string            // "#text" for text nodes; namespace "svg" inside SVG
+    Attrs              map[string]string
+    AttrKeys           []string          // attribute order, for snippets
+    Text               string            // raw for #text nodes; own normalized text for elements
+    Role, Name         string            // static: computed by Annotate; rendered: Chrome's name overrides
+    NameFrom           string            // ARIA_LABELLEDBY | ARIA_LABEL | NATIVE | CONTENT | TITLE | PLACEHOLDER
+    Interactive        bool
+    Exposed            bool              // present (not ignored) in the accessibility tree
+    HiddenBy           string            // ARIA_HIDDEN | ROLE_IMG | PRESENTATIONAL_CHILDREN | HIDDEN_ATTR | DISPLAY_NONE | NOT_RENDERED
+    HiddenByNode       int               // the node (self or ancestor) that hides it
+    Path               string            // stable selector path: tag:nth-of-type chain from the nearest id
+    DocumentOrder      int
     // rendered-only — nil in static mode
     Visible *bool; FontPx *float64; Cursor *string; FirstSeenMs *int; Box *Rect
 }
-type Snapshot struct { URL, Route, Mode string; Title, Lang string; Nodes []Node; CLS *float64; Dialogs []string }
-type Options  struct { RuleSet string } // CORE, FULL
+type Snapshot struct { URL, Route, Mode, Title, Lang string; Nodes []Node; CLS *float64; Dialogs []string; HasAXTree bool }
+type Issue    struct { NodeID int; Severity string; Message string; Evidence map[string]any } // what a rule reports
 type Rule interface {
-    Meta() RuleMeta                                   // ID, category, severity, modes, priority, docs
-    Check(s *Snapshot) (findings []Finding, applicable bool)
+    Meta() RuleMeta                                // ID, category, severity, modes, priority, version, docs
+    Check(s *Snapshot) (issues []Issue, applicable bool)
 }
+type RuleSet  struct { Name string; Rules []Rule }
 ```
 
-A `Finding` carries the rule ID, the effective severity, the node's path, tag, role, name and `NameFrom`, a snippet, a one-sentence message, and a small `Evidence` map. The backend stores each of these as a column (`scan_findings`); see the backend skill's `references/data-model.md` for the evidence keys each rule uses.
+- Text nodes are nodes (`Tag == "#text"`), so names from content keep their document order.
+- A rule returns `Issue`s. The engine turns each into a `Finding`, adding the node's path, tag, role, name, `NameFrom`, a rebuilt markup snippet (`engine.Snippet`), the fingerprint and the position.
+- The engine keeps **at most one finding per rule per node**.
+- A node that is hidden from everyone (`HIDDEN_ATTR`, `DISPLAY_NONE`, `NOT_RENDERED`, or rendered `Visible == false`) is absent, not a legibility problem; `engine.IsHiddenFromEveryone` says so. `ARIA_HIDDEN`, `ROLE_IMG` and `PRESENTATIONAL_CHILDREN` hide a node from agents while people still see it — what OPT-101 flags.
+- The backend stores every finding field as a column (`scan_findings`). The evidence keys per rule are in the backend skill's `references/data-model.md`.
+- `ActionRoles` (button, link, menuitem*, tab, treeitem) are what OPT-102 and OPT-103 check. `FieldRoles` (textbox, combobox, checkbox, …) are what OPT-106 checks. An unlabelled field is OPT-106 only, never also OPT-102.
 
 ### Static accessible-name subset (in order)
 
@@ -124,12 +139,13 @@ Stylesheet CSS is invisible to static mode — say so in docs, don't guess.
 
 1. **Catalog**: add the rule to `optiki.md` §3 with its ID, flags-when, fix, severity · mode · priority and origin. The priority decides its rule set.
 2. **Gym pair**: add a broken and a fixed page (`references/gym.md`) and one violation to `kitchen-sink.html`; keep `perfect.html` clean.
-3. **Rule file**: `rules/opt<id><Name>.go` implementing `Meta()` and `Check(*Snapshot) ([]Finding, bool)`. Register it in `registry.go`, which sets its set membership through its priority.
+3. **Rule file**: `rules/opt<id><Name>.go`, an unexported struct implementing `Meta()` and `Check(*Snapshot) ([]engine.Issue, bool)`. Add it to `All()` in `registry.go`; its priority decides its set.
 4. **Tests** (`_test.go` beside it, table-driven):
    - The broken page yields exactly the expected findings (count, path, name, evidence); the fixed page yields none.
    - Edge cases that must *not* fire: decorative SVG, `alt=""`, repeated-row look-alikes downgraded to moderate, …
-   - Rendered-only rules are tested on hand-built snapshots with the rendered fields set, plus a static snapshot asserting `applicable=false`.
-5. **Golden**: regenerate `testdata/golden/*.json` deliberately (`make golden` once it exists) and review the diff. A golden change in a PR must be explainable in its description. A new P0 rule changes both `core` and `full` goldens; a P1/P2 rule changes only `full`.
+   - Rendered-only rules are tested on snapshots with the rendered fields set by hand (`renderedPage` in `rules/helpers_test.go`), plus a static scan asserting `NEEDS_RENDERED`.
+   - `rules/registry_test.go` checks every Gym pair (broken fails only its rule, fixed fails nothing), kitchen-sink and perfect. `snapshot/rendered/build_test.go` checks the rendered pairs in real Chromium.
+5. **Golden**: regenerate `testdata/golden/*.json` deliberately with `make golden`, and review the diff. A golden change in a PR must be explainable in its description. A new P0 rule changes both `core` and `full` goldens; a P1/P2 rule changes only `full`.
 6. **TestSprite**: extend API test A3 (broken/fixed pairs) — see the `testsprite` skill.
 
 ## Scoring (from `optiki.md` §4)

@@ -65,7 +65,6 @@ type CreateScanInput struct {
 	Gym       *string `json:"gym"`
 	Route     *string `json:"route"`
 	Title     *string `json:"title"`
-	ProjectID *string `json:"projectID"`
 
 	Repository *string `json:"repository"`
 	Branch     *string `json:"branch"`
@@ -88,11 +87,10 @@ Validation, in this order. The first failure wins, and none of these create a ro
 | `gym` not a known page id (`gym.Page(id)`) | 400 |
 | `route` not starting with `/`, or over 512 characters | 400. When omitted, the default is the URL's path for URL scans, `/gym/pages/<id>.html` for Gym, and `/` for HTML |
 | `title` over 120 characters | 400 |
-| `projectID` from an anonymous caller | 400 "Sign in to add a scan to a project" |
-| `projectID` not owned by the caller | 404 "Project not found" |
 | Any CI field on the browser API (no `apiToken` local) | 400 "Only API tokens can set CI fields" |
 | `commitSHA` not 7–64 hex characters, `repository` not `owner/name`, `prNumber` < 1 | 400 |
-| URL fails the pre-flight (scheme/port/resolve to a public address) | 400 `SSRF_BLOCKED` "This address isn't allowed" |
+| URL with a non-web scheme (`file:`, `ftp:`, `gopher:`) | 400 `SSRF_BLOCKED` "This address isn't allowed" |
+| URL fails the pre-flight (port/resolve to a public address) | 400 `SSRF_BLOCKED`; an unresolvable host is a plain 400 |
 
 The pipeline (`handlers/scan/runScan.go`, unexported, shared by both surfaces):
 
@@ -103,13 +101,15 @@ The pipeline (`handlers/scan/runScan.go`, unexported, shared by both surfaces):
    - `url`, static → `pkg.FetchPublicPage(url)` → static (`fetchMs`)
    - `url`, rendered → `snapshot/rendered.Build(ctx, url)` (`renderMs`)
    - Record `finalURL`, `httpStatus`, `contentType`, `redirectCount`, `inputSha256`, `inputBytes`.
-3. **Analyse**: `engine.Scan(snapshot, engine.Options{RuleSet: ruleSet})` (`analyzeMs`).
-4. **Persist in one transaction**:
+3. **Analyse**: `engine.Scan(snapshot, rules.Set(ruleSet))` (`analyzeMs`).
+4. **Screenshot** (rendered scans only): upload it to S3 as `scan-screenshots/<scanID>.jpg` (`references/attachments.md`). Missing S3 config or an upload error only means no screenshot.
+5. **Persist in one transaction**:
    - Update the scan with scores, counts, `pageTitle`, `pageLang`, `nodeCount`, `controlCount`, `reportHash`, `status = COMPLETED`, `completedAt` and `durationMs`.
    - Insert one `ScanRuleResult` per rule in the set.
    - Insert the findings in report order, at most `MAX_FINDINGS_PER_SCAN` (500); past the cap, set `findingsTruncated`.
    - Use `CreateInBatches` (100).
-5. **On any failure after step 1**, update the row to `FAILED` with `errorCode`, `errorMessage` and `completedAt`, then return the reason error:
+   - Insert the screenshot's `Attachment` row and set `screenshotAttachmentID`. If the transaction fails, delete the uploaded object.
+6. **On any failure after step 1**, update the row to `FAILED` with `errorCode`, `errorMessage` and `completedAt`, then return the reason error. A busy renderer is the exception: its `RUNNING` row is deleted, because the scan never started.
 
 | Failure | `errorCode` / response |
 |---|---|
@@ -148,10 +148,11 @@ The response carries the scan, its rule results and its findings in `position` o
                 "rulesPassed": 13, "rulesFailed": 3, "rulesNotApplicable": 1, "rulesNeedRendered": 0,
                 "findingsTruncated": false },
     "engine": { "engineVersion": "0.1.0", "rulesetHash": "…", "reportHash": "…" },
-    "project": { "id": "…", "name": "Marketing site" },
     "ci": { "repository": null, "branch": null, "commitSHA": null, "prNumber": null, "runURL": null },
     "timing": { "startedAt": "…", "completedAt": "…", "durationMs": 3920, "fetchMs": null, "renderMs": 3480, "analyzeMs": 21 },
     "error": null,
+    "screenshot": { "id": "…", "url": "https://…/scan-screenshots/<id>.jpg?X-Amz-Expires=1800&…", "expiresAt": "…",
+                    "contentType": "image/jpeg", "size": 60138, "width": 1280, "height": 800 },
     "rules": [
       { "ruleID": "OPT-101", "name": "Hidden control", "category": "OPERABLE", "priority": "P0",
         "severity": "CRITICAL", "weight": 10, "result": "FAIL", "findingsCount": 1 }
@@ -178,8 +179,8 @@ The response carries the scan, its rule results and its findings in `position` o
 
 `GET /scan` follows the `getActiveSessions.go` recipe (`limit+1`, a `createdAt` cursor, the four `pagination` keys). The query is always `"userID" = <caller>`.
 
-- Filters (all optional, all validated): `projectID`, `status`, `inputType`, `triggeredBy`, `commitSHA`, `prNumber`. An unknown enum value is a 400.
-- Items are `scanSummaryData`: the report without `rules` and `findings`.
+- Filters (all optional, all validated): `status`, `inputType`, `triggeredBy`, `commitSHA`, `prNumber` (`projectID` once projects land). An unknown enum value or an unknown cursor is a 400.
+- Items are `scanSummaryData`: the report without `rules` and `findings`, each with a freshly signed `screenshot`.
 
 ## Update and delete
 
@@ -187,17 +188,14 @@ The response carries the scan, its rule results and its findings in `position` o
 type UpdateScanInput struct {
 	Title      *string `json:"title"`
 	Visibility *string `json:"visibility"`
-	ProjectID  *string `json:"projectID"`
 }
 ```
 
 - Owner only; anything else is 404.
 - Only the provided fields change, through `Model(&Scan{}).Where("id = ?", id).Updates(map…)`.
-- `projectID: ""` detaches the scan from its project.
-- A `projectID` must be the caller's own (404 otherwise).
 - `visibility` is `PRIVATE` or `PUBLIC`.
 - Findings and scores are immutable: re-running means a new scan.
-- `DELETE` removes the scan, and its rule results and findings cascade. It returns 200 with a message.
+- `DELETE` removes the scan and its screenshot row (rule results and findings cascade), then deletes the screenshot object. It returns 200 with a message.
 - Anonymous scans can't be edited or deleted by anyone through the API.
 
 ## Rate limits and render slots
@@ -230,9 +228,9 @@ type UpdateScanInput struct {
 
 `internal/snapshot/rendered` drives the Chromium in the image (`CHROME_BIN`, `CHROMEDP_NO_SANDBOX`). The engine skill's `references/rendered-snapshot.md` covers what is collected. This section covers keeping it safe and bounded:
 
-- **One browser for the process**, started lazily, restarted if it dies. Each scan gets its **own browser context** (incognito: no cookies, storage or cache shared between scans or users) and closes it afterwards.
+- **One browser for the process** (`snapshot/rendered/browser.go`, a `Renderer`), started lazily, restarted if it dies. Each scan gets its **own browser context** (incognito: no cookies, storage or cache shared between scans or users) and closes it afterwards.
 - **Every request Chrome makes goes through an in-process forward proxy** (`snapshot/rendered/proxy.go`) on `127.0.0.1:<random port>`. That covers the document, subresources, redirects, fetch/XHR and WebSockets.
-  - The proxy handles plain HTTP and `CONNECT`, allows only ports 80/443, and dials through `pkg.PublicDialer()`.
+  - The proxy handles plain HTTP and `CONNECT`, allows only ports 80/443, and dials through `pkg.PublicDialer()`. A refused request gets a 403 with `X-Optiki-Blocked`; a blocked main document becomes `SSRF_BLOCKED`.
   - So the private-address rule covers everything the page loads, not just the first URL, and rebinding can't slip past Chrome's own resolver.
   - Launch flags:
     - `--proxy-server=http://127.0.0.1:<port>`, plus `--proxy-bypass-list=<-loopback>` so loopback is proxied (and refused) too
@@ -241,9 +239,10 @@ type UpdateScanInput struct {
 - The target URL goes through `FetchPublicPage`'s pre-flight check first. A blocked target then gets a clean `SSRF_BLOCKED` before Chrome starts. A blocked subresource just fails to load, and the scan continues.
 - **Budgets**:
   - 15 s per scan in total, with an 8 s navigation timeout.
-  - The proxy stops after 20 MB transferred per scan.
+  - Each proxied connection stops after 10 MB (`RENDER_MAX_BYTES_PER_CONNECTION`). One proxy serves every render, so there is no per-scan byte count; the 15 s budget bounds the rest.
   - Viewport 1280×800, recorded on the scan.
-  - Downloads are denied, and `alert`/`confirm`/`prompt` are auto-dismissed and recorded (OPT-107).
+  - `alert`/`confirm`/`prompt` are replaced in-page by recorders before any page script runs (OPT-107). Any native dialog that still opens is dismissed through CDP.
+  - A full-page JPEG screenshot is taken last (1280 wide, height capped at 6,000 px).
 - The rendered DOM is serialised once to compute `inputSha256`/`inputBytes`. It is never stored.
 
 ## Files
@@ -251,13 +250,16 @@ type UpdateScanInput struct {
 ```
 handlers/scan/
   createScan.go  getScans.go  getScan.go  updateScan.go  deleteScan.go
-  resolveScanCaller.go  runScan.go  scanResponseData.go  validateScanInput.go
-models/scan.go                 Create, FindOne (with rule results + findings), FindAllByUser(filters, limit, cursor),
-                               Update, Delete, Complete(result) — one transaction — and Fail(code, message)
+  resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go
+models/scan.go                 Create, FindOne (rule results + findings + screenshot), FindAllByUser(filters, limit, cursor),
+                               UpdateDetails, Delete (returns the screenshot), DeleteRunning, Complete — one
+                               transaction — and Fail(code, message)
+models/attachment.go           BeforeCreate; rows are created inside Scan.Complete
 middlewares/optionalAuth.go    session lookup like Auth, never rejects
 middlewares/scanRateLimit.go
 pkg/fetchPublicPage.go  pkg/publicDialer.go   (+ _test.go each)
-snapshot/static/  snapshot/rendered/  (rendered/proxy.go)
+pkg/s3.go
+snapshot/static/  snapshot/rendered/  (browser.go, build.go, proxy.go + tests)
 constants: MAX_SCAN_HTML_BYTES, MAX_FINDINGS_PER_SCAN, MAX_SNIPPET_LENGTH, SCAN_RATE_LIMIT_*,
            MAX_CONCURRENT_RENDERS, RENDER_SLOT_WAIT, RENDER_TIMEOUT, FETCH_TIMEOUT, SCAN_* enum values
 errors:    ErrReasonSSRFBlocked, ErrReasonNotHTML, ErrReasonTooLarge, ErrReasonFetchTimeout,
