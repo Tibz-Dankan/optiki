@@ -1,7 +1,7 @@
 let SERVER_URL: string
 let API_URL: string
 
-if (import.meta.env.MODE === 'localhost') {
+if (import.meta.env.DEV) {
   SERVER_URL = 'http://localhost:8000/api/v1'
   API_URL = 'http://localhost:8000/client/v1'
 } else {
