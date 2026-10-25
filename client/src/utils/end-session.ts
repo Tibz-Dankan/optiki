@@ -1,4 +1,5 @@
 import { authAPI } from '@api/auth'
+import { useAnonymousStore } from '@stores/anonymous'
 import { useAppearanceStore } from '@stores/appearance'
 import { useAuthStore } from '@stores/auth'
 
@@ -19,6 +20,7 @@ export async function endSession(): Promise<void> {
 
   useAuthStore.getState().clearAuth()
   useAppearanceStore.getState().clearAppearance()
+  useAnonymousStore.getState().clearAnonymousID()
 
   await authAPI.signOut().catch(() => undefined)
 

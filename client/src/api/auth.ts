@@ -6,6 +6,8 @@ import type {
   TChangePassword,
   TForgotPassword,
   TGetMeResponse,
+  TReconcileAnonymousUserInput,
+  TReconcileAnonymousUserResponse,
   TResetPassword,
   TRevokeSessionInput,
   TRevokeSessionResponse,
@@ -215,6 +217,22 @@ class AuthAPI {
       headers: { 'Content-type': 'application/json' },
       body: JSON.stringify({ name }),
     })
+    return (await throwOnError(response)).json()
+  }
+
+  reconcileAnonymousUser = async ({
+    userID,
+    anonymousID,
+  }: TReconcileAnonymousUserInput): Promise<TReconcileAnonymousUserResponse> => {
+    const response = await fetch(
+      `${SERVER_URL}/auth/user/${userID}/anony-reconcile`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-type': 'application/json' },
+        body: JSON.stringify({ anonymousID }),
+      }
+    )
     return (await throwOnError(response)).json()
   }
 }

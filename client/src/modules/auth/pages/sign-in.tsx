@@ -7,6 +7,7 @@ import type { TAuthResponse } from '@typings/auth'
 import { authAPI, authKeys } from '@api/auth'
 import { useAuthStore } from '@stores/auth'
 import { getRedirectPath } from '@utils/get-redirect-path'
+import { reconcileAnonymousUser } from '@utils/reconcile-anonymous-user'
 import { Button } from '@shared/ui/button'
 import {
   Card,
@@ -40,6 +41,7 @@ export const SignIn: React.FC = () => {
     mutationFn: authAPI.signIn,
     onSuccess: (response: TAuthResponse) => {
       updateSession(response.session)
+      reconcileAnonymousUser(response.session.userID)
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       navigate(getRedirectPath(response.redirectToPath, requestedPath), {
         replace: true,

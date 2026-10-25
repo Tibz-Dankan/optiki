@@ -48,6 +48,7 @@ func Db() *gorm.DB {
 
 		err = gormDB.AutoMigrate(
 			&User{}, &Session{}, &OTP{}, &Appearance{},
+			&Device{}, &Location{}, &SiteVisit{}, &AnonymousUserLink{},
 			&Permission{}, &APIToken{}, &APITokenPermission{},
 			&Attachment{},
 			&Scan{}, &ScanRuleResult{}, &ScanFinding{},

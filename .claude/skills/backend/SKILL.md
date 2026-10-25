@@ -30,6 +30,7 @@ The API is deployed at `https://optikiapi.tuliime.com` and the client separately
 | `references/api-tokens.md` | Token format, `AuthAPI`, permissions, token management endpoints, the `/client/v1` surface |
 | `references/attachments.md` | Scan screenshots: the S3 client, the `attachments` table, upload/link/sign/delete, presigned URLs |
 | `references/projects.md` | Project CRUD and how scans attach to projects (not built yet) |
+| `references/site-visits.md` | Site visit capture: `POST /sitevisit`, devices, IP locations, page names, anonymous IDs and `anony-reconcile` |
 
 ## 1. The tree
 
@@ -40,7 +41,7 @@ server/
   internal/
     routes/routes.go           THE only route table — every path in the app
     handlers/<domain>/         one file per endpoint, package == folder name
-                               auth/ appearance/ docs/ health/ status/ scan/ apitoken/ rules/ gym/ (project/ later)
+                               auth/ appearance/ docs/ health/ status/ scan/ apitoken/ rules/ gym/ sitevisit/ (project/ later)
     middlewares/               one file per middleware
     models/
       db.go                    Postgres singleton + AutoMigrate list
@@ -51,7 +52,8 @@ server/
     gym/                       fixture pages, //go:embed, shared by engine tests and the /gym routes
     pkg/                       stateless cross-cutting helpers, one concern per file
     constants/                 constants.go — tunables and enum values; errors.go — error strings and reason codes
-    data/                      seed lists — permissions.go (the grantable API token permissions)
+    data/                      seed lists and lookup tables — permissions.go (the grantable API token permissions),
+                               siteVisitPageNames.go (client path → site visit page name)
     templates/                 templates.go (//go:embed) + email/layout.html and one file per email
     types/ assets/             shared types · embedded assets (openapi.yaml)
 ```
@@ -278,11 +280,12 @@ Signature `func Name(c *fiber.Ctx) error`, ending in `c.Next()`, one per file. T
 | `SetUserInRequest` | global | Decodes the access-token JWT into `userID`, **never rejects**, does no DB lookup — not enough to trust for anything that matters |
 | `AuthRateLimit` | per route | Per-IP, per-route window (`AUTH_RATE_LIMIT`/minute) on credential and code endpoints; sets `RateLimit-*` headers and `Retry-After` |
 | `Auth` | per route | Hard gate: valid `accessToken` cookie → session (by raw token, not revoked, not expired) → user. Sets `userID`, `user`, `session`. Authn failures are **401** |
-| `OptionalAuth` | per route | The same lookup as `Auth`, but a missing or bad session just continues anonymously. Used where anonymous and signed-in callers share an endpoint (`POST /scan`, `GET /scan/:id`) |
+| `OptionalAuth` | per route | The same lookup as `Auth`, but a missing or bad session just continues anonymously. Used where anonymous and signed-in callers share an endpoint (`POST /scan`, `GET /scan/:id`, `POST /sitevisit`) |
 | `VerifiedEmail` | per route, after `Auth` | 403 with reason `EMAIL_NOT_VERIFIED` |
 | `AuthAPI` | `/client/v1` | Bearer `opt_…` token → verified secret → not revoked/expired → verified owner. Sets `userID`, `user`, `apiToken`, `apiTokenPermissions` |
 | `RequirePermission(p)` | `/client/v1`, after `AuthAPI` | 403 `MISSING_PERMISSION`; then touches `lastUsedAt` |
 | `ScanRateLimit` | scan create, after auth | Per IP (anonymous), per user, or per token — see `references/scans.md` |
+| `SiteVisitRateLimit` | `POST /sitevisit`, after `OptionalAuth` | Per IP, `SITE_VISIT_RATE_LIMIT` a minute: the endpoint is unauthenticated, writes a row and may trigger a geolocation lookup |
 
 `SetClientIP` trusts forwarding headers because **Traefik is the only ingress**. The service publishes no host port: Traefik reaches 8001 over the stack's overlay network. Don't add a `ports:` entry for it. Swarm's ingress mesh bypasses UFW, so a published port is open to the internet whatever the firewall says. A client could then reach the container directly, spoof `X-Real-IP`, and dodge every per-IP limit.
 
@@ -306,6 +309,8 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 | `NewReasonError`, `DefaultErrorHandler`, `StatusCodeName`, `ListQueryError` | the error contract (§ 4) |
 | `FetchPublicPage`, `ValidatePublicURL`, `PublicDialer` | **the only way to fetch a user-supplied URL**, its pre-flight check, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
 | `S3Configured`, `S3()` → `PutObject`, `DeleteObject`, `PresignGet` | the one S3 client, built once from env; signing is local (`references/attachments.md`) |
+| `ResolvePageName(path)` | a client path's site visit page name from `data.SiteVisitPageNames`: exact match, then `:param` patterns, then `*` |
+| `LookupIPGeolocation(ip)` | ip-api.com's JSON for a public IP; nil, with no request, for any other address (`references/site-visits.md`) |
 
 Adding an email is three edits: a template in `templates/email/` supplying the `content` and `preheader` blocks the layout expects, a `subject…` constant in `email.go`, and a `Send…` method delegating to `renderAndSend`.
 

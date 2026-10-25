@@ -247,3 +247,53 @@ type ScanFinding struct {
 	// Relationships
 	Scan *Scan `gorm:"foreignKey:ScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
+
+type Device struct {
+	ID        string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID    *string   `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
+	Name      string    `gorm:"column:name;size:64;not null;index" json:"name"`
+	CreatedAt time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+
+type Location struct {
+	ID        string          `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	IP        string          `gorm:"column:ip;size:45;not null;uniqueIndex" json:"ip"`
+	Info      json.RawMessage `gorm:"column:info;type:jsonb;default:null" json:"info"`
+	CreatedAt time.Time       `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt time.Time       `gorm:"column:updatedAt;index" json:"updatedAt"`
+}
+
+type SiteVisit struct {
+	ID          string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID      *string    `gorm:"column:userID;type:uuid;default:null;index" json:"userID"`
+	AnonymousID string     `gorm:"column:anonymousID;type:uuid;not null;index" json:"anonymousID"`
+	DeviceID    *string    `gorm:"column:deviceID;type:uuid;default:null;index" json:"deviceID"`
+	LocationID  *string    `gorm:"column:locationID;type:uuid;default:null;index" json:"locationID"`
+	Page        string     `gorm:"column:page;size:64;not null;index" json:"page"`
+	Path        string     `gorm:"column:path;size:512;not null;index" json:"path"`
+	CapturedAt  time.Time  `gorm:"column:capturedAt;not null;index" json:"capturedAt"`
+	LinkedAt    *time.Time `gorm:"column:linkedAt;default:null" json:"linkedAt"`
+	CreatedAt   time.Time  `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt   time.Time  `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User     *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Device   *Device   `gorm:"foreignKey:DeviceID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Location *Location `gorm:"foreignKey:LocationID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+}
+
+type AnonymousUserLink struct {
+	ID          string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	AnonymousID string    `gorm:"column:anonymousID;type:uuid;not null;uniqueIndex" json:"anonymousID"`
+	UserID      string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
+	LinkedAt    time.Time `gorm:"column:linkedAt;not null;index" json:"linkedAt"`
+	CreatedAt   time.Time `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}

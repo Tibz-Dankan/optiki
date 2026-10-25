@@ -16,6 +16,7 @@ servers:
 tags:
   - name: Auth
   - name: Appearance
+  - name: Site visits
   - name: Scans
   - name: Scans (token API)
   - name: API tokens
@@ -205,6 +206,17 @@ components:
         revokedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AnonymousUserLink:
+      type: object
+      properties:
+        status: { type: string, const: success }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            anonymousID: { type: string, format: uuid }
+            userID: { type: string, format: uuid }
+            linkedVisits: { type: integer, minimum: 0 }
     Rule:
       type: object
       properties:
@@ -472,6 +484,24 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/auth/user/{id}/anony-reconcile:
+    post:
+      tags: [Auth]
+      summary: Link this browser's anonymous site visits to the signed-in user
+      description: The client calls it after sign-up, sign-in, reset-password and session refresh. Only visits without an owner are linked. The same ID linked again answers 200; an ID linked to another account answers 409.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [anonymousID], properties: { anonymousID: { type: string, format: uuid } } } } }
+      responses:
+        '201': { description: Linked, content: { application/json: { schema: { $ref: '#/components/schemas/AnonymousUserLink' } } } }
+        '200': { description: Already linked to this user, content: { application/json: { schema: { $ref: '#/components/schemas/AnonymousUserLink' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/auth/user/{id}:
     patch:
       tags: [Auth]
@@ -837,6 +867,43 @@ paths:
         '200': { description: Revoked token }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/sitevisit:
+    post:
+      tags: [Site visits]
+      summary: Record a page visit
+      description: The client posts one on every navigation. The server resolves the page name from the path, attaches the visit to the signed-in user when there is one, and records the device and the caller's IP location.
+      security: [{}, { cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, capturedAt, anonymousID]
+              properties:
+                path: { type: string, pattern: '^/', maxLength: 512, examples: [/scans/3f1c2a9e-0b7d-4e5f-9a61-2c8d4b7e1f03] }
+                capturedAt: { type: string, format: date-time }
+                anonymousID: { type: string, format: uuid }
+                device: { type: string, maxLength: 64, examples: [Chrome on Linux] }
+      responses:
+        '201':
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      page: { type: string, examples: [Scan Report] }
+                      path: { type: string }
+                      capturedAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /api/v1/rules:
     get:
       tags: [Rules]
