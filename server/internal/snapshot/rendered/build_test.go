@@ -5,8 +5,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -23,16 +21,9 @@ func requireChrome(t *testing.T) {
 	if testing.Short() {
 		t.Skip("rendered integration tests are skipped with -short")
 	}
-	if os.Getenv("CHROME_BIN") != "" {
-		return
+	if ChromePath() == "" {
+		t.Skip("no Chrome or Chromium found")
 	}
-	for _, name := range []string{"chromium", "chromium-browser", "google-chrome", "google-chrome-stable"} {
-		if path, err := exec.LookPath(name); err == nil {
-			t.Setenv("CHROME_BIN", path)
-			return
-		}
-	}
-	t.Skip("no Chrome or Chromium found")
 }
 
 func gymServer(t *testing.T) *httptest.Server {

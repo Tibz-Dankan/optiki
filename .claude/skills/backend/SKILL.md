@@ -284,7 +284,9 @@ Signature `func Name(c *fiber.Ctx) error`, ending in `c.Next()`, one per file. T
 | `RequirePermission(p)` | `/client/v1`, after `AuthAPI` | 403 `MISSING_PERMISSION`; then touches `lastUsedAt` |
 | `ScanRateLimit` | scan create, after auth | Per IP (anonymous), per user, or per token — see `references/scans.md` |
 
-`SetClientIP` trusts forwarding headers because **Traefik is the only ingress** and overwrites them. The service also publishes port 8001 on the host for the deploy script's check, so **the host firewall must keep 8001 closed to the internet**. Otherwise a client can reach the container directly, spoof `X-Real-IP`, and dodge every per-IP limit.
+`SetClientIP` trusts forwarding headers because **Traefik is the only ingress**. The service publishes no host port: Traefik reaches 8001 over the stack's overlay network. Don't add a `ports:` entry for it. Swarm's ingress mesh bypasses UFW, so a published port is open to the internet whatever the firewall says. A client could then reach the container directly, spoof `X-Real-IP`, and dodge every per-IP limit.
+
+TODO: Traefik runs with `forwardedHeaders.insecure=true` behind Cloudflare, so a client-sent `X-Real-IP` still passes through unchanged. The fix: read `CF-Connecting-IP`, trust only Cloudflare's ranges in Traefik, and limit origin 80/443 to Cloudflare.
 
 ## 9. pkg
 
@@ -300,7 +302,7 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 | `GenerateNumericCode(n)`, `GenerateRandomState()` | `crypto/rand` OTPs and URL-safe tokens |
 | `Email{Recipient}` + `SendWelcome`/`SendVerifyEmail`/`SendResetPassword` | Resend, templates embedded. With no `RESEND_API_KEY` in local dev the email is logged instead; deployed, it is an error |
 | `NormalizeEmail`, `IsValidEmail`, `ValidateInput`, `ValidateQueryLimit`, `IsValidTheme` | input handling |
-| `GetClientBaseURL()`, `AllowedOrigins()` | `APP_BASE_URL` — the **client's** origin (`https://optikii.netlify.app`) — used in email links and as the CORS allow-list (plus `http://localhost:5173`) |
+| `GetClientBaseURL()`, `AllowedOrigins()` | the **client's** origin per `GetAppEnv()`, hardcoded in `clientURL.go`: `http://localhost:5173` locally, `https://optikii.netlify.app` deployed. Used in email links and as the CORS allow-list, which always includes `http://localhost:5173` |
 | `NewReasonError`, `DefaultErrorHandler`, `StatusCodeName`, `ListQueryError` | the error contract (§ 4) |
 | `FetchPublicPage`, `ValidatePublicURL`, `PublicDialer` | **the only way to fetch a user-supplied URL**, its pre-flight check, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
 | `S3Configured`, `S3()` → `PutObject`, `DeleteObject`, `PresignGet` | the one S3 client, built once from env; signing is local (`references/attachments.md`) |
@@ -311,16 +313,23 @@ Adding an email is three edits: a template in `templates/email/` supplying the `
 
 `.env` loads only in local development (`make run` sets `GO_ENV=development`). Every secret comes from the environment; never log a token, a code, a DSN or a key. The template is `server/.env.example`; on the server the values live in `~/optiki.env`.
 
+**Every feature runs in both environments.** Never gate a feature on `GetAppEnv()` or `GO_ENV`. Only config may differ: the DSN, the port, the cookie flags, the client origin, and the console fallback for email without a Resend key. Local development runs without Docker, through the same code paths as production:
+- Rendered scans use the installed Chrome or Chromium that `rendered.ChromePath()` finds (`CHROME_BIN`, else PATH). Only the image sets `CHROME_BIN`.
+- Screenshots go to the same real S3 bucket as production, with its credentials in `.env`. Without them, scans are stored without screenshots.
+- `.env.example` seeds two public demo accounts.
+- `warnMissingFeatures` in `cmd/main.go` logs at boot whatever is missing (Chrome, S3, Resend).
+
+A new optional service must work locally without Docker: real credentials in `.env`, or a graceful skip plus a line in `warnMissingFeatures`.
+
 | Variable | Notes |
 |---|---|
 | `OPTIKI_DEV_DSN_LOCAL` / `OPTIKI_PROD_DSN` | DSN per `GetAppEnv()` |
 | `JWT_SECRET` | ≥ 32 chars, or the server refuses to boot |
-| `APP_BASE_URL` | the client's origin, `https://optikii.netlify.app`; required when deployed |
 | `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
-| `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans |
+| `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans; locally `CHROME_BIN` may stay empty and `rendered.ChromePath()` searches PATH |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
-| `S3_ACCESS_KEY_ID`, `S3_ACCESS_KEY`, `S3_BUCKET_NAME`, `AWS_REGION` (+ optional `S3_ENDPOINT`, `S3_USE_PATH_STYLE`) | scan screenshots; without them rendered scans are stored without one |
-| `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified TestSprite accounts, created on boot if missing |
+| `S3_ACCESS_KEY_ID`, `S3_ACCESS_KEY`, `S3_BUCKET_NAME`, `AWS_REGION` (+ optional `S3_ENDPOINT`, `S3_USE_PATH_STYLE`) | scan screenshots, from the same real bucket locally and deployed; without them rendered scans are stored without one |
+| `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified accounts, created on boot if missing. The template seeds public local ones (`demo@example.com`); the server's are TestSprite's and private |
 
 Ports: 8000 (local), 8001 (deployed).
 
@@ -367,12 +376,12 @@ CRUD handlers ship without Go tests; they are covered by the TestSprite API suit
   - **The service is defined in tuliime-backend's `docker-compose.yaml`, not in this repo.**
   - Image `tibzdankan/optiki-backend:latest`; limits 2 CPUs / 3 GB (reservations 0.5 / 768M).
   - tuliime's Traefik routes `optikiapi.tuliime.com` to port 8001.
-  - Healthcheck: `curl` on `/health`. Published on host port 8001; keep it firewalled (§ 8).
+  - Healthcheck: `curl` on `/health`. Port 8001 is not published on the host (§ 8). Only Traefik's 80/443 are, and no service in the stack publishes any other port.
   - The database is external (`OPTIKI_PROD_DSN`).
 - Container env comes from `~/optiki.env` (template `server/.env.example`), copied to `~/app/optiki/.env` (the service's `env_file`) by `scripts/optiki-deploy.sh` and by tuliime's `deploy.sh`.
 - CI (`.github/workflows/contabo-deploy.yaml`, on push to `main`):
   - Builds and pushes `tibzdankan/optiki-backend:<sha>` and `:latest` to Docker Hub, then runs `optiki-deploy.sh` over SSH.
-  - The script runs `docker stack deploy app-stack` with the compose file's tag (`:latest`). It waits until the service is `1/1` and port 8001 answers on localhost.
+  - The script runs `docker stack deploy app-stack` with the compose file's tag (`:latest`). It waits until the service is `1/1` and `https://optikiapi.tuliime.com/health` answers through Traefik on the server's loopback (`curl --resolve …:443:127.0.0.1`).
   - It does not compare `/health`'s `commit` with the pushed SHA.
 - The client deploys to Netlify separately (`netlify-deploy.yaml`, on push to `main`). There are no per-PR previews.
 - **A new endpoint updates `internal/assets/openapi.yaml`** in the same PR — TestSprite's API mode reads it from `/api/v1/openapi.yaml`. Document `/client/v1` routes under a `bearerAuth` security scheme.
