@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
@@ -7,7 +6,6 @@ import {
   multiplePageScanStatusLabels,
   scanPageSize,
 } from '@constants/scan'
-import type { TMultiplePageScanSummary } from '@typings/scan'
 import { scanAPI, scanKeys } from '@api/scan'
 import { describeMultiplePageScan } from '@utils/describe-multiple-page-scan'
 import { formatDateTime } from '@utils/format-date-time'
@@ -21,12 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@shared/ui/table'
-import { DeleteMultiplePageScanDialog } from '@modules/scan/ui/delete-multiple-page-scan-dialog'
+import { MultiplePageScanActions } from '@modules/scan/ui/multiple-page-scan-actions'
 
 export const MultiplePageScanList: React.FC = () => {
-  const [scanToDelete, setScanToDelete] =
-    useState<TMultiplePageScanSummary | null>(null)
-
   const {
     data,
     isError,
@@ -104,19 +99,10 @@ export const MultiplePageScanList: React.FC = () => {
                   {formatDateTime(scan.createdAt)}
                 </TableCell>
                 <TableCell className='text-right'>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='sm'
-                    disabled={isMultiplePageScanActive(scan)}
-                    onClick={() => setScanToDelete(scan)}
-                  >
-                    Delete
-                    <span className='sr-only'>
-                      {' '}
-                      multiple-page scan of {target}
-                    </span>
-                  </Button>
+                  <MultiplePageScanActions
+                    scan={scan}
+                    label={`Actions for multiple-page scan of ${target}`}
+                  />
                 </TableCell>
               </TableRow>
             )
@@ -138,11 +124,6 @@ export const MultiplePageScanList: React.FC = () => {
           </Button>
         </div>
       )}
-
-      <DeleteMultiplePageScanDialog
-        scan={scanToDelete}
-        onOpenChange={(open) => !open && setScanToDelete(null)}
-      />
     </section>
   )
 }

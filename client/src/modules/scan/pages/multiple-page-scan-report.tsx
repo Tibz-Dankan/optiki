@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -6,7 +5,6 @@ import {
   multiplePageScanStatusLabels,
   triggeredByLabels,
 } from '@constants/scan'
-import type { TMultiplePageScanSummary } from '@typings/scan'
 import { isHttpError } from '@api/http-error'
 import { scanAPI, scanKeys } from '@api/scan'
 import { describeMultiplePageScan } from '@utils/describe-multiple-page-scan'
@@ -21,8 +19,8 @@ import { ThemeSwitch } from '@shared/ui/theme-switch'
 import { Header } from '@shared/layout/header'
 import { Main } from '@shared/layout/main'
 import { NotFoundError } from '@shared/pages/not-found-error'
-import { DeleteMultiplePageScanDialog } from '@modules/scan/ui/delete-multiple-page-scan-dialog'
 import { MultiplePageRuleSummary } from '@modules/scan/ui/multiple-page-rule-summary'
+import { MultiplePageScanActions } from '@modules/scan/ui/multiple-page-scan-actions'
 import { MultiplePageScanPages } from '@modules/scan/ui/multiple-page-scan-pages'
 import { MultiplePageScanProgress } from '@modules/scan/ui/multiple-page-scan-progress'
 import { MultiplePageScanSkipped } from '@modules/scan/ui/multiple-page-scan-skipped'
@@ -30,8 +28,6 @@ import { ScoreSummary } from '@modules/scan/ui/score-summary'
 
 export const MultiplePageScanReport: React.FC = () => {
   const { id = '' } = useParams()
-  const [scanToDelete, setScanToDelete] =
-    useState<TMultiplePageScanSummary | null>(null)
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: scanKeys.multipleDetail(id),
@@ -50,7 +46,6 @@ export const MultiplePageScanReport: React.FC = () => {
   }
 
   const scan = data?.data
-  const isActive = scan ? isMultiplePageScanActive(scan) : false
 
   return (
     <>
@@ -108,15 +103,7 @@ export const MultiplePageScanReport: React.FC = () => {
                   <Button asChild size='sm'>
                     <Link to='/u/scan'>Scan another page</Link>
                   </Button>
-                  <Button
-                    type='button'
-                    size='sm'
-                    variant='outline'
-                    disabled={isActive}
-                    onClick={() => setScanToDelete(scan)}
-                  >
-                    Delete multiple-page scan
-                  </Button>
+                  <MultiplePageScanActions scan={scan} redirectTo='/u/scans' />
                 </div>
               </div>
 
@@ -142,12 +129,6 @@ export const MultiplePageScanReport: React.FC = () => {
             </>
           )}
         </div>
-
-        <DeleteMultiplePageScanDialog
-          scan={scanToDelete}
-          onOpenChange={(open) => !open && setScanToDelete(null)}
-          redirectTo='/u/scans'
-        />
       </Main>
     </>
   )

@@ -98,7 +98,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 ## Multiple-page scan (`/u/scans/multiple/:id`)
 
 - `useQuery` on `scanKeys.multipleDetail(id)` refetches every 2 s while the scan is `QUEUED` or `RUNNING` (`isMultiplePageScanActive`). A 400 or 404 renders `NotFoundError`.
-- Header: the start URL, status / mode / rule-set / Private badges, "Scan another page", and "Delete multiple-page scan" (disabled while active), which opens `delete-multiple-page-scan-dialog.tsx`.
+- Header: the start URL, status / mode / rule-set / Private badges, "Scan another page", and `multiple-page-scan-actions.tsx` → `MultiplePageScanActions`: the single-page report's ⋮ "Scan actions" menu with one "Delete scan" item (disabled while active), which opens `delete-multiple-page-scan-dialog.tsx` and redirects to `/u/scans`. There is no visibility or copy link; multiple-page scans are always private.
 - `multiple-page-scan-progress.tsx`: a `role='status'` sentence ("Scanning… 7 of up to 25 pages done, 23 found so far."), a decorative bar, the failure alert, and how many found pages were left after the 25-page cap.
 - `ScoreSummary` with `rules={[]}`, captioned as the average across the scanned pages. It is shown once the scan completes.
 - `multiple-page-rule-summary.tsx`: "Issues across the pages", the failing rules by pages failed ("Fails on 12 of 25 pages · 48 findings"), each linking `/rules/:id`.
@@ -108,7 +108,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 
 ## Scan history (`/u/scans`)
 
-- `multiple-page-scan-list.tsx` → `MultiplePageScanList` comes first: a "Multiple-page scans" table (start page, pages scanned, average score, status, created; per-row "Open multiple-page scan of <url>" and "Delete multiple-page scan of <url>"). It polls while any row is active and renders nothing when there are none. The page scans below sit under a "Single-page scans" heading; `GET /scan` leaves out pages that belong to a multiple-page scan.
+- `multiple-page-scan-list.tsx` → `MultiplePageScanList` comes first: a "Multiple-page scans" table (start page, pages scanned, average score, status, created; per-row "Open multiple-page scan of <url>" and the `MultiplePageScanActions` ⋮ menu named "Actions for multiple-page scan of <url>", with no `redirectTo`). It polls while any row is active and renders nothing when there are none. The page scans below sit under a "Single-page scans" heading; `GET /scan` leaves out pages that belong to a multiple-page scan.
 
 - `useInfiniteQuery` over `scanKeys.list(filters)`, with "Load more scans" and status and source filters (shadcn `Select` with `aria-label`s).
 - The Page cell is the target (`describeScanTarget`) linking to `/u/scans/:id`.
