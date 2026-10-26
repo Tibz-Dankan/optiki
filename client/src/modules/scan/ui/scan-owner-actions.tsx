@@ -14,11 +14,17 @@ import { ScanVisibilityDialog } from '@modules/scan/ui/scan-visibility-dialog'
 
 type ScanOwnerActionsProps = {
   scan: TScanSummary
+  label?: string
+  redirectTo?: string
 }
 
 type TScanActionDialog = 'visibility' | 'copy-link' | 'delete'
 
-export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({ scan }) => {
+export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({
+  scan,
+  label = 'Scan actions',
+  redirectTo,
+}) => {
   const [openDialog, setOpenDialog] = useState<TScanActionDialog | null>(null)
   const isPublic = scan.visibility === 'PUBLIC'
   const closeDialog = (isOpen: boolean) => !isOpen && setOpenDialog(null)
@@ -34,7 +40,7 @@ export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({ scan }) => {
             className='size-8'
           >
             <EllipsisVertical aria-hidden />
-            <span className='sr-only'>Scan actions</span>
+            <span className='sr-only'>{label}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end'>
@@ -69,7 +75,7 @@ export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({ scan }) => {
       <DeleteScanDialog
         scan={openDialog === 'delete' ? scan : null}
         onOpenChange={closeDialog}
-        redirectTo='/u/scans'
+        redirectTo={redirectTo}
       />
     </>
   )

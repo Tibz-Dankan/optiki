@@ -91,7 +91,9 @@ export const ScanReportContent: React.FC<ScanReportContentProps> = ({
               <Button asChild size='sm'>
                 <Link to={scanAnotherPath}>Scan another page</Link>
               </Button>
-              {data.data.isOwner && <ScanOwnerActions scan={data.data} />}
+              {data.data.isOwner && (
+                <ScanOwnerActions scan={data.data} redirectTo='/u/scans' />
+              )}
             </div>
           </div>
 

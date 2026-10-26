@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { scanPageSize, statusLabels } from '@constants/scan'
-import type { TScanListFilters, TScanSummary } from '@typings/scan'
+import type { TScanListFilters } from '@typings/scan'
 import { scanAPI, scanKeys } from '@api/scan'
 import { describeScanTarget } from '@utils/describe-scan-target'
 import { formatDateTime } from '@utils/format-date-time'
@@ -29,13 +29,12 @@ import {
 import { ThemeSwitch } from '@shared/ui/theme-switch'
 import { Header } from '@shared/layout/header'
 import { Main } from '@shared/layout/main'
-import { DeleteScanDialog } from '@modules/scan/ui/delete-scan-dialog'
+import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
 
 const anyValue = 'ANY'
 
 export const Scans: React.FC = () => {
   const [filters, setFilters] = useState<TScanListFilters>({})
-  const [scanToDelete, setScanToDelete] = useState<TScanSummary | null>(null)
 
   const {
     data,
@@ -166,7 +165,7 @@ export const Scans: React.FC = () => {
                             to={`/u/scans/${scan.id}`}
                             className='underline-offset-4 hover:underline'
                           >
-                            Open scan of {target}
+                            {target}
                           </Link>
                         </TableCell>
                         <TableCell>{scan.scores.overall ?? '—'}</TableCell>
@@ -180,14 +179,10 @@ export const Scans: React.FC = () => {
                           {formatDateTime(scan.createdAt)}
                         </TableCell>
                         <TableCell className='text-right'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='sm'
-                            onClick={() => setScanToDelete(scan)}
-                          >
-                            Delete scan of {target}
-                          </Button>
+                          <ScanOwnerActions
+                            scan={scan}
+                            label={`Actions for scan of ${target}`}
+                          />
                         </TableCell>
                       </TableRow>
                     )
@@ -222,11 +217,6 @@ export const Scans: React.FC = () => {
             </>
           )}
         </div>
-
-        <DeleteScanDialog
-          scan={scanToDelete}
-          onOpenChange={(isOpen) => !isOpen && setScanToDelete(null)}
-        />
       </Main>
     </>
   )

@@ -73,7 +73,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 - Both pages render `scan/ui/scan-report-content.tsx` → `ScanReportContent` (`{ id, scanAnotherPath }`). The public page adds `GuestHistoryBanner` above it (it renders nothing for verified users).
 - **Header**: the target (`describeScanTarget`), source and time, and badges for Rendered/Static, "All 17 rules"/"9 core rules", and Public/Private; then "Scan another page" and, only when `isOwner`, `scan/ui/scan-owner-actions.tsx`:
   - a `DropdownMenu modal={false}` behind an icon button named "Scan actions" (⋮), with "Make scan public"/"Make scan private", "Copy link" and "Delete scan"
-  - each item opens its own dialog; the menu keeps only which one is open: `scan-visibility-dialog.tsx` (`ConfirmDialog`, owns the update mutation), `copy-scan-link-dialog.tsx` (always the public `${origin}/scans/:id`, with "Copy link"), `delete-scan-dialog.tsx` (redirects to `/u/scans`)
+  - each item opens its own dialog; the menu keeps only which one is open: `scan-visibility-dialog.tsx` (`ConfirmDialog`, owns the update mutation), `copy-scan-link-dialog.tsx` (always the public `${origin}/scans/:id`, with "Copy link"), `delete-scan-dialog.tsx` (redirects to `redirectTo` when given; the report passes `/u/scans`)
 - **`rule-set-banner.tsx`**: on `CORE`, "Ran the 9 core rules. Sign in to run all 17 rules…" (`?redirectTo=/u/scan`). On a static `FULL` scan, it says how many rules need a rendered page.
 - **`score-summary.tsx`**:
   - The overall score and the four category scores **as visible text**, with each category's question.
@@ -95,7 +95,8 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 ## Scan history (`/u/scans`)
 
 - `useInfiniteQuery` over `scanKeys.list(filters)`, with "Load more scans" and status and source filters (shadcn `Select` with `aria-label`s).
-- Row actions are named per row: "Open scan of <target>" (to `/u/scans/:id`), "Delete scan of <target>".
+- The Page cell is the target (`describeScanTarget`) linking to `/u/scans/:id`.
+- Actions is the report's `ScanOwnerActions` menu, its trigger named per row ("Actions for scan of <target>") and no `redirectTo`, so deleting keeps the list open.
 - No screenshots in lists; screenshots appear on the report only.
 - Claimed guest scans appear in `/u/scan`'s Recent scans and here, with source "Anonymous", private.
 
