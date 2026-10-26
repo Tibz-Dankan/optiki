@@ -7,6 +7,7 @@
 @theme {
   --animate-status-blink: status-blink 1.4s ease-in-out infinite;
   --animate-caret-blink: caret-blink 1s steps(1) infinite;
+  --animate-scan-sweep: scan-sweep 1.4s ease-in-out infinite;
 
   @keyframes status-blink {
     0%,
@@ -25,6 +26,15 @@
     }
     50% {
       opacity: 0;
+    }
+  }
+
+  @keyframes scan-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(260%);
     }
   }
 }
@@ -80,6 +90,28 @@
 
 @utility faded-bottom {
   @apply after:pointer-events-none after:absolute after:inset-s-0 after:bottom-0 after:hidden after:h-32 after:w-full after:rounded-b-2xl after:bg-[linear-gradient(180deg,transparent_10%,var(--background)_70%)] md:after:block;
+}
+
+/* Landing sections fade in as they scroll into view */
+@utility reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Collapsible sidebar sub-menus (used by nav-group.tsx) */

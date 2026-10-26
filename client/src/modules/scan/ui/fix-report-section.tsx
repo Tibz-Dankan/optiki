@@ -13,6 +13,7 @@ import type { TFixReportResponse } from '@typings/scan'
 import { isHttpError } from '@api/http-error'
 import { scanAPI, scanKeys } from '@api/scan'
 import { formatDateTime } from '@utils/format-date-time'
+import { formatRelativeTime } from '@utils/format-relative-time'
 import { isFixReportActive } from '@utils/is-fix-report-active'
 import { useCopyToClipboard } from '@hooks/use-copy-to-clipboard'
 import { Button } from '@shared/ui/button'
@@ -86,7 +87,6 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
   const generateButton = (label: string) => (
     <Button
       type='button'
-      size='sm'
       variant={report ? 'outline' : 'default'}
       disabled={generate.isPending}
       onClick={() => generate.mutate({ id: scanID })}
@@ -105,33 +105,36 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
   return (
     <section
       aria-labelledby='fix-report-heading'
-      className='grid gap-4 rounded-lg border border-border p-6'
+      className='grid gap-4 rounded-lg border border-border bg-card p-5'
     >
-      <div className='flex flex-wrap items-start justify-between gap-4'>
-        <div className='min-w-0'>
-          <h2 id='fix-report-heading' className='text-lg font-semibold'>
-            Fix report
-          </h2>
-          <p className='mt-1 text-sm text-muted-foreground'>
-            A detailed prompt that tells your coding agent (Claude Code, Codex,
-            Cursor, Antigravity or any other) exactly what to fix and how. Copy
-            it and paste it in.
-          </p>
+      <div className='flex flex-wrap items-center justify-between gap-4'>
+        <div className='flex min-w-0 flex-[1_1_420px] items-start gap-3.5'>
+          <span
+            aria-hidden
+            className='flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary'
+          >
+            <Sparkles className='size-4.5' />
+          </span>
+          <div className='grid min-w-0 gap-1'>
+            <h2 id='fix-report-heading' className='text-base font-semibold'>
+              Fix report
+            </h2>
+            <p className='text-sm leading-normal text-muted-foreground'>
+              A detailed prompt that tells your coding agent (Claude Code,
+              Codex, Cursor, Antigravity or any other) exactly what to fix and
+              how. Copy it and paste it in.
+            </p>
+          </div>
         </div>
 
         {report?.status === 'COMPLETED' && report.content && (
           <div className='flex flex-wrap items-center gap-2'>
-            <Button
-              type='button'
-              size='sm'
-              onClick={() => copy(report.content ?? '')}
-            >
+            <Button type='button' onClick={() => copy(report.content ?? '')}>
               {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
               {copied ? 'Copied' : 'Copy prompt'}
             </Button>
             <Button
               type='button'
-              size='sm'
               variant='outline'
               onClick={() =>
                 downloadMarkdown(
@@ -173,17 +176,29 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
             role='region'
             aria-label='Fix prompt'
             tabIndex={0}
-            className='max-h-160 overflow-auto rounded-md border border-border bg-background p-4 sm:p-5'
+            className='max-h-55 overflow-auto rounded-lg border border-border bg-background px-4.5 py-4'
           >
             <FixReportMarkdown content={report.content} />
           </div>
           <p className='text-xs text-muted-foreground'>
-            {report.timing.completedAt
-              ? `${formatDateTime(report.timing.completedAt)} · covers`
-              : 'Covers'}{' '}
+            {report.timing.completedAt ? (
+              <>
+                Generated{' '}
+                <time
+                  dateTime={report.timing.completedAt}
+                  title={formatDateTime(report.timing.completedAt)}
+                >
+                  {formatRelativeTime(report.timing.completedAt)}
+                </time>{' '}
+                · covers
+              </>
+            ) : (
+              'Covers'
+            )}{' '}
             {report.findingsCovered}{' '}
             {report.findingsCovered === 1 ? 'finding' : 'findings'}. It quotes
-            markup from the scanned page, so read it before you run it.
+            markup from the scanned {multiplePage ? 'pages' : 'page'}, so read
+            it before you run it.
           </p>
         </>
       )}

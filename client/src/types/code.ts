@@ -1,1 +1,1 @@
-export type THighlightLanguage = 'html' | 'css'
+export type THighlightLanguage = 'html' | 'css' | 'shellscript'

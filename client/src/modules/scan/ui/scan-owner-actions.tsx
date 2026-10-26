@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { EllipsisVertical, Link2, Lock, Trash2, Users } from 'lucide-react'
+import {
+  Ellipsis,
+  EllipsisVertical,
+  Link2,
+  Lock,
+  Trash2,
+  Users,
+} from 'lucide-react'
 import type { TScanSummary } from '@typings/scan'
 import { Button } from '@shared/ui/button'
 import {
@@ -16,6 +23,7 @@ type ScanOwnerActionsProps = {
   scan: TScanSummary
   label?: string
   redirectTo?: string
+  variant?: 'outline' | 'ghost'
 }
 
 type TScanActionDialog = 'visibility' | 'copy-link' | 'delete'
@@ -24,8 +32,10 @@ export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({
   scan,
   label = 'Scan actions',
   redirectTo,
+  variant = 'outline',
 }) => {
   const [openDialog, setOpenDialog] = useState<TScanActionDialog | null>(null)
+  const TriggerIcon = variant === 'ghost' ? Ellipsis : EllipsisVertical
   const isPublic = scan.visibility === 'PUBLIC'
   const closeDialog = (isOpen: boolean) => !isOpen && setOpenDialog(null)
 
@@ -35,11 +45,11 @@ export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({
         <DropdownMenuTrigger asChild>
           <Button
             type='button'
-            variant='outline'
+            variant={variant}
             size='icon'
-            className='size-8'
+            className={variant === 'ghost' ? 'size-8' : undefined}
           >
-            <EllipsisVertical aria-hidden />
+            <TriggerIcon aria-hidden />
             <span className='sr-only'>{label}</span>
           </Button>
         </DropdownMenuTrigger>

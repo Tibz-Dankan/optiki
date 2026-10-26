@@ -10,7 +10,7 @@ export const Scan: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className='mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-8 px-6 py-12'>
+      <div className='mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-12 px-6 py-12 md:py-16'>
         <ScanPanel isGuest />
 
         <section aria-labelledby='recent-scans' className='grid gap-3'>
