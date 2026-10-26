@@ -127,7 +127,7 @@ Each case signs in itself, with the test account's credentials from the portal.
   5. Action: Type https://docease-v2.netlify.app into the "Page address" field
   6. Action: Click the "Scan" button
   7. Assertion: The report shows a "Rendered" badge
-  8. Assertion: The report has a "Page screenshot" section
+  8. Assertion: The report shows a screenshot of the scanned page
 
 ### U9 · Making a signed-in scan public updates its visibility
 

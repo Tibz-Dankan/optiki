@@ -83,8 +83,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - The gauge is a decorative SVG with `aria-hidden`.
   - `null` shows "—", or "Needs rendered scan" when every rule in that category is `NEEDS_RENDERED`.
 - **`scan-screenshot.tsx`**:
-  - When `screenshot` is set: a "Page screenshot" heading and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
-  - An "Open full-size screenshot" link.
+  - When `screenshot` is set: a "Page" heading followed by the scan's `target.route` in muted text (e.g. "Page /pricing"), and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
   - The report query uses `staleTime` and `refetchInterval` of 25 minutes, so the 30-minute link is replaced before it expires.
 - **`rule-results.tsx`**: rules grouped by category. Each rule shows its ID (linking to `/rules/:id`), name, severity and result (Pass / Fail · n findings / Not applicable / Needs rendered scan). Failing rules list their findings in `finding-card.tsx`:
   - the severity and `message`

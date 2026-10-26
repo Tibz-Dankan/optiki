@@ -125,6 +125,7 @@ export const ScanReportContent: React.FC<ScanReportContentProps> = ({
                 <ScanScreenshot
                   screenshot={data.data.screenshot}
                   label={describeScanTarget(data.data)}
+                  path={data.data.target.route}
                 />
               )}
               <RuleResults
