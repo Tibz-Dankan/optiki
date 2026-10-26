@@ -9,7 +9,6 @@ import {
 import type {
   TMultiplePageScanSummaryResponse,
   TScanReportResponse,
-  TScanScope,
 } from '@typings/scan'
 import { isHttpError } from '@api/http-error'
 import { scanAPI, scanKeys } from '@api/scan'
@@ -17,7 +16,6 @@ import { useGuestScanStore } from '@stores/guest-scan'
 import { getAnonymousID } from '@utils/get-anonymous-id'
 import { toRecentScan } from '@utils/to-recent-scan'
 import { GuestScanLimitNotice } from '@modules/scan/ui/guest-scan-limit-notice'
-import { ScanScopeSwitch } from '@modules/scan/ui/scan-scope-switch'
 import { UrlScanForm } from '@modules/scan/ui/url-scan-form'
 
 type ScanPanelProps = {
@@ -27,10 +25,10 @@ type ScanPanelProps = {
 export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [scope, setScope] = useState<TScanScope>('single')
+  const [discoverPages, setDiscoverPages] = useState(false)
   const guestScanCount = useGuestScanStore((state) => state.scans.length)
   const addGuestScan = useGuestScanStore((state) => state.addScan)
-  const isMultiple = !isGuest && scope === 'multiple'
+  const isMultiple = !isGuest && discoverPages
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: ({
@@ -63,9 +61,9 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
     mutate({ url, multiple: isMultiple })
   }
 
-  const changeScope = (next: TScanScope) => {
+  const changeDiscoverPages = (checked: boolean) => {
     reset()
-    setScope(next)
+    setDiscoverPages(checked)
   }
 
   const isLimitError =
@@ -105,33 +103,25 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
       {isAtLimit ? (
         <GuestScanLimitNotice />
       ) : (
-        <div className='grid gap-3'>
-          {!isGuest && (
-            <ScanScopeSwitch
-              scope={scope}
-              disabled={isPending}
-              onChange={changeScope}
-            />
+        <div className='grid gap-2'>
+          <UrlScanForm
+            isPending={isPending}
+            discoverPages={discoverPages}
+            onDiscoverPagesChange={isGuest ? undefined : changeDiscoverPages}
+            onScan={scan}
+          />
+          <p className='text-sm text-muted-foreground'>{hint}</p>
+          {isGuest && (
+            <p className='text-sm text-muted-foreground'>
+              <Link
+                to='/auth/signin?redirectTo=/u/scan'
+                className='font-medium text-foreground underline underline-offset-4'
+              >
+                Sign in to scan multiple pages
+              </Link>{' '}
+              of a site at once, up to {multiplePageScanMaxPages}.
+            </p>
           )}
-          <div className='grid gap-2'>
-            <UrlScanForm
-              isPending={isPending}
-              submitLabel={isMultiple ? 'Scan pages' : 'Scan URL'}
-              onScan={scan}
-            />
-            <p className='text-sm text-muted-foreground'>{hint}</p>
-            {isGuest && (
-              <p className='text-sm text-muted-foreground'>
-                <Link
-                  to='/auth/signin?redirectTo=/u/scan'
-                  className='font-medium text-foreground underline underline-offset-4'
-                >
-                  Sign in to scan multiple pages
-                </Link>{' '}
-                of a site at once, up to {multiplePageScanMaxPages}.
-              </p>
-            )}
-          </div>
         </div>
       )}
 

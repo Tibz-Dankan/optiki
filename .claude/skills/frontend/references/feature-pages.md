@@ -57,7 +57,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - below the panel: a "Recent scans" section with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
   - `reconcileAnonymousUser` claims them on the server (they become private) and empties the store
 - **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans".
-  - Above the form, `scan-scope-switch.tsx` → `ScanScopeSwitch` is a native radio group ("What to scan": "Single page" | "Multiple pages (up to 25)"). It is not Radix `Tabs`, because tabs without panels would leave `aria-controls` pointing at missing IDs (OPT-205). "Multiple pages" relabels the button "Scan pages", calls `createMultiplePage` and opens `/u/scans/multiple/:id`. Guests instead see "Sign in to scan multiple pages".
+  - Under the address field, `url-scan-form.tsx` shows the checkbox "Automatically discover other pages of the host and scan them too" (unchecked; `discoverPages` / `onDiscoverPagesChange`, owned by `ScanPanel`). Checked, the same "Scan URL" button calls `createMultiplePage` and opens `/u/scans/multiple/:id`, and the hint describes the crawl. Guests get no checkbox, only "Sign in to scan multiple pages".
   - Each row links its target and, through `RecentScanList`'s `renderActions`, gets the report's `ScanOwnerActions` menu named "Actions for scan of <target>" (no `redirectTo`). The guest list passes no `renderActions`.
 - A local `onError` replaces the global toast with an inline `role='alert'`, keyed on `error.error` through `scanErrorMessages`:
 

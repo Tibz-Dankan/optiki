@@ -117,8 +117,6 @@ export type TScanReport = TScanSummary & {
   findings: TScanFinding[]
 }
 
-export type TScanScope = 'single' | 'multiple'
-
 export type TCreateScanInput = {
   url: string
   title?: string

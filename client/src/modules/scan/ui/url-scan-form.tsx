@@ -2,8 +2,10 @@ import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@shared/ui/button'
+import { Checkbox } from '@shared/ui/checkbox'
 import { FormField } from '@shared/ui/form-field'
 import { Input } from '@shared/ui/input'
+import { Label } from '@shared/ui/label'
 
 const urlScanSchema = Yup.object({
   url: Yup.string()
@@ -14,13 +16,15 @@ const urlScanSchema = Yup.object({
 
 type UrlScanFormProps = {
   isPending: boolean
-  submitLabel: string
+  discoverPages?: boolean
+  onDiscoverPagesChange?: (checked: boolean) => void
   onScan: (url: string) => void
 }
 
 export const UrlScanForm: React.FC<UrlScanFormProps> = ({
   isPending,
-  submitLabel,
+  discoverPages = false,
+  onDiscoverPagesChange,
   onScan,
 }) => {
   const formik = useFormik({
@@ -57,11 +61,26 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
             className='shrink-0'
             disabled={isPending}
           >
-            {submitLabel}
+            Scan URL
             {isPending && <Loader2 className='animate-spin' />}
           </Button>
         </div>
       </FormField>
+      {onDiscoverPagesChange && (
+        <div className='mt-3 flex items-center gap-2'>
+          <Checkbox
+            id='discover-pages'
+            checked={discoverPages}
+            disabled={isPending}
+            onCheckedChange={(checked) =>
+              onDiscoverPagesChange(checked === true)
+            }
+          />
+          <Label htmlFor='discover-pages' className='font-normal'>
+            Automatically discover other pages of the host and scan them too
+          </Label>
+        </div>
+      )}
     </form>
   )
 }
