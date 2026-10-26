@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ListChecks } from 'lucide-react'
 import {
   guestScanLimit,
   multiplePageScanMaxPages,
@@ -15,6 +16,8 @@ import { scanAPI, scanKeys } from '@api/scan'
 import { useGuestScanStore } from '@stores/guest-scan'
 import { getAnonymousID } from '@utils/get-anonymous-id'
 import { toRecentScan } from '@utils/to-recent-scan'
+import { Checkbox } from '@shared/ui/checkbox'
+import { Label } from '@shared/ui/label'
 import { GuestScanLimitNotice } from '@modules/scan/ui/guest-scan-limit-notice'
 import { UrlScanForm } from '@modules/scan/ui/url-scan-form'
 
@@ -76,20 +79,9 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
     !isLimitError &&
     ((isHttpError(error) && scanErrorMessages[error.error]) || error.message)
 
-  const hint = isGuest
-    ? `Signed out, the page is fetched and checked against the 9 core rules. ${scansLeft} of ${guestScanLimit} free scans left.`
-    : isMultiple
-      ? `Finds the pages this one links to on the same site and scans up to ${multiplePageScanMaxPages} of them in a real browser, with all 17 rules.`
-      : 'The page is loaded in a real browser, so all 17 rules run and a screenshot is saved.'
-
   return (
-    <div className='grid gap-4'>
-      <div>
-        <h1 className='text-3xl font-bold tracking-tight'>Scan a page</h1>
-        <p className='mt-2 text-muted-foreground'>
-          Enter the address of a public page to see it the way an AI agent does.
-        </p>
-      </div>
+    <div className='grid gap-3'>
+      <h1 className='sr-only'>Scan a page</h1>
 
       {errorMessage && (
         <p
@@ -103,26 +95,73 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
       {isAtLimit ? (
         <GuestScanLimitNotice />
       ) : (
-        <div className='grid gap-2'>
-          <UrlScanForm
-            isPending={isPending}
-            discoverPages={discoverPages}
-            onDiscoverPagesChange={isGuest ? undefined : changeDiscoverPages}
-            onScan={scan}
-          />
-          <p className='text-sm text-muted-foreground'>{hint}</p>
-          {isGuest && (
-            <p className='text-sm text-muted-foreground'>
+        <>
+          <UrlScanForm isPending={isPending} onScan={scan}>
+            {isGuest ? (
+              <p className='text-sm text-muted-foreground'>
+                <Link
+                  to='/auth/signin?redirectTo=/u/scan'
+                  className='font-medium text-foreground underline underline-offset-4'
+                >
+                  Sign in to scan multiple pages
+                </Link>{' '}
+                of a site at once, up to {multiplePageScanMaxPages}.
+              </p>
+            ) : (
+              <div className='flex items-start gap-3'>
+                <Checkbox
+                  id='discover-pages'
+                  className='mt-0.5'
+                  checked={discoverPages}
+                  disabled={isPending}
+                  onCheckedChange={(checked) =>
+                    changeDiscoverPages(checked === true)
+                  }
+                  aria-describedby='discover-pages-hint'
+                />
+                <div className='grid gap-1'>
+                  <Label
+                    htmlFor='discover-pages'
+                    className='leading-snug font-normal'
+                  >
+                    Automatically discover other pages of the host and scan them
+                    too
+                  </Label>
+                  <p
+                    id='discover-pages-hint'
+                    className='text-xs text-muted-foreground'
+                  >
+                    Follows same-site links from this page, up to{' '}
+                    {multiplePageScanMaxPages} pages.
+                  </p>
+                </div>
+              </div>
+            )}
+          </UrlScanForm>
+          <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm text-muted-foreground'>
+            <p className='flex items-center gap-1'>
               <Link
-                to='/auth/signin?redirectTo=/u/scan'
-                className='font-medium text-foreground underline underline-offset-4'
+                to='/rules'
+                className='inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline'
               >
-                Sign in to scan multiple pages
-              </Link>{' '}
-              of a site at once, up to {multiplePageScanMaxPages}.
+                <ListChecks className='size-4' aria-hidden />
+                {isGuest ? '9 core rules' : 'All 17 rules'}
+              </Link>
+              {isGuest && (
+                <span>
+                  · {scansLeft} of {guestScanLimit} free scans left
+                </span>
+              )}
             </p>
-          )}
-        </div>
+            <p className='hidden sm:block'>
+              Press{' '}
+              <kbd className='rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground'>
+                Enter
+              </kbd>{' '}
+              to scan
+            </p>
+          </div>
+        </>
       )}
 
       {isPending && (

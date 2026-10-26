@@ -127,6 +127,10 @@ export type TCreateScanInput = {
 export type TRecentScan = {
   id: string
   target: string
+  // Optional: guest scans saved in localStorage before these existed lack them.
+  title?: string
+  subtitle?: string
+  inputType?: TScanInputType
   overallScore: number | null
   createdAt: string
 }

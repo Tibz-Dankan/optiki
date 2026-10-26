@@ -5,6 +5,7 @@ import {
 } from '@constants/scan'
 import type { TRuleCategory, TScanRuleResult, TScanScores } from '@typings/scan'
 import { cn } from '@utils/classname'
+import { getScoreTone } from '@utils/get-score-tone'
 
 type ScoreSummaryProps = {
   scores: TScanScores
@@ -22,13 +23,6 @@ const categoryScore = (scores: TScanScores, category: TRuleCategory) => {
     case 'DISCOVERABLE':
       return scores.discoverable
   }
-}
-
-const scoreTone = (score: number) => {
-  if (score >= 90) return 'text-success'
-  if (score >= 70) return 'text-info'
-  if (score >= 50) return 'text-warning'
-  return 'text-destructive'
 }
 
 const minimumFill = 2
@@ -60,7 +54,7 @@ const ScoreGauge: React.FC<{ score: number | null }> = ({ score }) => {
           stroke='currentColor'
           strokeLinecap='round'
           strokeDasharray={`${(Math.max(score, minimumFill) / 100) * circumference} ${circumference}`}
-          className={scoreTone(score)}
+          className={getScoreTone(score)}
         />
       )}
     </svg>
@@ -74,7 +68,7 @@ const ScoreBar: React.FC<{ score: number }> = ({ score }) => {
       className='mt-2 h-1.25 overflow-hidden rounded-full bg-muted'
     >
       <div
-        className={cn('h-full rounded-full bg-current', scoreTone(score))}
+        className={cn('h-full rounded-full bg-current', getScoreTone(score))}
         style={{ width: `${Math.max(score, minimumFill)}%` }}
       />
     </div>

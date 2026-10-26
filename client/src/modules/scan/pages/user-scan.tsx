@@ -18,7 +18,7 @@ export const UserScan: React.FC = () => {
       </Header>
 
       <Main>
-        <div className='mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-8 py-6'>
+        <div className='mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-12 py-6 md:py-16'>
           <ScanPanel isGuest={false} />
           <RecentScans />
         </div>

@@ -123,7 +123,7 @@ Each case signs in itself, with the test account's credentials from the portal.
   2. Action: Type the test account's email into the "Email" field
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
-  5. Assertion: The text "The page is loaded in a real browser, so all 17 rules run and a screenshot is saved." is shown
+  5. Assertion: The text "All 17 rules" is shown
 
 ### U8 · A signed-in URL scan of docease-v2 renders in a real browser
 

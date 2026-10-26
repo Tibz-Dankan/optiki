@@ -19,15 +19,25 @@ export const RecentScans: React.FC = () => {
 
   return (
     <section aria-labelledby='recent-scans' className='grid gap-3'>
-      <h2
-        id='recent-scans'
-        className='flex items-center gap-2 text-lg font-semibold'
-      >
-        <History className='size-5 text-muted-foreground' aria-hidden />
-        Recent scans
-      </h2>
+      <div className='flex items-center justify-between gap-4'>
+        <h2
+          id='recent-scans'
+          className='flex items-center gap-2 text-lg font-semibold'
+        >
+          <History className='size-5 text-muted-foreground' aria-hidden />
+          Recent scans
+        </h2>
+        {scans.length > 0 && (
+          <Link
+            to='/u/scans'
+            className='text-sm font-medium text-primary underline underline-offset-4'
+          >
+            See all scans
+          </Link>
+        )}
+      </div>
 
-      {isPending && <Skeleton className='h-40 w-full' />}
+      {isPending && <Skeleton className='h-72 w-full rounded-lg' />}
       {isError && (
         <p role='alert' className='text-sm text-destructive'>
           {error.message}
@@ -45,29 +55,22 @@ export const RecentScans: React.FC = () => {
       )}
 
       {scans.length > 0 && (
-        <>
-          <RecentScanList
-            scans={scans}
-            reportPath='/u/scans'
-            renderActions={(scan) => {
-              const summary = summaries.find(({ id }) => id === scan.id)
-              return (
-                summary && (
-                  <ScanOwnerActions
-                    scan={summary}
-                    label={`Actions for scan of ${scan.target}`}
-                  />
-                )
+        <RecentScanList
+          scans={scans}
+          reportPath='/u/scans'
+          renderActions={(scan) => {
+            const summary = summaries.find(({ id }) => id === scan.id)
+            return (
+              summary && (
+                <ScanOwnerActions
+                  scan={summary}
+                  label={`Actions for scan of ${scan.target}`}
+                  variant='ghost'
+                />
               )
-            }}
-          />
-          <Link
-            to='/u/scans'
-            className='justify-self-start text-sm font-medium underline-offset-4 hover:underline'
-          >
-            See all scans
-          </Link>
-        </>
+            )
+          }}
+        />
       )}
     </section>
   )
