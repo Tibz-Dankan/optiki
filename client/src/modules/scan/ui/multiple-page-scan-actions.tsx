@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EllipsisVertical, Trash2 } from 'lucide-react'
+import { Ellipsis, EllipsisVertical, Trash2 } from 'lucide-react'
 import type { TMultiplePageScanSummary } from '@typings/scan'
 import { isMultiplePageScanActive } from '@utils/is-multiple-page-scan-active'
 import { Button } from '@shared/ui/button'
@@ -15,12 +15,14 @@ type MultiplePageScanActionsProps = {
   scan: TMultiplePageScanSummary
   label?: string
   redirectTo?: string
+  variant?: 'outline' | 'ghost'
 }
 
 export const MultiplePageScanActions: React.FC<
   MultiplePageScanActionsProps
-> = ({ scan, label = 'Scan actions', redirectTo }) => {
+> = ({ scan, label = 'Scan actions', redirectTo, variant = 'outline' }) => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const TriggerIcon = variant === 'ghost' ? Ellipsis : EllipsisVertical
 
   return (
     <>
@@ -28,11 +30,11 @@ export const MultiplePageScanActions: React.FC<
         <DropdownMenuTrigger asChild>
           <Button
             type='button'
-            variant='outline'
+            variant={variant}
             size='icon'
             className='size-8'
           >
-            <EllipsisVertical aria-hidden />
+            <TriggerIcon aria-hidden />
             <span className='sr-only'>{label}</span>
           </Button>
         </DropdownMenuTrigger>

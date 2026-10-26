@@ -1,15 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Dumbbell, FileCode, Globe } from 'lucide-react'
-import type { TRecentScan, TScanInputType } from '@typings/scan'
+import type { TRecentScan } from '@typings/scan'
 import { cn } from '@utils/classname'
 import { formatDateTime } from '@utils/format-date-time'
 import { getScoreTone } from '@utils/get-score-tone'
-
-const inputTypeIcons: Record<TScanInputType, React.ElementType> = {
-  URL: Globe,
-  GYM: Dumbbell,
-  HTML: FileCode,
-}
+import { ScanInputTypeIcon } from '@modules/scan/ui/scan-input-type-icon'
 
 type RecentScanListProps = {
   scans: TRecentScan[]
@@ -25,16 +19,10 @@ export const RecentScanList: React.FC<RecentScanListProps> = ({
   return (
     <ul className='divide-y divide-border overflow-hidden rounded-lg border border-border bg-card'>
       {scans.map((scan) => {
-        const Icon = inputTypeIcons[scan.inputType ?? 'URL']
         const score = scan.overallScore
         return (
           <li key={scan.id} className='flex items-center gap-3 px-4 py-3'>
-            <span
-              aria-hidden
-              className='flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground'
-            >
-              <Icon className='size-4' />
-            </span>
+            <ScanInputTypeIcon inputType={scan.inputType} />
             <div className='min-w-0 flex-1'>
               <Link
                 to={`${reportPath}/${scan.id}`}
