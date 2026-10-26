@@ -106,3 +106,15 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 2
+
+  deployed:
+    name: Server and Client Deployed
+    needs: [deploy, preview]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print deployment status
+        run: |
+          echo "Server deployed to Contabo (image ${{ secrets.DOCKERHUB_USERNAME }}/optiki-backend:${{ github.sha }})"
+          echo "Client deployed to https://deploy-preview-${{ github.event.number }}--optikii.netlify.app"
+          echo "Server and client for PR #${{ github.event.number }} deployed successfully"
