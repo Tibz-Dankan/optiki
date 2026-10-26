@@ -79,7 +79,7 @@ export const Scans: React.FC = () => {
             </p>
           </div>
           <Button asChild>
-            <Link to='/scan'>Scan a page</Link>
+            <Link to='/u/scan'>Scan a page</Link>
           </Button>
         </div>
 
@@ -163,7 +163,7 @@ export const Scans: React.FC = () => {
                       <TableRow key={scan.id}>
                         <TableCell className='max-w-xs truncate font-medium'>
                           <Link
-                            to={`/scans/${scan.id}`}
+                            to={`/u/scans/${scan.id}`}
                             className='underline-offset-4 hover:underline'
                           >
                             Open scan of {target}
@@ -198,7 +198,7 @@ export const Scans: React.FC = () => {
               {scans.length === 0 && (
                 <p className='py-6 text-center text-sm text-muted-foreground'>
                   No scans yet.{' '}
-                  <Link to='/scan' className='font-medium underline'>
+                  <Link to='/u/scan' className='font-medium underline'>
                     Scan a page
                   </Link>{' '}
                   to see it here.

@@ -1,6 +1,6 @@
 # Site visits
 
-The client records a site visit on every client-side navigation. The server stores the page name, the path, the browser's anonymous ID and, when there is one, the signed-in user. It also stores a device row and an IP location. After a session starts, `anony-reconcile` gives that browser's earlier anonymous visits to the user.
+The client records a site visit on every client-side navigation. The server stores the page name, the path, the browser's anonymous ID and, when there is one, the signed-in user. It also stores a device row and an IP location. After a session starts, `anony-reconcile` gives that browser's earlier anonymous visits, and its guest scans, to the user.
 
 The design is ported from gradescript's `handlers/sitevisit/postSiteVisit.go`, `handlers/auth/reconcileAnonymousUser.go`, `models/{siteVisit,device,location,anonymousUserLink}.go` and `pkg/resolvePageName.go`. **Only the capture side is ported: there are no read endpoints.** Inspect visits in the database. Its known bugs are fixed; see the last section.
 
@@ -52,13 +52,15 @@ The client fires and forgets: it never shows a capture error, and a 429 or 404 i
 |---|---|
 | `:id` isn't the session's user | 403 |
 | `anonymousID` isn't a UUID | 400 |
-| The ID is already linked to this user | 200, `linkedVisits: 0` |
+| The ID is already linked to this user | 200, `linkedVisits: 0`, and still claims any new scans (`linkedScans`) |
 | The ID is linked to another user | 409 `ErrAnonymousIDLinkedElsewhere` |
-| Otherwise | 201, `{anonymousID, userID, linkedVisits}` |
+| Otherwise | 201, `{anonymousID, userID, linkedVisits, linkedScans}` |
 
 `Link` runs in one transaction. It inserts the link (`ON CONFLICT DO NOTHING`), then sets `userID` and `linkedAt` on that ID's visits **where `"userID" IS NULL`**, so visits that already have an owner never move. If a concurrent request linked the ID first, the insert affects no row, nothing is updated, and the handler compares the stored link's owner (200 or 409).
 
-The client calls it after sign-up, sign-in, reset-password and every session refresh. Sign-out clears the browser's anonymous ID, so later anonymous browsing gets a fresh ID that nobody owns.
+In both the 200 and 201 cases the handler then runs `Scan.ClaimAnonymous`: that ID's unowned scans get the user and become `PRIVATE` (`references/scans.md`). The 409 case claims nothing, so the one-owner-per-ID rule also protects scans.
+
+The client calls it after sign-up, sign-in, reset-password, email verification (signed in) and every session refresh. Sign-out clears the browser's anonymous ID, so later anonymous browsing gets a fresh ID that nobody owns.
 
 ## What changed from gradescript, and why
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TAuthResponse } from '@typings/auth'
 import { useAuthStore } from '@stores/auth'
 import { endSession } from '@utils/end-session'
@@ -12,6 +12,7 @@ const CHECK_INTERVAL_MS = 10_000
 const getTime = (date: string): number => new Date(date).getTime()
 
 export const useSessionRefresh = () => {
+  const queryClient = useQueryClient()
   const session = useAuthStore((state) => state.auth.session)
   const updateSession = useAuthStore((state) => state.updateSession)
 
@@ -23,7 +24,7 @@ export const useSessionRefresh = () => {
         accessTokenExpiresAt: data.session.accessTokenExpiresAt,
         refreshTokenExpiresAt: data.session.refreshTokenExpiresAt,
       })
-      reconcileAnonymousUser(data.session.userID)
+      reconcileAnonymousUser(data.session.userID, queryClient)
     },
   })
 

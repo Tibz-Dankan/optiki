@@ -14,13 +14,11 @@ const urlScanSchema = Yup.object({
 
 type UrlScanFormProps = {
   isPending: boolean
-  canRender: boolean
   onScan: (url: string) => void
 }
 
 export const UrlScanForm: React.FC<UrlScanFormProps> = ({
   isPending,
-  canRender,
   onScan,
 }) => {
   const formik = useFormik({
@@ -30,37 +28,38 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
   })
 
   return (
-    <form onSubmit={formik.handleSubmit} className='grid gap-3' noValidate>
+    <form onSubmit={formik.handleSubmit} noValidate>
       <FormField
         name='url'
         label='Page address'
         error={formik.errors.url}
         touched={formik.touched.url}
       >
-        <Input
-          id='url'
-          name='url'
-          type='url'
-          inputMode='url'
-          autoComplete='url'
-          placeholder='https://example.com/pricing'
-          value={formik.values.url}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-          aria-invalid={!!(formik.touched.url && formik.errors.url)}
-        />
+        <div className='flex gap-2'>
+          <Input
+            id='url'
+            name='url'
+            type='url'
+            inputMode='url'
+            autoComplete='url'
+            placeholder='https://example.com/pricing'
+            className='h-10 flex-1'
+            value={formik.values.url}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            aria-invalid={!!(formik.touched.url && formik.errors.url)}
+          />
+          <Button
+            type='submit'
+            size='lg'
+            className='shrink-0'
+            disabled={isPending}
+          >
+            Scan URL
+            {isPending && <Loader2 className='animate-spin' />}
+          </Button>
+        </div>
       </FormField>
-      <p className='text-sm text-muted-foreground'>
-        {canRender
-          ? 'The page is loaded in a real browser, so all 17 rules run and a screenshot is saved.'
-          : 'Signed out, the page is fetched and scanned statically with the 9 core rules.'}
-      </p>
-      <div>
-        <Button type='submit' disabled={isPending}>
-          Scan URL
-          {isPending && <Loader2 className='animate-spin' />}
-        </Button>
-      </div>
     </form>
   )
 }

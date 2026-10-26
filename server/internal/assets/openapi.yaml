@@ -63,7 +63,7 @@ components:
         status: { type: string, const: success }
         message: { type: string }
         session: { $ref: '#/components/schemas/SessionData' }
-        redirectToPath: { type: string, example: /u/dashboard }
+        redirectToPath: { type: string, example: /u/home }
     User:
       type: object
       required: [id, name, email, role, emailVerified]
@@ -106,7 +106,7 @@ components:
         updatedAt: { type: string, format: date-time }
     CreateScanInput:
       type: object
-      description: Exactly one of html, url or gym. CI fields are accepted only on the token API.
+      description: Exactly one of html, url or gym. CI fields are accepted only on the token API. Signed-out callers must send anonymousID, the browser's anonymous ID.
       properties:
         html: { type: string, maxLength: 2097152 }
         url: { type: string, format: uri }
@@ -118,6 +118,7 @@ components:
         commitSHA: { type: string, pattern: '^[0-9a-fA-F]{7,64}$' }
         prNumber: { type: integer, minimum: 1 }
         runURL: { type: string, format: uri }
+        anonymousID: { type: string, format: uuid, description: Required for signed-out callers; ignored otherwise }
     ScanScreenshot:
       type: [object, 'null']
       description: Present for rendered scans when S3 is configured. The url is presigned for 30 minutes on every read.
@@ -217,6 +218,7 @@ components:
             anonymousID: { type: string, format: uuid }
             userID: { type: string, format: uuid }
             linkedVisits: { type: integer, minimum: 0 }
+            linkedScans: { type: integer, minimum: 0 }
     Rule:
       type: object
       properties:
@@ -487,8 +489,8 @@ paths:
   /api/v1/auth/user/{id}/anony-reconcile:
     post:
       tags: [Auth]
-      summary: Link this browser's anonymous site visits to the signed-in user
-      description: The client calls it after sign-up, sign-in, reset-password and session refresh. Only visits without an owner are linked. The same ID linked again answers 200; an ID linked to another account answers 409.
+      summary: Link this browser's anonymous site visits and scans to the signed-in user
+      description: The client calls it after sign-up, sign-in, reset-password, email verification and session refresh. Only visits and scans without an owner are linked; linked scans become PRIVATE. The same ID linked again answers 200 and still claims any new scans; an ID linked to another account answers 409.
       security: [{ cookieAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -565,7 +567,7 @@ paths:
     post:
       tags: [Scans]
       summary: Run a scan
-      description: Anonymous callers get the 9 CORE rules (static, stored PUBLIC). Verified users get all 17 (URL input rendered in Chromium, stored PRIVATE). Pre-flight failures, including SSRF_BLOCKED, store nothing.
+      description: Anonymous callers get the 9 CORE rules (static, stored PUBLIC) and must send anonymousID; after 3 completed scans that no account has claimed, the browser gets 403 ANONYMOUS_SCAN_LIMIT. Verified users get all 17 (URL input rendered in Chromium, stored PRIVATE). Pre-flight failures, including SSRF_BLOCKED, store nothing.
       security: [{}, { cookieAuth: [] }]
       requestBody:
         required: true

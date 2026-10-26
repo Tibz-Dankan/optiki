@@ -140,6 +140,23 @@ func (s *Scan) UpdateDetails(id string, updates map[string]interface{}) error {
 	return db.Model(&Scan{}).Where("id = ?", id).Updates(updates).Error
 }
 
+// CountUnclaimedByAnonymousID counts the completed scans a signed-out browser has made that no account owns yet
+func (s *Scan) CountUnclaimedByAnonymousID(anonymousID string) (int64, error) {
+	var count int64
+	err := db.Model(&Scan{}).
+		Where("\"anonymousID\" = ? AND \"userID\" IS NULL AND status = ?", anonymousID, "COMPLETED").
+		Count(&count).Error
+	return count, err
+}
+
+// ClaimAnonymous gives a signed-out browser's unowned scans to the user and makes them private
+func (s *Scan) ClaimAnonymous(anonymousID, userID string) (int64, error) {
+	result := db.Model(&Scan{}).
+		Where("\"anonymousID\" = ? AND \"userID\" IS NULL", anonymousID).
+		Updates(map[string]interface{}{"userID": userID, "visibility": "PRIVATE"})
+	return result.RowsAffected, result.Error
+}
+
 // Delete removes the caller's scan (results and findings cascade) and its screenshot row, and returns the
 // screenshot so the caller can delete the stored object
 func (s *Scan) Delete(id, userID string) (*Attachment, error) {

@@ -12,7 +12,7 @@ There are no `<ProtectedRoute>` wrappers and no `<Outlet>` layout routes. `App.t
 |---|---|---|
 | Signed out | no `session.userID` | public pages + `<AuthRoutes />` (sign-in, sign-up, forgot-password, verify-otp, reset-password, verify-email) |
 | Unverified | signed in, `user.emailVerified === false` | public pages + `/auth/verify-email`; everything else redirects there |
-| User | signed in and verified | public pages + `/auth/*` → `/u/dashboard` + `<RenderUserRoutes />` |
+| User | signed in and verified | public pages (with `/scan` → `/u/scan`) + `/auth/*` → `/u/home` + `<RenderUserRoutes />` |
 
 Sign-in only returns a session; `emailVerified` arrives with `getMe`, so the unverified and user trees wait for `isUserResolved` (`!!user.id && !isLoadingGetMe`) and show `LoadingPage` until then — otherwise a verified user would flash through the verify-email gate.
 
@@ -51,7 +51,7 @@ export type TNavGroup = { title?: string; pages: TPage[] }
 export type TRoute = { title?: string; homePath: string; groups: TNavGroup[] }
 ```
 
-`src/routes/user-routes.tsx` holds the `userRoutes` config: Dashboard under "General"; Settings (General, Account) and the `*` 404 under "Other". "General" also has Scans (`/u/scans`), and Settings has API tokens (`/u/settings/api-tokens`, which also needs an entry in `settings/ui/settings-nav.tsx`). Projects (`/u/projects`) join "General" when they're built.
+`src/routes/user-routes.tsx` holds the `userRoutes` config (`homePath: '/u/home'`): Home (`/u/home`), Scan (`/u/scan`) and Scans (`/u/scans`) under "General", plus two hidden entries — the report `/u/scans/:id` and `/u/dashboard` → `<Navigate to='/u/home' />` for old links; Settings (General, Account) and the `*` 404 under "Other". Settings has API tokens (`/u/settings/api-tokens`, which also needs an entry in `settings/ui/settings-nav.tsx`). Projects (`/u/projects`) join "General" when they're built.
 
 - `showInSidebar: false` keeps a page routable but hidden (the `*` catch-all uses this).
 - A `children` entry **with no `element`** is nav-only: it draws a collapsible sidebar group, and `renderRoutes` hoists its children into flat routes.
@@ -75,7 +75,7 @@ export const RenderUserRoutes: React.FC = () => {
 
 `src/routes/auth-routes.tsx` stays as plain `<Route>`s — these pages never appear in a sidebar. Each page renders its own `<AuthLayout>` so it can size its own card. Its catch-all `RedirectToSignIn` remembers where the visitor was heading (`?redirectTo=`), skipping it for `/auth/*` paths, which would only loop.
 
-The `?redirectTo=` convention is used in three places and must stay consistent: that catch-all, `endSession()` (the 401 path), and the sign-out dialog. Sign-in honours `?redirectTo=` only when it is inside the same area as the server's `redirectToPath` (`/u/dashboard`) — `getRedirectPath` in `@utils/get-redirect-path` applies that rule. Navigate with `{ replace: true }`.
+The `?redirectTo=` convention is used in three places and must stay consistent: that catch-all, `endSession()` (the 401 path), and the sign-out dialog. Sign-in honours `?redirectTo=` only when it is inside the same area as the server's `redirectToPath` (`/u/home`), so sign-in links from public pages use `/u/…` targets (`?redirectTo=/u/scan`, `?redirectTo=/u/scans`) — `getRedirectPath` in `@utils/get-redirect-path` applies that rule. Navigate with `{ replace: true }`.
 
 Password reset runs `forgot-password → verify-otp → reset-password`, carrying `email` and `otp` forward as query params; landing on `/auth/reset-password` without them redirects back to `/auth/forgot-password`. A successful reset signs the user in (and revokes their other sessions server-side).
 

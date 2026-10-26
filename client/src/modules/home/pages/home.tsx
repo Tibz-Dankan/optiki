@@ -1,14 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import {
-  ArrowRight,
-  Eye,
-  GitPullRequest,
-  Loader2,
-  ScanSearch,
-} from 'lucide-react'
-import type { TScanReportResponse } from '@typings/scan'
-import { scanAPI } from '@api/scan'
+import { Link } from 'react-router-dom'
+import { ArrowRight, Eye, GitPullRequest, ScanSearch } from 'lucide-react'
 import { Button } from '@shared/ui/button'
 import { HomeLayout } from '@modules/home/layout/home-layout'
 
@@ -31,15 +22,6 @@ const highlights = [
 ]
 
 export const Home: React.FC = () => {
-  const navigate = useNavigate()
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: scanAPI.create,
-    onSuccess: (response: TScanReportResponse) => {
-      navigate(`/scans/${response.data.id}`)
-    },
-  })
-
   return (
     <HomeLayout>
       <section className='mx-auto flex max-w-3xl flex-col items-center px-6 py-20 text-center md:py-28'>
@@ -52,17 +34,14 @@ export const Home: React.FC = () => {
           request.
         </p>
         <div className='mt-8 flex flex-wrap justify-center gap-3'>
-          <Button
-            size='lg'
-            type='button'
-            disabled={isPending}
-            onClick={() => mutate({ gym: 'kitchen-sink' })}
-          >
-            Try a demo scan
-            {isPending ? <Loader2 className='animate-spin' /> : <ArrowRight />}
+          <Button size='lg' asChild>
+            <Link to='/scan'>
+              Scan your page
+              <ArrowRight aria-hidden />
+            </Link>
           </Button>
           <Button size='lg' variant='outline' asChild>
-            <Link to='/scan'>Scan your page</Link>
+            <Link to='/gym'>Browse the Gym</Link>
           </Button>
         </div>
       </section>

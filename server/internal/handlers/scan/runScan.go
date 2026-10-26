@@ -66,6 +66,7 @@ func runScan(ctx context.Context, caller scanCaller, request scanRequest) (model
 	saved, err := scanModel.Create(models.Scan{
 		UserID:        caller.userID(),
 		APITokenID:    caller.apiTokenID(),
+		AnonymousID:   request.anonymousID,
 		TriggeredBy:   caller.triggeredBy,
 		Visibility:    caller.visibility,
 		Title:         request.title,

@@ -36,7 +36,7 @@ scans ─┬─< scan_rule_results (CASCADE)
        └─< scan_findings     (CASCADE)
 ```
 
-Anonymous scans have `userID NULL` and belong to nobody.
+Anonymous scans have `userID NULL` and belong to nobody until `anony-reconcile` claims them by their `anonymousID`.
 
 ## Existing tables (unchanged)
 
@@ -244,6 +244,7 @@ type Scan struct {
 	ID          string  `gorm:"column:id;type:uuid;primaryKey" json:"id"`
 	UserID                 *string `gorm:"column:userID;type:uuid;default:null;index:idx_scans_user_created,priority:1" json:"userID"`
 	APITokenID             *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
+	AnonymousID            *string `gorm:"column:anonymousID;type:uuid;default:null;index" json:"-"`
 	ScreenshotAttachmentID *string `gorm:"column:screenshotAttachmentID;type:uuid;default:null;index" json:"screenshotAttachmentID"`
 	TriggeredBy            string  `gorm:"column:triggeredBy;not null;index" json:"triggeredBy"`           // ANONYMOUS, USER, API_TOKEN
 	Visibility             string  `gorm:"column:visibility;not null;default:'PRIVATE'" json:"visibility"` // PRIVATE, PUBLIC
@@ -321,7 +322,7 @@ What each group of columns records:
 
 | Group | Columns | Notes |
 |---|---|---|
-| Ownership | `userID`, `apiTokenID`, `screenshotAttachmentID`, `triggeredBy`, `visibility`, `title` (and `projectID` once projects land) | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`. Everything else starts `PRIVATE` |
+| Ownership | `userID`, `apiTokenID`, `anonymousID`, `screenshotAttachmentID`, `triggeredBy`, `visibility`, `title` (and `projectID` once projects land) | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`, with the browser's `anonymousID` (nullable; added October 2026, additive). A claim sets `userID` and `PRIVATE`. Everything else starts `PRIVATE` |
 | Input | `inputType` … `pageLang` | `targetURL` is what was asked for, `finalURL` where redirects ended. `inputSha256`/`inputBytes` describe the HTML actually analysed (pasted, fetched or rendered). The HTML itself is never stored |
 | Engine | `mode` … `controlCount` | `ruleSet` and `rulesetHash` say exactly which rules ran. `reportHash` is the engine's hash of the canonical report JSON |
 | Lifecycle | `status` … `analyzeMs` | Scans run synchronously, so a row moves `RUNNING` → `COMPLETED` or `FAILED` inside one request. A `RUNNING` row older than a minute was interrupted (a container restart) |

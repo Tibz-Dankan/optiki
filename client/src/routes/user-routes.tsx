@@ -1,6 +1,8 @@
+import { Navigate } from 'react-router-dom'
 import {
+  History,
+  House,
   KeyRound,
-  LayoutDashboard,
   ScanSearch,
   Settings,
   UserCog,
@@ -9,31 +11,52 @@ import {
 import type { TRoute } from '@typings/routes'
 import { NotFoundError } from '@shared/pages/not-found-error'
 import { APITokens } from '@modules/api-token/pages/api-tokens'
-import { Dashboard } from '@modules/dashboard/pages/dashboard'
+import { UserHome } from '@modules/home/pages/user-home'
 import { Scans } from '@modules/scan/pages/scans'
+import { UserScan } from '@modules/scan/pages/user-scan'
+import { UserScanReport } from '@modules/scan/pages/user-scan-report'
 import { SettingsAccount } from '@modules/settings/pages/account'
 import { SettingsGeneral } from '@modules/settings/pages/general'
 
 export const userRoutes: TRoute = {
-  title: 'Dashboard',
-  homePath: '/u/dashboard',
+  title: 'Home',
+  homePath: '/u/home',
   groups: [
     {
       title: 'General',
       pages: [
         {
-          title: 'Dashboard',
-          path: '/u/dashboard',
-          icon: LayoutDashboard,
+          title: 'Home',
+          path: '/u/home',
+          icon: House,
           showInSidebar: true,
-          element: <Dashboard />,
+          element: <UserHome />,
+        },
+        {
+          title: 'Scan',
+          path: '/u/scan',
+          icon: ScanSearch,
+          showInSidebar: true,
+          element: <UserScan />,
         },
         {
           title: 'Scans',
           path: '/u/scans',
-          icon: ScanSearch,
+          icon: History,
           showInSidebar: true,
           element: <Scans />,
+        },
+        {
+          title: 'Scan report',
+          path: '/u/scans/:id',
+          showInSidebar: false,
+          element: <UserScanReport />,
+        },
+        {
+          title: 'Home',
+          path: '/u/dashboard',
+          showInSidebar: false,
+          element: <Navigate to='/u/home' replace />,
         },
       ],
     },

@@ -41,35 +41,38 @@ var ReconcileAnonymousUser = func(c *fiber.Ctx) error {
 	if savedLink.ID != "" && savedLink.UserID != user.ID {
 		return fiber.NewError(fiber.StatusConflict, constants.ErrAnonymousIDLinkedElsewhere)
 	}
-	if savedLink.ID != "" {
-		response := fiber.Map{
-			"status":  "success",
-			"message": "Anonymous ID is already linked to this account!",
-			"data": fiber.Map{
-				"anonymousID":  anonymousID,
-				"userID":       user.ID,
-				"linkedVisits": 0,
-			},
+
+	status := fiber.StatusOK
+	message := "Anonymous ID is already linked to this account!"
+	var linkedVisits int64
+	if savedLink.ID == "" {
+		link, visits, err := anonymousUserLink.Link(anonymousID, user.ID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
-		return c.Status(fiber.StatusOK).JSON(response)
+		if link.UserID != user.ID {
+			return fiber.NewError(fiber.StatusConflict, constants.ErrAnonymousIDLinkedElsewhere)
+		}
+		status = fiber.StatusCreated
+		message = "Anonymous visits and scans linked successfully!"
+		linkedVisits = visits
 	}
 
-	link, linkedVisits, err := anonymousUserLink.Link(anonymousID, user.ID)
+	scan := models.Scan{}
+	linkedScans, err := scan.ClaimAnonymous(anonymousID, user.ID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	if link.UserID != user.ID {
-		return fiber.NewError(fiber.StatusConflict, constants.ErrAnonymousIDLinkedElsewhere)
 	}
 
 	response := fiber.Map{
 		"status":  "success",
-		"message": "Anonymous visits linked successfully!",
+		"message": message,
 		"data": fiber.Map{
 			"anonymousID":  anonymousID,
 			"userID":       user.ID,
 			"linkedVisits": linkedVisits,
+			"linkedScans":  linkedScans,
 		},
 	}
-	return c.Status(fiber.StatusCreated).JSON(response)
+	return c.Status(status).JSON(response)
 }

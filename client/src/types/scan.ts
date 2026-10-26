@@ -115,10 +115,18 @@ export type TScanReport = TScanSummary & {
   findings: TScanFinding[]
 }
 
-export type TCreateScanInput =
-  | { html: string; title?: string }
-  | { url: string; title?: string }
-  | { gym: string; title?: string }
+export type TCreateScanInput = {
+  url: string
+  title?: string
+  anonymousID?: string
+}
+
+export type TRecentScan = {
+  id: string
+  target: string
+  overallScore: number | null
+  createdAt: string
+}
 
 export type TUpdateScanInput = {
   id: string

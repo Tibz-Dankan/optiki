@@ -83,3 +83,4 @@ export type TServerErrorName =
   | 'TOKEN_REVOKED'
   | 'TOKEN_EXPIRED'
   | 'MISSING_PERMISSION'
+  | 'ANONYMOUS_SCAN_LIMIT'

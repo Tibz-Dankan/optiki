@@ -134,6 +134,7 @@ type Scan struct {
 	ID                     string  `gorm:"column:id;type:uuid;primaryKey" json:"id"`
 	UserID                 *string `gorm:"column:userID;type:uuid;default:null;index:idx_scans_user_created,priority:1" json:"userID"`
 	APITokenID             *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
+	AnonymousID            *string `gorm:"column:anonymousID;type:uuid;default:null;index" json:"-"`
 	ScreenshotAttachmentID *string `gorm:"column:screenshotAttachmentID;type:uuid;default:null;index" json:"screenshotAttachmentID"`
 	TriggeredBy            string  `gorm:"column:triggeredBy;not null;index" json:"triggeredBy"`           // ANONYMOUS, USER, API_TOKEN
 	Visibility             string  `gorm:"column:visibility;not null;default:'PRIVATE'" json:"visibility"` // PRIVATE, PUBLIC

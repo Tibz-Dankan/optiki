@@ -13,9 +13,9 @@ Built for **TestSprite Hackathon Season 4** ("One week. One loop. Every PR."). T
 
 | | Signed out | Signed in (verified) | API token |
 |---|---|---|---|
-| Scan pasted HTML, a URL or a Gym example | ✓ — the 9 core rules | ✓ — all 17 rules | ✓ — all 17 rules |
+| Scan a page by URL | ✓ — the 9 core rules, 3 free scans | ✓ — all 17 rules | ✓ — all 17 rules (or pasted HTML / a Gym page) |
 | URL scans in a real browser (Chromium) | — (static) | ✓ | ✓ |
-| Scan history, sharing, delete | link only | ✓ | ✓ (with `scan:*` permissions) |
+| Scan history, sharing, delete | kept in the browser; moves to your account when you sign in | ✓ | ✓ (with `scan:*` permissions) |
 | Projects | — | ✓ | ✓ (with `project:*` permissions) |
 
 API tokens look like `opt_<prefix>_<token>`. Each one is shown once, belongs to a user, and carries only the permissions it was given (`scan:create:own`, `scan:view:own`, …). A GitHub Action that scans each PR with a token comes after the core features.
@@ -33,16 +33,17 @@ UI tests only, built in the TestSprite portal. They run on every ready (non-draf
 
 | Test | Type | What it proves | Caught something in |
 |---|---|---|---|
-| U1 Scanning the OPT-101 broken example fails OPT-101 and shows how to fix it | UI | A rule fails on its broken Gym page, and the finding explains the fix | — |
-| U2 Scanning the OPT-101 fixed example passes OPT-101 | UI | The same rule passes once the page is fixed | — |
-| U3 Scanning the Perfect page example scores 100 | UI | No false positives | — |
+| U1 Scanning the OPT-101 broken Gym page fails OPT-101 and shows how to fix it | UI | A rule fails on its broken Gym page, and the finding explains the fix | — |
+| U2 Scanning the OPT-101 fixed Gym page passes OPT-101 | UI | The same rule passes once the page is fixed | — |
+| U3 Scanning the Perfect Gym page scores 100 | UI | No false positives | — |
 | U4 A signed-out URL scan of docease-v2 runs statically with the 9 core rules | UI | The anonymous tier, and a real fetch of a public site | — |
 | U5 Scanning a private address shows "This address isn't allowed" | UI | SSRF blocking, surfaced in the UI | — |
 | U6 An address without https:// is rejected before scanning | UI | URL validation in the form | — |
-| U7 Signing in with the demo account opens the dashboard | UI | The session flow for the seeded account | — |
+| U7 Signing in with the demo account opens the home page | UI | The session flow for the seeded account | — |
 | U8 A signed-in URL scan of docease-v2 renders in a real browser | UI | The signed-in tier: rendered scans with a screenshot | — |
 | U9 Making a signed-in scan public updates its visibility | UI | Signed-in scans start private; the owner can share them | — |
 | U10 Deleting a scan from its report returns to the Scans page | UI | The owner can delete a scan | — |
+| U11 A signed-out scan's report asks the visitor to sign in to keep their history | UI | Signed-out scans are kept in the browser, with a prompt to sign in | — |
 
 ## Run it locally
 
@@ -75,7 +76,7 @@ Out of the box:
 Notes:
 
 - `make test` runs the Go tests; the rendered-scan tests drive your local Chrome/Chromium and skip without one. `make golden` rewrites the engine's golden reports. `pnpm lint` and `pnpm build` check the client.
-- Locally, URL scans can't reach `localhost` (the SSRF guard blocks it, as intended); scan a public URL or use the Gym examples.
+- Locally, URL scans can't reach `localhost` (the SSRF guard blocks it, as intended); scan a public URL, such as a Gym page on the production API (`https://optikiapi.tuliime.com/gym/pages/perfect.html`).
 
 ## Repository layout
 

@@ -9,6 +9,7 @@ import (
 	"github.com/Tibz-Dankan/optiki/internal/gym"
 	"github.com/Tibz-Dankan/optiki/internal/pkg"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 var commitSHAPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -16,17 +17,18 @@ var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,39}/[A-Za-z0-9_.-]
 
 // scanRequest is a validated create-scan input.
 type scanRequest struct {
-	inputType  string
-	html       string
-	url        string
-	gymID      string
-	route      string
-	title      *string
-	repository *string
-	branch     *string
-	commitSHA  *string
-	prNumber   *int
-	runURL     *string
+	inputType   string
+	html        string
+	url         string
+	gymID       string
+	route       string
+	title       *string
+	repository  *string
+	branch      *string
+	commitSHA   *string
+	prNumber    *int
+	runURL      *string
+	anonymousID *string
 }
 
 func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, error) {
@@ -134,6 +136,17 @@ func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, e
 			return request, fiber.NewError(fiber.StatusBadRequest, "The runURL must be an http(s) address!")
 		}
 		request.runURL = input.RunURL
+	}
+	if caller.triggeredBy == constants.SCAN_TRIGGERED_BY_ANONYMOUS {
+		if input.AnonymousID == nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, constants.ErrInvalidAnonymousID)
+		}
+		parsed, err := uuid.Parse(*input.AnonymousID)
+		if err != nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, constants.ErrInvalidAnonymousID)
+		}
+		anonymousID := parsed.String()
+		request.anonymousID = &anonymousID
 	}
 	return request, nil
 }

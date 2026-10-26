@@ -19,6 +19,7 @@ var ErrReasonRendererBusy = "RENDERER_BUSY"
 var ErrReasonTokenRevoked = "TOKEN_REVOKED"
 var ErrReasonTokenExpired = "TOKEN_EXPIRED"
 var ErrReasonMissingPermission = "MISSING_PERMISSION"
+var ErrReasonAnonymousScanLimit = "ANONYMOUS_SCAN_LIMIT"
 
 var ErrInvalidAPIToken = "Invalid API token!"
 var ErrAddressNotAllowed = "This address isn't allowed"
@@ -28,3 +29,4 @@ var ErrInvalidSiteVisitPath = "Path must start with / and be at most 512 charact
 var ErrInvalidCapturedAt = "Invalid capturedAt format! Must be an ISO 8601 string."
 var ErrInvalidAnonymousID = "anonymousID must be a UUID!"
 var ErrAnonymousIDLinkedElsewhere = "This anonymous ID is already linked to another account!"
+var ErrAnonymousScanLimit = "Sign in to scan more than 3 pages!"

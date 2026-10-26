@@ -42,7 +42,7 @@ export const ResetPassword: React.FC = () => {
     mutationFn: authAPI.resetPassword,
     onSuccess: (response: TAuthResponse) => {
       updateSession(response.session)
-      reconcileAnonymousUser(response.session.userID)
+      reconcileAnonymousUser(response.session.userID, queryClient)
       toast.success('Password updated.')
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       navigate(response.redirectToPath, { replace: true })

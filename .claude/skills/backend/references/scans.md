@@ -8,14 +8,16 @@ The handler decides the rule set and mode from the caller. The engine never sees
 
 | Caller | How the server knows | Rule set | URL input | HTML / Gym input | Stored as |
 |---|---|---|---|---|---|
-| Anonymous | no valid session, **or** a session whose user hasn't verified their email | `CORE`: the 9 P0 rules | `STATIC`: fetched with `pkg.FetchPublicPage` | `STATIC` | `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC` |
+| Anonymous | no valid session, **or** a session whose user hasn't verified their email | `CORE`: the 9 P0 rules | `STATIC`: fetched with `pkg.FetchPublicPage` | `STATIC` | `userID NULL`, `anonymousID` (the browser's), `triggeredBy ANONYMOUS`, `visibility PUBLIC` |
 | Verified user | valid session cookie, `emailVerified` | `FULL`: all 17 rules | `RENDERED` in the server's Chromium | `STATIC`; OPT-204/301/302 come back `NEEDS_RENDERED` | owner, `triggeredBy USER`, `PRIVATE` |
 | API token | `Authorization: Bearer opt_…` with `scan:create:own` | `FULL` | `RENDERED` | `STATIC` | token owner + `apiTokenID`, `triggeredBy API_TOKEN`, `PRIVATE` |
 
 - `CORE` is the 9 must-have rules (101, 102, 103, 104, 106, 201, 202, 203, 401). `FULL` adds the 8 optional ones (105, 205, 402, 403, 107 and the rendered-only 204, 301, 302).
 - Anonymous scans are `PUBLIC` because nobody owns them. Their unguessable UUID is the share link.
+- **Guest limit.** An anonymous caller must send `anonymousID` (the browser's UUID, the same one site visits use); a missing or malformed one is a 400. Once that ID has `ANONYMOUS_SCAN_LIMIT` (3) completed scans that no account owns (`Scan.CountUnclaimedByAnonymousID`), `CreateScan` answers 403 `ANONYMOUS_SCAN_LIMIT` "Sign in to scan more than 3 pages!" before anything runs. The client enforces the same 3 from its local store; clearing site data resets both, which is accepted.
+- **Claiming.** `anony-reconcile` (`references/site-visits.md`) calls `Scan.ClaimAnonymous(anonymousID, userID)` after it links the ID: every scan with that `anonymousID` and `userID NULL` gets the user and becomes `PRIVATE`. `triggeredBy` stays `ANONYMOUS`. Anonymous scans never have screenshots, so no attachment changes owner. `anonymousID` is never returned in a response.
 - Signed-in scans start `PRIVATE`; the owner shares one by setting `visibility: PUBLIC`.
-- An unverified user scans exactly like an anonymous visitor, and the scan is not attached to their account.
+- An unverified user scans exactly like an anonymous visitor (including the guest limit), and the scan is not attached to their account until the next reconcile claims it.
 - The report always states `ruleSet` and `mode`. The client shows a banner on `CORE` results ("9 core rules — sign in to run all 17") and on static scans of client-rendered pages.
 
 `handlers/scan/resolveScanCaller.go` holds that decision in one place:
@@ -71,6 +73,8 @@ type CreateScanInput struct {
 	CommitSHA  *string `json:"commitSHA"`
 	PRNumber   *int    `json:"prNumber"`
 	RunURL     *string `json:"runURL"`
+
+	AnonymousID *string `json:"anonymousID"` // required for anonymous callers, ignored otherwise
 }
 ```
 
@@ -90,6 +94,8 @@ Validation, in this order. The first failure wins, and none of these create a ro
 | Any CI field on the browser API (no `apiToken` local) | 400 "Only API tokens can set CI fields" |
 | `commitSHA` not 7–64 hex characters, `repository` not `owner/name`, `prNumber` < 1 | 400 |
 | URL with a non-web scheme (`file:`, `ftp:`, `gopher:`) | 400 `SSRF_BLOCKED` "This address isn't allowed" |
+| Anonymous caller without a UUID `anonymousID` | 400 `ErrInvalidAnonymousID` |
+| Anonymous caller whose `anonymousID` already has 3 unclaimed completed scans | 403 `ANONYMOUS_SCAN_LIMIT` |
 | URL fails the pre-flight (port/resolve to a public address) | 400 `SSRF_BLOCKED`; an unresolvable host is a plain 400 |
 
 The pipeline (`handlers/scan/runScan.go`, unexported, shared by both surfaces):
@@ -196,7 +202,7 @@ type UpdateScanInput struct {
 - `visibility` is `PRIVATE` or `PUBLIC`.
 - Findings and scores are immutable: re-running means a new scan.
 - `DELETE` removes the scan and its screenshot row (rule results and findings cascade), then deletes the screenshot object. It returns 200 with a message.
-- Anonymous scans can't be edited or deleted by anyone through the API.
+- Anonymous scans can't be edited or deleted by anyone through the API until a reconcile gives them an owner.
 
 ## Rate limits and render slots
 
@@ -204,7 +210,7 @@ type UpdateScanInput struct {
 
 | Key | Limit |
 |---|---|
-| Anonymous, per IP | `SCAN_RATE_LIMIT_ANONYMOUS` 30 per 10 min, and URL scans 5 per minute |
+| Anonymous, per IP | `SCAN_RATE_LIMIT_ANONYMOUS` 30 per 10 min, and URL scans 10 per minute (`SCAN_URL_RATE_LIMIT_ANONYMOUS`; TestSprite's signed-out cases are all URL scans from shared runner IPs) |
 | Verified user, per `userID` | 60 per 10 min |
 | Token, per `apiTokenID` | 60 per 10 min |
 

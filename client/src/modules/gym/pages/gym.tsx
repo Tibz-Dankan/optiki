@@ -1,26 +1,17 @@
-import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { API_ORIGIN } from '@constants/urls'
-import type { TScanReportResponse } from '@typings/scan'
 import { gymAPI, gymKeys } from '@api/gym'
-import { scanAPI } from '@api/scan'
 import { Badge } from '@shared/ui/badge'
 import { Button } from '@shared/ui/button'
 import { Skeleton } from '@shared/ui/skeleton'
 import { HomeLayout } from '@modules/home/layout/home-layout'
 
 export const Gym: React.FC = () => {
-  const navigate = useNavigate()
   const { data, isPending, isError, error } = useQuery({
     queryKey: gymKeys.list(),
     queryFn: gymAPI.getAll,
     staleTime: 60 * 60 * 1000,
-  })
-
-  const scan = useMutation({
-    mutationFn: scanAPI.create,
-    onSuccess: (response: TScanReportResponse) =>
-      navigate(`/scans/${response.data.id}`),
   })
 
   return (
@@ -30,7 +21,14 @@ export const Gym: React.FC = () => {
           <h1 className='text-3xl font-bold tracking-tight'>Gym</h1>
           <p className='mt-2 text-muted-foreground'>
             One intentionally broken page and its fixed twin for every rule.
-            Open a page to see it, or scan it to see the finding.
+            Open a page to see it, or paste its address on the{' '}
+            <Link
+              to='/scan'
+              className='font-medium underline underline-offset-4'
+            >
+              Scan page
+            </Link>{' '}
+            to see the finding.
           </p>
         </div>
 
@@ -78,14 +76,6 @@ export const Gym: React.FC = () => {
                     >
                       Open {pair.ruleID} fixed page
                     </a>
-                  </Button>
-                  <Button
-                    type='button'
-                    size='sm'
-                    disabled={scan.isPending}
-                    onClick={() => scan.mutate({ gym: pair.broken })}
-                  >
-                    Scan {pair.ruleID} broken page
                   </Button>
                 </div>
               </li>

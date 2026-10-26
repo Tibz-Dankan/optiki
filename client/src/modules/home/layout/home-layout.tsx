@@ -46,7 +46,7 @@ export const HomeLayout: React.FC<HomeLayoutProps> = ({ children }) => {
             <ThemeSwitch />
             {isLoggedIn ? (
               <Button asChild>
-                <Link to='/u/dashboard'>Open dashboard</Link>
+                <Link to='/u/home'>Open home</Link>
               </Button>
             ) : (
               <>

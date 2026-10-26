@@ -1,78 +1,76 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link2, Lock, Trash2, Users } from 'lucide-react'
-import { toast } from 'sonner'
+import { EllipsisVertical, Link2, Lock, Trash2, Users } from 'lucide-react'
 import type { TScanSummary } from '@typings/scan'
-import { scanAPI, scanKeys } from '@api/scan'
 import { Button } from '@shared/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@shared/ui/dropdown-menu'
+import { CopyScanLinkDialog } from '@modules/scan/ui/copy-scan-link-dialog'
 import { DeleteScanDialog } from '@modules/scan/ui/delete-scan-dialog'
+import { ScanVisibilityDialog } from '@modules/scan/ui/scan-visibility-dialog'
 
 type ScanOwnerActionsProps = {
   scan: TScanSummary
 }
 
+type TScanActionDialog = 'visibility' | 'copy-link' | 'delete'
+
 export const ScanOwnerActions: React.FC<ScanOwnerActionsProps> = ({ scan }) => {
-  const queryClient = useQueryClient()
-  const [scanToDelete, setScanToDelete] = useState<TScanSummary | null>(null)
+  const [openDialog, setOpenDialog] = useState<TScanActionDialog | null>(null)
   const isPublic = scan.visibility === 'PUBLIC'
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: scanAPI.update,
-    onSuccess: (response) => {
-      toast.success(
-        response.data.visibility === 'PUBLIC'
-          ? 'Anyone with the link can now open this scan'
-          : 'Only you can open this scan now'
-      )
-      queryClient.invalidateQueries({ queryKey: scanKeys.all })
-    },
-  })
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      toast.success(
-        isPublic
-          ? 'Link copied'
-          : 'Link copied — make the scan public to share it'
-      )
-    } catch {
-      toast.error("Couldn't copy the link")
-    }
-  }
+  const closeDialog = (isOpen: boolean) => !isOpen && setOpenDialog(null)
 
   return (
-    <div className='flex flex-wrap gap-2'>
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        disabled={isPending}
-        onClick={() =>
-          mutate({ id: scan.id, visibility: isPublic ? 'PRIVATE' : 'PUBLIC' })
-        }
-      >
-        {isPublic ? <Lock aria-hidden /> : <Users aria-hidden />}
-        {isPublic ? 'Make scan private' : 'Make scan public'}
-      </Button>
-      <Button type='button' variant='outline' size='sm' onClick={copyLink}>
-        <Link2 aria-hidden />
-        Copy link
-      </Button>
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        onClick={() => setScanToDelete(scan)}
-      >
-        <Trash2 aria-hidden />
-        Delete scan
-      </Button>
+    <>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            className='size-8'
+          >
+            <EllipsisVertical aria-hidden />
+            <span className='sr-only'>Scan actions</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='end'>
+          <DropdownMenuItem onSelect={() => setOpenDialog('visibility')}>
+            {isPublic ? <Lock aria-hidden /> : <Users aria-hidden />}
+            {isPublic ? 'Make scan private' : 'Make scan public'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setOpenDialog('copy-link')}>
+            <Link2 aria-hidden />
+            Copy link
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant='destructive'
+            onSelect={() => setOpenDialog('delete')}
+          >
+            <Trash2 aria-hidden />
+            Delete scan
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ScanVisibilityDialog
+        scan={scan}
+        open={openDialog === 'visibility'}
+        onOpenChange={closeDialog}
+      />
+      <CopyScanLinkDialog
+        scan={scan}
+        open={openDialog === 'copy-link'}
+        onOpenChange={closeDialog}
+      />
       <DeleteScanDialog
-        scan={scanToDelete}
-        onOpenChange={(isOpen) => !isOpen && setScanToDelete(null)}
+        scan={openDialog === 'delete' ? scan : null}
+        onOpenChange={closeDialog}
         redirectTo='/u/scans'
       />
-    </div>
+    </>
   )
 }

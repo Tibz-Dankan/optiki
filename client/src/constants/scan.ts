@@ -10,6 +10,8 @@ import type { TServerErrorName } from '@typings/server-response'
 
 export const scanPageSize = 20
 
+export const guestScanLimit = 3
+
 export const categoryOrder: TRuleCategory[] = [
   'OPERABLE',
   'PERCEIVABLE',
@@ -78,4 +80,6 @@ export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
   RENDER_TIMEOUT: 'That page took too long to load',
   RENDERER_BUSY: 'Too many scans are rendering — try again in a few seconds',
   TOO_MANY_REQUESTS: 'Slow down — too many scans. Try again in a minute',
+  ANONYMOUS_SCAN_LIMIT:
+    "You've used your 3 free scans. Sign in to scan more pages",
 }

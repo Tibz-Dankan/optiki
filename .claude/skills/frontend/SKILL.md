@@ -50,12 +50,12 @@ client/src/
 ├── hooks/        cross-cutting hooks — use-session-refresh.ts, use-get-me.ts, use-mobile.ts, …
 ├── providers/    app-wide context — theme, font, direction, layout, search, react-query, index.tsx
 ├── routes/       user-routes.tsx, auth-routes.tsx, render-*.tsx
-├── stores/       zustand stores — auth.ts, appearance.ts, anonymous.ts
+├── stores/       zustand stores — auth.ts, appearance.ts, anonymous.ts, guest-scan.ts
 ├── styles/       index.css (Tailwind entry) + theme.css (design tokens)
 ├── types/        T-prefixed aliases, one file per domain  (alias @typings)
 ├── utils/        one function per file — classname.ts, cookies.ts, end-session.ts, refresh-session.ts,
 │                 get-redirect-path.ts, format-date-time.ts, get-initials.ts, get-browser-label.ts
-└── modules/      feature modules: auth, dashboard, home, settings, shared
+└── modules/      feature modules: auth, home (public landing + signed-in UserHome), settings, shared
     └── <module>/
         ├── pages/   route-level screens
         ├── layout/  shells for that area
@@ -221,7 +221,7 @@ Ported from GradeScript, capture only (there is no page that reads visits):
   - The mutation overrides the global error toast with a no-op, so a failed capture never reaches the visitor.
 - **The server resolves the page name** from the path (`server/internal/data/siteVisitPageNames.go`). The client keeps no copy of that table.
 - `stores/anonymous.ts` persists one `anonymousID` per browser. Read it through `getAnonymousID()` (`@utils/get-anonymous-id`), which creates and persists the ID on first use: zustand's `persist` writes nothing until a `set`, so an ID made in the initial state would change on every load.
-- After any new session (sign-in, sign-up, reset-password, session refresh), call `reconcileAnonymousUser(userID)` from `@utils/reconcile-anonymous-user`. It is fire-and-forget and links that browser's anonymous visits to the user.
+- After any new session (sign-in, sign-up, reset-password, session refresh) and after a signed-in user verifies their email, call `reconcileAnonymousUser(userID, queryClient)` from `@utils/reconcile-anonymous-user`. It is fire-and-forget and links that browser's anonymous visits **and guest scans** to the user; on success it empties `useGuestScanStore` and, when scans were claimed, invalidates `scanKeys.all`.
 - Every sign-out path (`sign-out-dialog.tsx`, `use-sign-out-locally.ts`, `end-session.ts`) calls `clearAnonymousID()` beside `clearAuth()`, so later anonymous browsing isn't linked to the previous user.
 - The device and anonymous ID travel in the request body, not as global `X-Device`/`X-Anonymous-ID` headers as in GradeScript. Custom headers would need a CORS change, and a PR preview built before that change reached production would break every API call.
 
