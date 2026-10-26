@@ -7,6 +7,8 @@ type ScanScreenshotProps = {
   screenshot: TScanScreenshot
   label: string
   path: string
+  heading?: string
+  note?: string
   className?: string
 }
 
@@ -14,6 +16,8 @@ export const ScanScreenshot: React.FC<ScanScreenshotProps> = ({
   screenshot,
   label,
   path,
+  heading = 'Page',
+  note,
   className,
 }) => {
   return (
@@ -29,7 +33,8 @@ export const ScanScreenshot: React.FC<ScanScreenshotProps> = ({
           id='screenshot-heading'
           className='min-w-0 truncate text-base font-semibold'
         >
-          Page <span className='font-normal text-muted-foreground'>{path}</span>
+          {heading}{' '}
+          <span className='font-normal text-muted-foreground'>{path}</span>
         </h2>
         <Button asChild variant='outline' size='sm' className='shrink-0'>
           <a href={screenshot.url} target='_blank' rel='noopener noreferrer'>
@@ -48,6 +53,7 @@ export const ScanScreenshot: React.FC<ScanScreenshotProps> = ({
           className='absolute inset-0 size-full object-cover object-top'
         />
       </div>
+      {note && <p className='text-xs text-muted-foreground'>{note}</p>}
     </section>
   )
 }

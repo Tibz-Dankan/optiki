@@ -5,7 +5,7 @@ import {
   severityLabels,
 } from '@constants/scan'
 import type {
-  TScanCounts,
+  TPageCounts,
   TScanRuleResult,
   TScanScores,
   TSeverity,
@@ -16,8 +16,11 @@ import { getScoreTone } from '@utils/get-score-tone'
 
 type ScoreSummaryProps = {
   scores: TScanScores
-  rules: TScanRuleResult[]
-  counts?: TScanCounts
+  rules?: TScanRuleResult[]
+  counts?: TPageCounts
+  note?: string
+  findingsNote?: string
+  pendingText?: string
   className?: string
 }
 
@@ -32,7 +35,10 @@ const severityFills: Record<TSeverity, string> = {
   MINOR: 'bg-muted-foreground/40',
 }
 
-const ScoreGauge: React.FC<{ score: number | null }> = ({ score }) => {
+const ScoreGauge: React.FC<{ score: number | null; isPending: boolean }> = ({
+  score,
+  isPending,
+}) => {
   const radius = 52
   const circumference = 2 * Math.PI * radius
   return (
@@ -47,9 +53,10 @@ const ScoreGauge: React.FC<{ score: number | null }> = ({ score }) => {
         r={radius}
         fill='none'
         strokeWidth='6.67'
+        strokeDasharray={isPending ? '4 6' : undefined}
         className='stroke-muted'
       />
-      {score !== null && (
+      {score !== null && !isPending && (
         <circle
           cx='60'
           cy='60'
@@ -80,7 +87,11 @@ const ScoreBar: React.FC<{ score: number }> = ({ score }) => {
   )
 }
 
-const FindingsBreakdown: React.FC<{ counts: TScanCounts }> = ({ counts }) => {
+const FindingsBreakdown: React.FC<{
+  counts: TPageCounts
+  note?: string
+  isPending: boolean
+}> = ({ counts, note, isPending }) => {
   const severityCounts: Record<TSeverity, number> = {
     CRITICAL: counts.critical,
     SERIOUS: counts.serious,
@@ -91,25 +102,16 @@ const FindingsBreakdown: React.FC<{ counts: TScanCounts }> = ({ counts }) => {
     (sum, severity) => sum + severityCounts[severity],
     0
   )
-  const rulesSummary = [
-    `${counts.rulesFailed} ${counts.rulesFailed === 1 ? 'rule' : 'rules'} failed`,
-    `${counts.rulesPassed} passed`,
-    `${counts.rulesNotApplicable} not applicable`,
-    counts.rulesNeedRendered > 0 &&
-      `${counts.rulesNeedRendered} need a rendered scan`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   return (
     <div className='grid gap-2.5 border-t border-border pt-4'>
       <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[13px]'>
         <span className='font-medium'>
-          {counts.findings === 0
+          {counts.findings === 0 && !isPending
             ? 'No findings'
-            : `${counts.findings} ${counts.findings === 1 ? 'finding' : 'findings'}`}
+            : `${counts.findings} ${counts.findings === 1 ? 'finding' : 'findings'}${isPending ? ' so far' : ''}`}
         </span>
-        <span className='text-muted-foreground'>{rulesSummary}</span>
+        {note && <span className='text-muted-foreground'>{note}</span>}
       </div>
       {total > 0 && (
         <div
@@ -149,10 +151,15 @@ const FindingsBreakdown: React.FC<{ counts: TScanCounts }> = ({ counts }) => {
 
 export const ScoreSummary: React.FC<ScoreSummaryProps> = ({
   scores,
-  rules,
+  rules = [],
   counts,
+  note,
+  findingsNote,
+  pendingText,
   className,
 }) => {
+  const isPending = !!pendingText
+
   return (
     <section
       aria-labelledby='scores-heading'
@@ -165,60 +172,73 @@ export const ScoreSummary: React.FC<ScoreSummaryProps> = ({
         <h2 id='scores-heading' className='text-base font-semibold'>
           Scores
         </h2>
-        {rules.length > 0 && (
-          <span className='text-xs text-muted-foreground'>
-            {rules.length} rules on 1 page
-          </span>
-        )}
+        {note && <span className='text-xs text-muted-foreground'>{note}</span>}
       </div>
 
       <div className='flex flex-wrap items-center gap-6'>
         <div className='relative flex shrink-0 items-center justify-center'>
-          <ScoreGauge score={scores.overall} />
+          <ScoreGauge score={scores.overall} isPending={isPending} />
           <div className='absolute text-center'>
-            <p className='text-[32px] leading-tight font-bold'>
-              {scores.overall ?? '—'}
+            <p
+              className={cn(
+                'text-[32px] leading-tight font-bold',
+                isPending && 'text-muted-foreground'
+              )}
+            >
+              {isPending ? '—' : (scores.overall ?? '—')}
             </p>
             <p className='text-xs text-muted-foreground'>Overall score</p>
           </div>
         </div>
 
-        <dl className='grid flex-[1_1_320px] grid-cols-2 gap-2.5'>
-          {categoryOrder.map((category) => {
-            const categoryRules = rules.filter(
-              (rule) => rule.category === category
-            )
-            const needsRender =
-              categoryRules.length > 0 &&
-              categoryRules.every((rule) => rule.result === 'NEEDS_RENDERED')
-            const score = getCategoryScore(scores, category)
-            return (
-              <div
-                key={category}
-                className='grid content-start gap-1 rounded-lg border border-border bg-background p-3'
-              >
-                <dt className='text-sm font-medium'>
-                  {categoryLabels[category]}
-                  <span className='block text-xs font-normal text-muted-foreground'>
-                    {categoryQuestions[category]}
-                  </span>
-                </dt>
-                <dd
-                  className={cn(
-                    'font-semibold',
-                    score === null && needsRender ? 'text-sm' : 'text-[22px]'
-                  )}
+        {pendingText ? (
+          <p className='flex-[1_1_280px] text-sm leading-normal text-muted-foreground'>
+            {pendingText}
+          </p>
+        ) : (
+          <dl className='grid flex-[1_1_320px] grid-cols-2 gap-2.5'>
+            {categoryOrder.map((category) => {
+              const categoryRules = rules.filter(
+                (rule) => rule.category === category
+              )
+              const needsRender =
+                categoryRules.length > 0 &&
+                categoryRules.every((rule) => rule.result === 'NEEDS_RENDERED')
+              const score = getCategoryScore(scores, category)
+              return (
+                <div
+                  key={category}
+                  className='grid content-start gap-1 rounded-lg border border-border bg-background p-3'
                 >
-                  {score ?? (needsRender ? 'Needs rendered scan' : '—')}
-                  {score !== null && <ScoreBar score={score} />}
-                </dd>
-              </div>
-            )
-          })}
-        </dl>
+                  <dt className='text-sm font-medium'>
+                    {categoryLabels[category]}
+                    <span className='block text-xs font-normal text-muted-foreground'>
+                      {categoryQuestions[category]}
+                    </span>
+                  </dt>
+                  <dd
+                    className={cn(
+                      'font-semibold',
+                      score === null && needsRender ? 'text-sm' : 'text-[22px]'
+                    )}
+                  >
+                    {score ?? (needsRender ? 'Needs rendered scan' : '—')}
+                    {score !== null && <ScoreBar score={score} />}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
+        )}
       </div>
 
-      {counts && <FindingsBreakdown counts={counts} />}
+      {counts && (
+        <FindingsBreakdown
+          counts={counts}
+          note={findingsNote}
+          isPending={isPending}
+        />
+      )}
     </section>
   )
 }

@@ -6,7 +6,7 @@ import { describeScanHeading } from '@utils/describe-scan-heading'
 import { describeScanTarget } from '@utils/describe-scan-target'
 import { formatDateTime } from '@utils/format-date-time'
 import { formatRelativeTime } from '@utils/format-relative-time'
-import { getScoreTone } from '@utils/get-score-tone'
+import { summarizeFindings } from '@utils/summarize-findings'
 import {
   Table,
   TableBody,
@@ -18,56 +18,41 @@ import {
 import { ScanInputTypeIcon } from '@modules/scan/ui/scan-input-type-icon'
 import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
 import { ScanStatusBadge } from '@modules/scan/ui/scan-status-badge'
+import { ScoreMeter } from '@modules/scan/ui/score-meter'
 
 const headClassName =
   'h-10 bg-card px-3 text-xs text-muted-foreground first:ps-4'
 const cellClassName = 'px-3 py-3 first:ps-4'
 
-const summarizeFindings = (
-  scan: TScanSummary
-): { text: string; detail?: string; tone?: string } => {
-  if (scan.status === 'RUNNING') return { text: 'Scanning…' }
-  if (scan.status === 'FAILED') return { text: '—' }
-
-  const { findings, critical, serious } = scan.counts
-  if (findings === 0) return { text: 'No findings' }
-  const severe = [
-    critical > 0 && `${critical} critical`,
-    serious > 0 && `${serious} serious`,
-  ].filter(Boolean)
-  return {
-    text: `${findings} ${findings === 1 ? 'finding' : 'findings'}`,
-    detail: severe.length > 0 ? severe.join(' · ') : 'Moderate or minor only',
-    tone:
-      critical > 0
-        ? 'text-destructive'
-        : serious > 0
-          ? 'text-foreground dark:text-warning'
-          : 'text-muted-foreground',
-  }
-}
-
 type SinglePageScanTableProps = {
   scans: TScanSummary[]
+  isCompact?: boolean
 }
 
 export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
   scans,
+  isCompact,
 }) => {
   return (
     <div className='overflow-hidden rounded-lg border border-border'>
-      <Table className='min-w-240 table-fixed'>
+      <Table
+        className={cn('table-fixed', isCompact ? 'min-w-150' : 'min-w-240')}
+      >
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
             <TableHead className={headClassName}>Page</TableHead>
             <TableHead className={cn(headClassName, 'w-28')}>Score</TableHead>
-            <TableHead className={cn(headClassName, 'w-[15%]')}>
-              Findings
-            </TableHead>
+            {!isCompact && (
+              <TableHead className={cn(headClassName, 'w-[15%]')}>
+                Findings
+              </TableHead>
+            )}
             <TableHead className={cn(headClassName, 'w-32')}>Source</TableHead>
-            <TableHead className={cn(headClassName, 'w-[17%]')}>
-              Status
-            </TableHead>
+            {!isCompact && (
+              <TableHead className={cn(headClassName, 'w-[17%]')}>
+                Status
+              </TableHead>
+            )}
             <TableHead className={cn(headClassName, 'w-34')}>Created</TableHead>
             <TableHead className={cn(headClassName, 'w-14')}>
               <span className='sr-only'>Actions</span>
@@ -77,8 +62,7 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
         <TableBody>
           {scans.map((scan) => {
             const { title, subtitle } = describeScanHeading(scan)
-            const score = scan.scores.overall
-            const findings = summarizeFindings(scan)
+            const findings = summarizeFindings(scan.status, scan.counts)
             const source = scanSources[scan.triggeredBy]
             const SourceIcon = source.icon
             return (
@@ -102,40 +86,20 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell className={cellClassName}>
-                  {score === null ? (
-                    <span className='text-muted-foreground'>—</span>
-                  ) : (
-                    <div
-                      className={cn(
-                        'flex items-center gap-2.5',
-                        getScoreTone(score)
+                  <ScoreMeter score={scan.scores.overall} />
+                </TableCell>
+                {!isCompact && (
+                  <TableCell className={cellClassName}>
+                    <div className='grid min-w-0 gap-0.5'>
+                      <span className='truncate'>{findings.text}</span>
+                      {findings.detail && (
+                        <span className={cn('truncate text-xs', findings.tone)}>
+                          {findings.detail}
+                        </span>
                       )}
-                    >
-                      <span className='min-w-5.5 font-semibold tabular-nums'>
-                        {score}
-                      </span>
-                      <span
-                        aria-hidden
-                        className='h-1 w-13 overflow-hidden rounded-full bg-muted'
-                      >
-                        <span
-                          className='block h-full rounded-full bg-current'
-                          style={{ width: `${Math.max(score, 2)}%` }}
-                        />
-                      </span>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell className={cellClassName}>
-                  <div className='grid min-w-0 gap-0.5'>
-                    <span className='truncate'>{findings.text}</span>
-                    {findings.detail && (
-                      <span className={cn('truncate text-xs', findings.tone)}>
-                        {findings.detail}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
+                  </TableCell>
+                )}
                 <TableCell className={cellClassName}>
                   <div className='flex items-center gap-2'>
                     <SourceIcon
@@ -150,22 +114,24 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className={cellClassName}>
-                  <div className='flex min-w-0 flex-col items-start gap-1'>
-                    <ScanStatusBadge
-                      status={scan.status}
-                      label={statusLabels[scan.status]}
-                    />
-                    {scan.error && (
-                      <span
-                        title={scan.error.message}
-                        className='max-w-full truncate text-xs text-muted-foreground'
-                      >
-                        {scan.error.message}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
+                {!isCompact && (
+                  <TableCell className={cellClassName}>
+                    <div className='flex min-w-0 flex-col items-start gap-1'>
+                      <ScanStatusBadge
+                        status={scan.status}
+                        label={statusLabels[scan.status]}
+                      />
+                      {scan.error && (
+                        <span
+                          title={scan.error.message}
+                          className='max-w-full truncate text-xs text-muted-foreground'
+                        >
+                          {scan.error.message}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell className={cellClassName}>
                   <time
                     dateTime={scan.createdAt}

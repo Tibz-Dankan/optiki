@@ -197,7 +197,8 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
             )}{' '}
             {report.findingsCovered}{' '}
             {report.findingsCovered === 1 ? 'finding' : 'findings'}. It quotes
-            markup from the scanned page, so read it before you run it.
+            markup from the scanned {multiplePage ? 'pages' : 'page'}, so read
+            it before you run it.
           </p>
         </>
       )}

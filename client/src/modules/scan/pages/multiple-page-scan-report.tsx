@@ -1,17 +1,14 @@
-import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import {
-  multiplePageScanPollInterval,
-  multiplePageScanStatusLabels,
-  triggeredByLabels,
-} from '@constants/scan'
+import { useParams } from 'react-router-dom'
+import type {
+  TMultiplePageScan,
+  TMultiplePageScanPage,
+  TPageCounts,
+} from '@typings/scan'
 import { isHttpError } from '@api/http-error'
-import { scanAPI, scanKeys } from '@api/scan'
 import { describeMultiplePageScan } from '@utils/describe-multiple-page-scan'
-import { formatDateTime } from '@utils/format-date-time'
+import { formatAddress } from '@utils/format-address'
 import { isMultiplePageScanActive } from '@utils/is-multiple-page-scan-active'
-import { Badge } from '@shared/ui/badge'
-import { Button } from '@shared/ui/button'
+import { useMultiplePageScanReport } from '@hooks/use-multiple-page-scan-report'
 import { ProfileDropdown } from '@shared/ui/profile-dropdown'
 import { Search } from '@shared/ui/search'
 import { Skeleton } from '@shared/ui/skeleton'
@@ -21,26 +18,61 @@ import { Main } from '@shared/layout/main'
 import { NotFoundError } from '@shared/pages/not-found-error'
 import { FixReportSection } from '@modules/scan/ui/fix-report-section'
 import { MultiplePageRuleSummary } from '@modules/scan/ui/multiple-page-rule-summary'
-import { MultiplePageScanActions } from '@modules/scan/ui/multiple-page-scan-actions'
+import { MultiplePageScanBreadcrumb } from '@modules/scan/ui/multiple-page-scan-breadcrumb'
+import { MultiplePageScanHeader } from '@modules/scan/ui/multiple-page-scan-header'
 import { MultiplePageScanPages } from '@modules/scan/ui/multiple-page-scan-pages'
 import { MultiplePageScanProgress } from '@modules/scan/ui/multiple-page-scan-progress'
 import { MultiplePageScanSkipped } from '@modules/scan/ui/multiple-page-scan-skipped'
+import { MultiplePageStartScreenshot } from '@modules/scan/ui/multiple-page-start-screenshot'
 import { ScoreSummary } from '@modules/scan/ui/score-summary'
+
+const sumCompletedPageCounts = (pages: TMultiplePageScanPage[]): TPageCounts =>
+  pages
+    .filter((page) => page.status === 'COMPLETED')
+    .reduce(
+      (sum, { counts }) => ({
+        findings: sum.findings + counts.findings,
+        critical: sum.critical + counts.critical,
+        serious: sum.serious + counts.serious,
+        moderate: sum.moderate + counts.moderate,
+        minor: sum.minor + counts.minor,
+      }),
+      { findings: 0, critical: 0, serious: 0, moderate: 0, minor: 0 }
+    )
+
+const MultiplePageScores: React.FC<{
+  scan: TMultiplePageScan
+  className: string
+}> = ({ scan, className }) => {
+  const isActive = isMultiplePageScanActive(scan)
+  const { pagesScanned } = scan.progress
+  const rulesFailed = scan.rules.filter((rule) => rule.pagesFailed > 0).length
+
+  if (scan.status === 'FAILED' && scan.scores.overall === null) return null
+
+  return (
+    <ScoreSummary
+      scores={scan.scores}
+      counts={isActive ? sumCompletedPageCounts(scan.pages) : scan.counts}
+      note={
+        isActive
+          ? 'Scan in progress'
+          : `Average across ${pagesScanned} scanned ${pagesScanned === 1 ? 'page' : 'pages'}`
+      }
+      findingsNote={`${rulesFailed} ${rulesFailed === 1 ? 'rule' : 'rules'} failed on at least one page`}
+      pendingText={
+        isActive
+          ? 'Scores appear when every page is scanned. Each finished page is already listed below with its own score.'
+          : undefined
+      }
+      className={className}
+    />
+  )
+}
 
 export const MultiplePageScanReport: React.FC = () => {
   const { id = '' } = useParams()
-
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: scanKeys.multipleDetail(id),
-    queryFn: () => scanAPI.getOneMultiplePage(id),
-    enabled: !!id,
-    refetchInterval: (query) => {
-      const scan = query.state.data?.data
-      return scan && isMultiplePageScanActive(scan)
-        ? multiplePageScanPollInterval
-        : false
-    },
-  })
+  const { data, isPending, isError, error } = useMultiplePageScanReport(id)
 
   if (isError && isHttpError(error) && [400, 404].includes(error.status)) {
     return <NotFoundError />
@@ -51,7 +83,8 @@ export const MultiplePageScanReport: React.FC = () => {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center gap-4'>
+        <MultiplePageScanBreadcrumb id={id} />
+        <div className='ms-auto flex shrink-0 items-center gap-4'>
           <Search />
           <ThemeSwitch />
           <ProfileDropdown />
@@ -59,12 +92,12 @@ export const MultiplePageScanReport: React.FC = () => {
       </Header>
 
       <Main>
-        <div className='mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-6'>
+        <div className='mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-6'>
           {isPending && (
             <div className='grid gap-4'>
-              <Skeleton className='h-10 w-2/3' />
+              <Skeleton className='h-24 w-2/3' />
               <Skeleton className='h-24 w-full' />
-              <Skeleton className='h-96 w-full' />
+              <Skeleton className='h-80 w-full' />
             </div>
           )}
 
@@ -76,50 +109,20 @@ export const MultiplePageScanReport: React.FC = () => {
 
           {scan && (
             <>
-              <div className='flex flex-wrap items-start justify-between gap-4'>
-                <div className='min-w-0'>
-                  <h1 className='text-2xl font-bold tracking-tight break-all md:text-3xl'>
-                    {describeMultiplePageScan(scan)}
-                  </h1>
-                  <p className='mt-1 text-sm text-muted-foreground'>
-                    Multiple pages · {triggeredByLabels[scan.triggeredBy]} ·{' '}
-                    {formatDateTime(scan.createdAt)}
-                  </p>
-                  <div className='mt-2 flex flex-wrap gap-2'>
-                    <Badge variant='outline'>
-                      {multiplePageScanStatusLabels[scan.status]}
-                    </Badge>
-                    <Badge variant='secondary'>
-                      {scan.mode === 'RENDERED' ? 'Rendered' : 'Static'}
-                    </Badge>
-                    <Badge variant='secondary'>
-                      {scan.ruleSet === 'FULL'
-                        ? 'All 17 rules'
-                        : '9 core rules'}
-                    </Badge>
-                    <Badge variant='outline'>Private</Badge>
-                  </div>
-                </div>
-                <div className='flex flex-wrap items-center gap-2'>
-                  <Button asChild size='sm'>
-                    <Link to='/u/scan'>Scan another page</Link>
-                  </Button>
-                  <MultiplePageScanActions scan={scan} redirectTo='/u/scans' />
-                </div>
-              </div>
-
+              <MultiplePageScanHeader scan={scan} />
               <MultiplePageScanProgress scan={scan} />
 
-              {scan.status === 'COMPLETED' && (
-                <div className='grid gap-2'>
-                  <ScoreSummary scores={scan.scores} rules={[]} />
-                  <p className='text-sm text-muted-foreground'>
-                    Scores are the average across the{' '}
-                    {scan.progress.pagesScanned} scanned{' '}
-                    {scan.progress.pagesScanned === 1 ? 'page' : 'pages'}.
-                  </p>
-                </div>
-              )}
+              <div className='flex flex-wrap items-stretch gap-4 empty:hidden'>
+                <MultiplePageScores
+                  scan={scan}
+                  className='min-w-0 flex-[999_1_560px]'
+                />
+                <MultiplePageStartScreenshot
+                  page={scan.pages[0]}
+                  title={formatAddress(describeMultiplePageScan(scan))}
+                  className='min-w-0 flex-[1_1_320px]'
+                />
+              </div>
 
               {scan.status === 'COMPLETED' && (
                 <FixReportSection

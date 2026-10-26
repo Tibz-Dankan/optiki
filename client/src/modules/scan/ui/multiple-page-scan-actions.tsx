@@ -32,7 +32,7 @@ export const MultiplePageScanActions: React.FC<
             type='button'
             variant={variant}
             size='icon'
-            className='size-8'
+            className={variant === 'ghost' ? 'size-8' : undefined}
           >
             <TriggerIcon aria-hidden />
             <span className='sr-only'>{label}</span>

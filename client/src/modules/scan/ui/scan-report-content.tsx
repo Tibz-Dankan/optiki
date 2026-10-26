@@ -9,13 +9,14 @@ import {
   Users,
 } from 'lucide-react'
 import { scanSources, statusLabels } from '@constants/scan'
-import type { TScanReport } from '@typings/scan'
+import type { TScanCounts, TScanReport } from '@typings/scan'
 import { isHttpError } from '@api/http-error'
 import { rulesAPI, rulesKeys } from '@api/rules'
 import { describeScanHeading } from '@utils/describe-scan-heading'
 import { describeScanTarget } from '@utils/describe-scan-target'
 import { formatAddress } from '@utils/format-address'
 import { formatDateTime } from '@utils/format-date-time'
+import { formatDuration } from '@utils/format-duration'
 import { formatRelativeTime } from '@utils/format-relative-time'
 import { useScanReport } from '@hooks/use-scan-report'
 import { Badge } from '@shared/ui/badge'
@@ -31,8 +32,16 @@ import { ScanScreenshot } from '@modules/scan/ui/scan-screenshot'
 import { ScanStatusBadge } from '@modules/scan/ui/scan-status-badge'
 import { ScoreSummary } from '@modules/scan/ui/score-summary'
 
-const formatDuration = (ms: number) =>
-  ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
+const describeRuleCounts = (counts: TScanCounts) =>
+  [
+    `${counts.rulesFailed} ${counts.rulesFailed === 1 ? 'rule' : 'rules'} failed`,
+    `${counts.rulesPassed} passed`,
+    `${counts.rulesNotApplicable} not applicable`,
+    counts.rulesNeedRendered > 0 &&
+      `${counts.rulesNeedRendered} need a rendered scan`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
 const Dot: React.FC = () => (
   <span aria-hidden className='text-muted-foreground/60'>
@@ -192,6 +201,12 @@ export const ScanReportContent: React.FC<ScanReportContentProps> = ({
                   scores={data.data.scores}
                   rules={data.data.rules}
                   counts={data.data.counts}
+                  note={
+                    data.data.rules.length > 0
+                      ? `${data.data.rules.length} rules on 1 page`
+                      : undefined
+                  }
+                  findingsNote={describeRuleCounts(data.data.counts)}
                   className='min-w-0 flex-[999_1_560px]'
                 />
                 {data.data.screenshot && (
