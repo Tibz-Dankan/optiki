@@ -6,7 +6,7 @@ name: CI Previews
 on:
   pull_request:
     branches:
-      - dev
+      - main
 
 # A new push to the same PR waits for the running deploy instead of racing it
 concurrency:
