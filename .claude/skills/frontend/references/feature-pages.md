@@ -54,7 +54,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - each create sends `anonymousID: getAnonymousID()`; the server requires it for anonymous callers
   - a completed scan is added to `stores/guest-scan.ts` (`useGuestScanStore`, persisted as `guest-scan-storage`) as a `TRecentScan` (`toRecentScan`)
   - at `guestScanLimit` (3) stored scans, or on a server `ANONYMOUS_SCAN_LIMIT`, `guest-scan-limit-notice.tsx` replaces the form: "Sign in to scan more" (`?redirectTo=/u/scan`) and "Create an account", or "Verify your email" when unverified
-  - below the panel: a "Recent scans" section with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
+  - below the panel: a "Recent scans" section (heading with the `History` icon) with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
   - `reconcileAnonymousUser` claims them on the server (they become private) and empties the store
 - **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans".
   - Under the address field, `url-scan-form.tsx` shows the checkbox "Automatically discover other pages of the host and scan them too" (unchecked; `discoverPages` / `onDiscoverPagesChange`, owned by `ScanPanel`). Checked, the same "Scan" button calls `createMultiplePage` and opens `/u/scans/multiple/:id`, and the hint describes the crawl. Guests get no checkbox, only "Sign in to scan multiple pages".

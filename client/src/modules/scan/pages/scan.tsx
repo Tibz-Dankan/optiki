@@ -1,3 +1,4 @@
+import { History } from 'lucide-react'
 import { useGuestScanStore } from '@stores/guest-scan'
 import { HomeLayout } from '@modules/home/layout/home-layout'
 import { GuestHistoryBanner } from '@modules/scan/ui/guest-history-banner'
@@ -13,7 +14,11 @@ export const Scan: React.FC = () => {
         <ScanPanel isGuest />
 
         <section aria-labelledby='recent-scans' className='grid gap-3'>
-          <h2 id='recent-scans' className='text-lg font-semibold'>
+          <h2
+            id='recent-scans'
+            className='flex items-center gap-2 text-lg font-semibold'
+          >
+            <History className='size-5 text-muted-foreground' aria-hidden />
             Recent scans
           </h2>
           <GuestHistoryBanner />

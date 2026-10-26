@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ScanSearch } from 'lucide-react'
+import { History, ScanSearch } from 'lucide-react'
 import { scanAPI, scanKeys } from '@api/scan'
 import { toRecentScan } from '@utils/to-recent-scan'
 import { Skeleton } from '@shared/ui/skeleton'
@@ -19,7 +19,11 @@ export const RecentScans: React.FC = () => {
 
   return (
     <section aria-labelledby='recent-scans' className='grid gap-3'>
-      <h2 id='recent-scans' className='text-lg font-semibold'>
+      <h2
+        id='recent-scans'
+        className='flex items-center gap-2 text-lg font-semibold'
+      >
+        <History className='size-5 text-muted-foreground' aria-hidden />
         Recent scans
       </h2>
 
