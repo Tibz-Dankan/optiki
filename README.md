@@ -44,6 +44,7 @@ UI tests only, built in the TestSprite portal. They run on every ready (non-draf
 | U9 Making a signed-in scan public updates its visibility | UI | Signed-in scans start private; the owner can share them | — |
 | U10 Deleting a scan from its report returns to the Scans page | UI | The owner can delete a scan | — |
 | U11 A signed-out scan's report asks the visitor to sign in to keep their history | UI | Signed-out scans are kept in the browser, with a prompt to sign in | — |
+| U12 A signed-in multiple-page scan lists the pages it scanned | UI | `multiplePageScan` crawls a site's public pages in the background and reports each one | — |
 
 ## Run it locally
 

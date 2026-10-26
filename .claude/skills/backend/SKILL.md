@@ -362,7 +362,7 @@ Ports: 8000 (local), 8001 (deployed).
 **Only the deterministic core and the security boundaries get Go tests:**
 
 - `engine/` (rules, golden reports, invariants — `make golden` rewrites the goldens)
-- `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it)
+- `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it; `snapshot/links` is the multiple-page scan's link discovery)
 - `pkg/fetchPublicPage` and `pkg/publicDialer`
 - `pkg/apiToken`
 - `pkg/isAllowedOrigin` (the credentialed CORS allow-list)

@@ -62,7 +62,7 @@ func (s *Scan) FindOne(id string) (Scan, error) {
 
 func (s *Scan) FindAllByUser(userID string, filters ScanFilters, limit float64, cursor string) ([]Scan, error) {
 	var scans []Scan
-	query := db.Model(&Scan{}).Preload("Screenshot").Where("\"userID\" = ?", userID)
+	query := db.Model(&Scan{}).Preload("Screenshot").Where("\"userID\" = ? AND \"multiplePageScanID\" IS NULL", userID)
 	if filters.Status != "" {
 		query = query.Where("status = ?", filters.Status)
 	}

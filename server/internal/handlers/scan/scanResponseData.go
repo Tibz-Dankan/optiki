@@ -11,24 +11,18 @@ import (
 
 // scanSummaryData is a scan without its rule results and findings, as lists return it
 func scanSummaryData(ctx context.Context, scan models.Scan, viewerID string) fiber.Map {
-	var errorData fiber.Map
-	if scan.ErrorCode != nil {
-		message := ""
-		if scan.ErrorMessage != nil {
-			message = *scan.ErrorMessage
-		}
-		errorData = fiber.Map{"code": *scan.ErrorCode, "message": message}
-	}
 	return fiber.Map{
-		"id":          scan.ID,
-		"title":       scan.Title,
-		"visibility":  scan.Visibility,
-		"status":      scan.Status,
-		"triggeredBy": scan.TriggeredBy,
-		"inputType":   scan.InputType,
-		"mode":        scan.Mode,
-		"ruleSet":     scan.RuleSet,
-		"isOwner":     viewerID != "" && scan.UserID != nil && *scan.UserID == viewerID,
+		"id":                 scan.ID,
+		"multiplePageScan":   false,
+		"multiplePageScanID": scan.MultiplePageScanID,
+		"title":              scan.Title,
+		"visibility":         scan.Visibility,
+		"status":             scan.Status,
+		"triggeredBy":        scan.TriggeredBy,
+		"inputType":          scan.InputType,
+		"mode":               scan.Mode,
+		"ruleSet":            scan.RuleSet,
+		"isOwner":            viewerID != "" && scan.UserID != nil && *scan.UserID == viewerID,
 		"target": fiber.Map{
 			"url":           scan.TargetURL,
 			"finalURL":      scan.FinalURL,
@@ -84,7 +78,7 @@ func scanSummaryData(ctx context.Context, scan models.Scan, viewerID string) fib
 			"renderMs":    scan.RenderMs,
 			"analyzeMs":   scan.AnalyzeMs,
 		},
-		"error":      errorData,
+		"error":      errorData(scan.ErrorCode, scan.ErrorMessage),
 		"screenshot": screenshotData(ctx, scan),
 		"createdAt":  scan.CreatedAt,
 		"updatedAt":  scan.UpdatedAt,
@@ -141,6 +135,17 @@ func scanReportData(ctx context.Context, scan models.Scan, viewerID string) fibe
 	data["rules"] = ruleResults
 	data["findings"] = findings
 	return data
+}
+
+func errorData(code, message *string) fiber.Map {
+	if code == nil {
+		return nil
+	}
+	text := ""
+	if message != nil {
+		text = *message
+	}
+	return fiber.Map{"code": *code, "message": text}
 }
 
 func viewportData(scan models.Scan) fiber.Map {

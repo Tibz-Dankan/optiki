@@ -1,4 +1,6 @@
 import type {
+  TMultiplePageScanSkipReason,
+  TMultiplePageScanStatus,
   TRuleCategory,
   TRuleResult,
   TScanInputType,
@@ -82,4 +84,31 @@ export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
   TOO_MANY_REQUESTS: 'Slow down — too many scans. Try again in a minute',
   ANONYMOUS_SCAN_LIMIT:
     "You've used your 3 free scans. Sign in to scan more pages",
+  SCAN_QUEUE_FULL:
+    'Too many multiple-page scans are waiting — try again in a minute',
+}
+
+export const multiplePageScanMaxPages = 25
+
+export const multiplePageScanPollInterval = 2000
+
+export const multiplePageScanStatusLabels: Record<
+  TMultiplePageScanStatus,
+  string
+> = {
+  QUEUED: 'Queued',
+  RUNNING: 'Scanning',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed',
+}
+
+export const skipReasonLabels: Record<TMultiplePageScanSkipReason, string> = {
+  NOT_PUBLIC: 'Needs a sign-in or redirects off the site',
+  NOT_FOUND: 'Not found',
+  HTTP_ERROR: 'The server answered with an error',
+  NOT_HTML: 'Not an HTML page',
+  BLOCKED: "This address isn't allowed",
+  TIMEOUT: 'Took too long to load',
+  FAILED: 'Could not be loaded',
+  DUPLICATE: 'Redirects to a page already scanned',
 }

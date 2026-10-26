@@ -1,13 +1,23 @@
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { guestScanLimit, scanErrorMessages } from '@constants/scan'
-import type { TCreateScanInput, TScanReportResponse } from '@typings/scan'
+import {
+  guestScanLimit,
+  multiplePageScanMaxPages,
+  scanErrorMessages,
+} from '@constants/scan'
+import type {
+  TMultiplePageScanSummaryResponse,
+  TScanReportResponse,
+  TScanScope,
+} from '@typings/scan'
 import { isHttpError } from '@api/http-error'
 import { scanAPI, scanKeys } from '@api/scan'
 import { useGuestScanStore } from '@stores/guest-scan'
 import { getAnonymousID } from '@utils/get-anonymous-id'
 import { toRecentScan } from '@utils/to-recent-scan'
 import { GuestScanLimitNotice } from '@modules/scan/ui/guest-scan-limit-notice'
+import { ScanScopeSwitch } from '@modules/scan/ui/scan-scope-switch'
 import { UrlScanForm } from '@modules/scan/ui/url-scan-form'
 
 type ScanPanelProps = {
@@ -17,15 +27,32 @@ type ScanPanelProps = {
 export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [scope, setScope] = useState<TScanScope>('single')
   const guestScanCount = useGuestScanStore((state) => state.scans.length)
   const addGuestScan = useGuestScanStore((state) => state.addScan)
+  const isMultiple = !isGuest && scope === 'multiple'
 
   const { mutate, isPending, error, reset } = useMutation({
-    mutationFn: (input: TCreateScanInput) => scanAPI.create(input),
-    onSuccess: (response: TScanReportResponse) => {
+    mutationFn: ({
+      url,
+      multiple,
+    }: {
+      url: string
+      multiple: boolean
+    }): Promise<TScanReportResponse | TMultiplePageScanSummaryResponse> =>
+      multiple
+        ? scanAPI.createMultiplePage({ url })
+        : scanAPI.create(
+            isGuest ? { url, anonymousID: getAnonymousID() } : { url }
+          ),
+    onSuccess: (response) => {
       const scan = response.data
-      if (isGuest) addGuestScan(toRecentScan(scan))
       queryClient.invalidateQueries({ queryKey: scanKeys.all })
+      if (scan.multiplePageScan) {
+        navigate(`/u/scans/multiple/${scan.id}`)
+        return
+      }
+      if (isGuest) addGuestScan(toRecentScan(scan))
       navigate(isGuest ? `/scans/${scan.id}` : `/u/scans/${scan.id}`)
     },
     onError: () => {},
@@ -33,7 +60,12 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
 
   const scan = (url: string) => {
     reset()
-    mutate(isGuest ? { url, anonymousID: getAnonymousID() } : { url })
+    mutate({ url, multiple: isMultiple })
+  }
+
+  const changeScope = (next: TScanScope) => {
+    reset()
+    setScope(next)
   }
 
   const isLimitError =
@@ -45,6 +77,12 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
     error &&
     !isLimitError &&
     ((isHttpError(error) && scanErrorMessages[error.error]) || error.message)
+
+  const hint = isGuest
+    ? `Signed out, the page is fetched and checked against the 9 core rules. ${scansLeft} of ${guestScanLimit} free scans left.`
+    : isMultiple
+      ? `Finds the pages this one links to on the same site and scans up to ${multiplePageScanMaxPages} of them in a real browser, with all 17 rules.`
+      : 'The page is loaded in a real browser, so all 17 rules run and a screenshot is saved.'
 
   return (
     <div className='grid gap-4'>
@@ -67,13 +105,33 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
       {isAtLimit ? (
         <GuestScanLimitNotice />
       ) : (
-        <div className='grid gap-2'>
-          <UrlScanForm isPending={isPending} onScan={scan} />
-          <p className='text-sm text-muted-foreground'>
-            {isGuest
-              ? `Signed out, the page is fetched and checked against the 9 core rules. ${scansLeft} of ${guestScanLimit} free scans left.`
-              : 'The page is loaded in a real browser, so all 17 rules run and a screenshot is saved.'}
-          </p>
+        <div className='grid gap-3'>
+          {!isGuest && (
+            <ScanScopeSwitch
+              scope={scope}
+              disabled={isPending}
+              onChange={changeScope}
+            />
+          )}
+          <div className='grid gap-2'>
+            <UrlScanForm
+              isPending={isPending}
+              submitLabel={isMultiple ? 'Scan pages' : 'Scan URL'}
+              onScan={scan}
+            />
+            <p className='text-sm text-muted-foreground'>{hint}</p>
+            {isGuest && (
+              <p className='text-sm text-muted-foreground'>
+                <Link
+                  to='/auth/signin?redirectTo=/u/scan'
+                  className='font-medium text-foreground underline underline-offset-4'
+                >
+                  Sign in to scan multiple pages
+                </Link>{' '}
+                of a site at once, up to {multiplePageScanMaxPages}.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -81,7 +139,9 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
         <p role='status' className='text-sm text-muted-foreground'>
           {isGuest
             ? 'Scanning…'
-            : 'Scanning… rendered scans take a few seconds.'}
+            : isMultiple
+              ? 'Starting the multiple-page scan…'
+              : 'Scanning… rendered scans take a few seconds.'}
         </p>
       )}
     </div>

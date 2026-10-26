@@ -20,6 +20,7 @@ var ErrReasonTokenRevoked = "TOKEN_REVOKED"
 var ErrReasonTokenExpired = "TOKEN_EXPIRED"
 var ErrReasonMissingPermission = "MISSING_PERMISSION"
 var ErrReasonAnonymousScanLimit = "ANONYMOUS_SCAN_LIMIT"
+var ErrReasonScanQueueFull = "SCAN_QUEUE_FULL"
 
 var ErrInvalidAPIToken = "Invalid API token!"
 var ErrAddressNotAllowed = "This address isn't allowed"
@@ -30,3 +31,5 @@ var ErrInvalidCapturedAt = "Invalid capturedAt format! Must be an ISO 8601 strin
 var ErrInvalidAnonymousID = "anonymousID must be a UUID!"
 var ErrAnonymousIDLinkedElsewhere = "This anonymous ID is already linked to another account!"
 var ErrAnonymousScanLimit = "Sign in to scan more than 3 pages!"
+var ErrMultiplePageScanNotFound = "Multiple-page scan not found"
+var ErrScanQueueFull = "Too many multiple-page scans are waiting. Try again in a minute."

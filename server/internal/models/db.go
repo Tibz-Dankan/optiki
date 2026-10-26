@@ -51,7 +51,7 @@ func Db() *gorm.DB {
 			&Device{}, &Location{}, &SiteVisit{}, &AnonymousUserLink{},
 			&Permission{}, &APIToken{}, &APITokenPermission{},
 			&Attachment{},
-			&Scan{}, &ScanRuleResult{}, &ScanFinding{},
+			&MultiplePageScan{}, &Scan{}, &ScanRuleResult{}, &ScanFinding{},
 		)
 		if err != nil {
 			log.Fatal("Failed to make auto migration: ", err)

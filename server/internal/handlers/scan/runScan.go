@@ -104,24 +104,30 @@ func runScan(ctx context.Context, caller scanCaller, request scanRequest) (model
 		return models.Scan{}, failure.err
 	}
 
+	return completeScan(ctx, saved.ID, caller.userID(), set, outcome, started)
+}
+
+// completeScan analyses a scan's snapshot, stores its screenshot, and writes the finished scan
+func completeScan(ctx context.Context, scanID string, userID *string, set engine.RuleSet, outcome snapshotOutcome, started time.Time) (models.Scan, error) {
+	scanModel := models.Scan{}
 	analyzeStarted := time.Now()
 	report := engine.Scan(outcome.snapshot, set)
 	analyzeMs := int(time.Since(analyzeStarted).Milliseconds())
 
-	screenshot := storeScreenshot(ctx, saved.ID, caller.userID(), outcome)
-	completion := buildCompletion(saved.ID, report, outcome, started, analyzeMs)
+	screenshot := storeScreenshot(ctx, scanID, userID, outcome)
+	completion := buildCompletion(scanID, report, outcome, started, analyzeMs)
 	completion.Screenshot = screenshot
-	if err := scanModel.Complete(saved.ID, completion); err != nil {
+	if err := scanModel.Complete(scanID, completion); err != nil {
 		if screenshot != nil {
 			deleteObject(ctx, screenshot.Key)
 		}
-		if failErr := scanModel.Fail(saved.ID, "INTERNAL", "The scan could not be saved.", started); failErr != nil {
+		if failErr := scanModel.Fail(scanID, "INTERNAL", "The scan could not be saved.", started); failErr != nil {
 			log.Println("marking scan failed:", failErr)
 		}
 		return models.Scan{}, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	completed, err := scanModel.FindOne(saved.ID)
+	completed, err := scanModel.FindOne(scanID)
 	if err != nil {
 		return models.Scan{}, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

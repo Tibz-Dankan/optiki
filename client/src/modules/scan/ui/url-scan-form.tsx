@@ -14,11 +14,13 @@ const urlScanSchema = Yup.object({
 
 type UrlScanFormProps = {
   isPending: boolean
+  submitLabel: string
   onScan: (url: string) => void
 }
 
 export const UrlScanForm: React.FC<UrlScanFormProps> = ({
   isPending,
+  submitLabel,
   onScan,
 }) => {
   const formik = useFormik({
@@ -55,7 +57,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
             className='shrink-0'
             disabled={isPending}
           >
-            Scan URL
+            {submitLabel}
             {isPending && <Loader2 className='animate-spin' />}
           </Button>
         </div>

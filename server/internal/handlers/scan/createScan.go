@@ -21,6 +21,8 @@ type CreateScanInput struct {
 	PRNumber    *int    `json:"prNumber"`
 	RunURL      *string `json:"runURL"`
 	AnonymousID *string `json:"anonymousID"`
+
+	MultiplePageScan *bool `json:"multiplePageScan"`
 }
 
 var CreateScan = func(c *fiber.Ctx) error {
@@ -40,6 +42,19 @@ var CreateScan = func(c *fiber.Ctx) error {
 	request, err := validateScanInput(input, caller)
 	if err != nil {
 		return err
+	}
+
+	if request.multiplePageScan {
+		if caller.apiToken == nil {
+			user, signedIn := c.Locals("user").(models.User)
+			if !signedIn {
+				return fiber.NewError(fiber.StatusUnauthorized, "Sign in to scan multiple pages!")
+			}
+			if !user.EmailVerified {
+				return pkg.NewReasonError(fiber.StatusForbidden, constants.ErrReasonEmailNotVerified, "Verify your email to scan multiple pages!")
+			}
+		}
+		return createMultiplePageScan(c, caller, request)
 	}
 
 	if request.anonymousID != nil {

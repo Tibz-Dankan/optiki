@@ -95,6 +95,7 @@ The steps for every case live in **`testsprite/ui-test-plan.md`**, the reviewed 
 | U9 | Making a signed-in scan public updates its visibility | Private by default; sharing |
 | U10 | Deleting a scan from its report returns to the Scans page | Owner delete |
 | U11 | A signed-out scan's report asks the visitor to sign in to keep their history | Guest history prompt |
+| U12 | A signed-in multiple-page scan lists the pages it scanned | `multiplePageScan`: crawl, background queue, live report |
 
 ## Credit hygiene
 

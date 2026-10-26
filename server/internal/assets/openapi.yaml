@@ -106,7 +106,7 @@ components:
         updatedAt: { type: string, format: date-time }
     CreateScanInput:
       type: object
-      description: Exactly one of html, url or gym. CI fields are accepted only on the token API. Signed-out callers must send anonymousID, the browser's anonymous ID.
+      description: Exactly one of html, url or gym. CI fields are accepted only on the token API. Signed-out callers must send anonymousID, the browser's anonymous ID. Set multiplePageScan to true to crawl the site from url instead of scanning one page.
       properties:
         html: { type: string, maxLength: 2097152 }
         url: { type: string, format: uri }
@@ -119,6 +119,10 @@ components:
         prNumber: { type: integer, minimum: 1 }
         runURL: { type: string, format: uri }
         anonymousID: { type: string, format: uuid, description: Required for signed-out callers; ignored otherwise }
+        multiplePageScan:
+          type: boolean
+          default: false
+          description: true queues a multiple-page scan. It needs url (not html or gym), no route and no CI fields, and a verified user or API token (401 signed out, 403 EMAIL_NOT_VERIFIED unverified). It follows same-site links breadth-first from url and scans up to 25 public pages in the background.
     ScanScreenshot:
       type: [object, 'null']
       description: Present for rendered scans when S3 is configured. The url is presigned for 30 minutes on every read.
@@ -134,6 +138,8 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
+        multiplePageScan: { type: boolean, const: false }
+        multiplePageScanID: { type: [string, 'null'], format: uuid, description: The multiple-page scan this page was scanned for }
         title: { type: [string, 'null'] }
         visibility: { type: string, enum: [PRIVATE, PUBLIC] }
         status: { type: string, enum: [RUNNING, COMPLETED, FAILED] }
@@ -192,6 +198,86 @@ components:
                   snippet: { type: string, description: Raw markup; display it as escaped text only. }
                   message: { type: string }
                   evidence: { type: object }
+    MultiplePageScanSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        multiplePageScan: { type: boolean, const: true }
+        title: { type: [string, 'null'] }
+        status: { type: string, enum: [QUEUED, RUNNING, COMPLETED, FAILED] }
+        triggeredBy: { type: string, enum: [USER, API_TOKEN] }
+        mode: { type: string, enum: [STATIC, RENDERED] }
+        ruleSet: { type: string, enum: [CORE, FULL] }
+        maxPages: { type: integer, example: 25 }
+        target:
+          type: object
+          properties:
+            startURL: { type: string, format: uri }
+            origin: { type: [string, 'null'], description: scheme://host of the start page after redirects }
+        progress:
+          type: object
+          properties:
+            pagesDiscovered: { type: integer }
+            pagesScanned: { type: integer }
+            pagesSkipped: { type: integer }
+            limitReached: { type: boolean, description: More same-site pages were found than were scanned }
+        scores:
+          type: object
+          description: The average of the scanned pages' scores, set when the scan completes
+          properties:
+            overall: { type: [integer, 'null'] }
+            operable: { type: [integer, 'null'] }
+            perceivable: { type: [integer, 'null'] }
+            stable: { type: [integer, 'null'] }
+            discoverable: { type: [integer, 'null'] }
+        counts: { type: object }
+        engine: { type: object }
+        timing: { type: object }
+        error: { type: [object, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    MultiplePageScan:
+      allOf:
+        - { $ref: '#/components/schemas/MultiplePageScanSummary' }
+        - type: object
+          properties:
+            pages:
+              type: array
+              description: The page scans in crawl order; open one with GET /scan/{id}
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  route: { type: string }
+                  url: { type: [string, 'null'] }
+                  pageTitle: { type: [string, 'null'] }
+                  status: { type: string, enum: [RUNNING, COMPLETED, FAILED] }
+                  scores: { type: object }
+                  counts: { type: object }
+                  error: { type: [object, 'null'] }
+            rules:
+              type: array
+              description: Each rule's result across the completed pages
+              items:
+                type: object
+                properties:
+                  ruleID: { type: string, example: OPT-102 }
+                  name: { type: string }
+                  category: { type: string, enum: [OPERABLE, PERCEIVABLE, STABLE, DISCOVERABLE] }
+                  priority: { type: string, enum: [P0, P1, P2] }
+                  severity: { type: string, enum: [CRITICAL, SERIOUS, MODERATE, MINOR] }
+                  pagesFailed: { type: integer }
+                  pagesChecked: { type: integer }
+                  findings: { type: integer }
+            skipped:
+              type: array
+              description: Pages that were found but not scanned
+              items:
+                type: object
+                properties:
+                  url: { type: string }
+                  reason: { type: string, enum: [NOT_PUBLIC, NOT_FOUND, HTTP_ERROR, NOT_HTML, BLOCKED, TIMEOUT, FAILED, DUPLICATE] }
+                  httpStatus: { type: [integer, 'null'] }
     APIToken:
       type: object
       properties:
@@ -574,7 +660,7 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/CreateScanInput' } } }
       responses:
         '201':
-          description: The completed scan report
+          description: The completed scan report, or with multiplePageScan the queued multiple-page scan (poll GET /scan/multiple/{id})
           content:
             application/json:
               schema:
@@ -582,7 +668,10 @@ paths:
                 properties:
                   status: { type: string, const: success }
                   message: { type: string }
-                  data: { $ref: '#/components/schemas/ScanReport' }
+                  data:
+                    oneOf:
+                      - { $ref: '#/components/schemas/ScanReport' }
+                      - { $ref: '#/components/schemas/MultiplePageScanSummary' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -593,7 +682,7 @@ paths:
     get:
       tags: [Scans]
       summary: List your scans (cursor pagination)
-      description: Newest first.
+      description: Newest first. Pages scanned for a multiple-page scan are left out; read them through GET /scan/multiple/{id}.
       security: [{ cookieAuth: [] }]
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
@@ -617,6 +706,60 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/scan/multiple:
+    get:
+      tags: [Scans]
+      summary: List your multiple-page scans (cursor pagination)
+      description: Newest first.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Multiple-page scans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/MultiplePageScanSummary' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/scan/multiple/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans]
+      summary: Get one multiple-page scan with its pages, rule rollup and skipped pages
+      description: Owner only; anything else is 404. Poll it while status is QUEUED or RUNNING.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: The multiple-page scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/MultiplePageScan' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Scans]
+      summary: Delete a multiple-page scan and every page it scanned
+      description: Owner only. 409 while it is QUEUED or RUNNING.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/scan/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -675,7 +818,7 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/CreateScanInput' } } }
       responses:
         '201':
-          description: The completed scan report
+          description: The completed scan report, or with multiplePageScan the queued multiple-page scan (poll GET /scan/multiple/{id})
           content:
             application/json:
               schema:
@@ -683,7 +826,10 @@ paths:
                 properties:
                   status: { type: string, const: success }
                   message: { type: string }
-                  data: { $ref: '#/components/schemas/ScanReport' }
+                  data:
+                    oneOf:
+                      - { $ref: '#/components/schemas/ScanReport' }
+                      - { $ref: '#/components/schemas/MultiplePageScanSummary' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -694,7 +840,7 @@ paths:
     get:
       tags: [Scans (token API)]
       summary: List your scans (cursor pagination)
-      description: Newest first. Needs `scan:view:own`.
+      description: Newest first. Pages scanned for a multiple-page scan are left out. Needs `scan:view:own`.
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
@@ -718,6 +864,60 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /client/v1/scan/multiple:
+    get:
+      tags: [Scans (token API)]
+      summary: List your multiple-page scans (cursor pagination)
+      description: Newest first. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 25 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Multiple-page scans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { type: array, items: { $ref: '#/components/schemas/MultiplePageScanSummary' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /client/v1/scan/multiple/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans (token API)]
+      summary: Get one multiple-page scan with its pages, rule rollup and skipped pages
+      description: Owner only; anything else is 404. Poll it while status is QUEUED or RUNNING. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: The multiple-page scan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/MultiplePageScan' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Scans (token API)]
+      summary: Delete a multiple-page scan and every page it scanned
+      description: Owner only. 409 while it is QUEUED or RUNNING. Needs `scan:delete:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /client/v1/scan/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }

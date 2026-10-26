@@ -10,6 +10,7 @@ import {
 import type { TRoute } from '@typings/routes'
 import { NotFoundError } from '@shared/pages/not-found-error'
 import { APITokens } from '@modules/api-token/pages/api-tokens'
+import { MultiplePageScanReport } from '@modules/scan/pages/multiple-page-scan-report'
 import { Scans } from '@modules/scan/pages/scans'
 import { UserScan } from '@modules/scan/pages/user-scan'
 import { UserScanReport } from '@modules/scan/pages/user-scan-report'
@@ -42,6 +43,12 @@ export const userRoutes: TRoute = {
           path: '/u/scans/:id',
           showInSidebar: false,
           element: <UserScanReport />,
+        },
+        {
+          title: 'Multiple-page scan report',
+          path: '/u/scans/multiple/:id',
+          showInSidebar: false,
+          element: <MultiplePageScanReport />,
         },
         {
           title: 'Scan',

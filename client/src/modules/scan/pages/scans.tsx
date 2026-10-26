@@ -29,6 +29,7 @@ import {
 import { ThemeSwitch } from '@shared/ui/theme-switch'
 import { Header } from '@shared/layout/header'
 import { Main } from '@shared/layout/main'
+import { MultiplePageScanList } from '@modules/scan/ui/multiple-page-scan-list'
 import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
 
 const anyValue = 'ANY'
@@ -82,7 +83,12 @@ export const Scans: React.FC = () => {
           </Button>
         </div>
 
-        <div className='mt-6 flex flex-wrap gap-3'>
+        <MultiplePageScanList />
+
+        <h2 className='mt-8 text-lg font-semibold tracking-tight'>
+          Single-page scans
+        </h2>
+        <div className='mt-2 flex flex-wrap gap-3'>
           <Select
             value={filters.status ?? anyValue}
             onValueChange={(value) =>

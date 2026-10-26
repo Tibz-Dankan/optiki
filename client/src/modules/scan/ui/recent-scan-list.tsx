@@ -5,11 +5,13 @@ import { formatDateTime } from '@utils/format-date-time'
 type RecentScanListProps = {
   scans: TRecentScan[]
   reportPath: string
+  renderActions?: (scan: TRecentScan) => React.ReactNode
 }
 
 export const RecentScanList: React.FC<RecentScanListProps> = ({
   scans,
   reportPath,
+  renderActions,
 }) => {
   return (
     <ul className='grid gap-2'>
@@ -20,14 +22,17 @@ export const RecentScanList: React.FC<RecentScanListProps> = ({
         >
           <Link
             to={`${reportPath}/${scan.id}`}
-            className='min-w-0 flex-1 truncate font-medium underline-offset-4 hover:underline'
+            className='min-w-0 basis-full truncate font-medium underline-offset-4 hover:underline sm:flex-1'
           >
-            Open scan of {scan.target}
+            {scan.target}
           </Link>
           <span>Score {scan.overallScore ?? '—'}</span>
           <span className='text-muted-foreground'>
             {formatDateTime(scan.createdAt)}
           </span>
+          {renderActions && (
+            <div className='ms-auto'>{renderActions(scan)}</div>
+          )}
         </li>
       ))}
     </ul>

@@ -251,12 +251,35 @@ type UpdateScanInput struct {
   - A full-page JPEG screenshot is taken last (1280 wide, height capped at 6,000 px).
 - The rendered DOM is serialised once to compute `inputSha256`/`inputBytes`. It is never stored.
 
+## Multiple-page scans
+
+`POST /scan` with **`multiplePageScan: true`** (browser or token API) crawls a site from `url` instead of scanning one page. If the field is `false` or left out, the scan runs exactly as above.
+
+- **Who:** verified users and API tokens only. Signed out → 401 "Sign in to scan multiple pages!"; signed in but unverified → 403 `EMAIL_NOT_VERIFIED`. These checks run before the guest `anonymousID` rules.
+- **Input:** `url` only (not `html` or `gym`), no `route` (each page's route is its own path), and no CI fields yet. All of those are 400. `title` is kept on the parent.
+- **Create:** the URL pre-flight runs first, so a blocked or unresolvable address creates no row. Then the parent `multiple_page_scans` row is inserted as `QUEUED`, with the caller's rule set and mode and `maxPages` 25, and its id goes on the in-process queue (`multiplePageScanQueue.go`: `MULTIPLE_PAGE_SCAN_QUEUE_SIZE` 10, `MULTIPLE_PAGE_SCAN_WORKERS` 1). The answer is **201** "Multiple-page scan started" with the summary (`multiplePageScan: true`). A full queue drops the row and answers 429 `SCAN_QUEUE_FULL` with `Retry-After: 60`.
+- **Crawl** (`runMultiplePageScan.go`, 6-minute budget): breadth-first from the start URL, at most 25 scanned pages and 40 attempts.
+  - Each page goes through `ValidatePublicURL` and `takeSnapshot`. A busy renderer is retried 3 times.
+  - A public page becomes an ordinary `scans` row (`multiplePageScanID` set, `PRIVATE`, the parent's owner and token) and is finished by `completeScan`, the same code `runScan` uses.
+  - Its same-site links (`snapshot/links`: `<a>`/`<area>` hrefs, query and fragment dropped, assets skipped, `www.` and the scheme ignored) go to the back of the queue.
+  - Pages that aren't scanned are recorded in `skipped` with a reason: `NOT_PUBLIC` (401/403, or a redirect off the site), `NOT_FOUND` (404/410), `HTTP_ERROR` (other ≥ 400), `NOT_HTML`, `BLOCKED`, `TIMEOUT`, `FAILED`, and `DUPLICATE` (redirects to a page already scanned, such as protected pages that all land on `/login`).
+  - **The start page is the exception:** if it would be skipped, the whole scan is `FAILED` with that reason.
+  - Progress (counts, `skipped`, `origin`) is written after every page. At the end the parent stores the mean of each score over its completed pages (half-up), the summed counts and `limitReached`.
+- **Restart:** the queue lives in memory. `cmd/main.go` marks every `QUEUED`/`RUNNING` parent `FAILED` `INTERRUPTED` at boot.
+- **Read and delete:** `GET /scan/multiple` (list, cursor pagination), `GET /scan/multiple/:id` (owner only, else 404; adds `pages`, a per-rule `rules` rollup and `skipped`), `DELETE /scan/multiple/:id` (409 while active; deletes the page scans and their screenshot objects). Registered before `/:id` on both surfaces, with `scan:view:own` / `scan:delete:own` on the token API.
+- `GET /scan` leaves out pages that belong to a multiple-page scan, so history isn't flooded. Each page's own report still says `multiplePageScanID`.
+
 ## Files
 
 ```
 handlers/scan/
   createScan.go  getScans.go  getScan.go  updateScan.go  deleteScan.go
-  resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go
+  resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go  parseScanURL.go
+  createMultiplePageScan.go  getMultiplePageScans.go  getMultiplePageScan.go  deleteMultiplePageScan.go
+  multiplePageScanQueue.go  runMultiplePageScan.go  multiplePageScanResponseData.go
+models/multiplePageScan.go     Create, FindOne, FindPages, RuleRollup, FindAllByUser, MarkRunning, UpdateProgress,
+                               Complete, Fail, FailInterrupted, DeleteQueued, Delete (returns the screenshots)
+snapshot/links/                Extract, SameSite, Key (+ links_test.go)
 models/scan.go                 Create, FindOne (rule results + findings + screenshot), FindAllByUser(filters, limit, cursor),
                                UpdateDetails, Delete (returns the screenshot), DeleteRunning, Complete — one
                                transaction — and Fail(code, message)

@@ -161,3 +161,17 @@ Each case signs in itself, with the test account's credentials from the portal.
   8. Action: Click the "Delete scan" menu item
   9. Action: Click the "Delete scan" button in the confirmation dialog
   10. Assertion: The page heading reads "Scans"
+
+### U12 · A signed-in multiple-page scan lists the pages it scanned
+
+- **Priority:** High
+- **Description:** Signed in, "Multiple pages" crawls the site from the address and scans each public page it links to, up to 25, in the background. Its report page fills in as each page finishes, so the first scanned page appears within seconds.
+- **Steps:**
+  1. Action: Navigate to /auth/signin
+  2. Action: Type the test account's email into the "Email" field
+  3. Action: Type the test account's password into the "Password" field
+  4. Action: Click the "Sign in" button
+  5. Action: Click the "Multiple pages (up to 25)" option
+  6. Action: Type https://docease-v2.netlify.app into the "Page address" field
+  7. Action: Click the "Scan pages" button
+  8. Assertion: The "Scanned pages" table lists the page "/"

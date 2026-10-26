@@ -97,6 +97,18 @@ export const ScanReportContent: React.FC<ScanReportContentProps> = ({
             </div>
           </div>
 
+          {data.data.multiplePageScanID && data.data.isOwner && (
+            <p className='text-sm'>
+              This page was scanned as part of a multiple-page scan.{' '}
+              <Link
+                to={`/u/scans/multiple/${data.data.multiplePageScanID}`}
+                className='font-medium underline underline-offset-4'
+              >
+                View all scanned pages
+              </Link>
+            </p>
+          )}
+
           <RuleSetBanner scan={data.data} />
 
           {data.data.status === 'FAILED' ? (

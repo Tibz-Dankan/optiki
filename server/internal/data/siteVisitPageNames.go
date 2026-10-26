@@ -17,6 +17,7 @@ var SiteVisitPageNames = map[string]string{
 	"/u/scan":                "Scan",
 	"/u/scans":               "Scans",
 	"/u/scans/:id":           "Scan Report",
+	"/u/scans/multiple/:id":  "Multiple-page Scan Report",
 	"/u/settings":            "General Settings",
 	"/u/settings/account":    "Account Settings",
 	"/u/settings/api-tokens": "API Token Settings",
