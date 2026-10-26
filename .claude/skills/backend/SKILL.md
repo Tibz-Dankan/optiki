@@ -334,7 +334,7 @@ A new optional service must work locally without Docker: real credentials in `.e
 | `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
 | `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans; locally `CHROME_BIN` may stay empty and `rendered.ChromePath()` searches PATH |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.8-flash`) | fix reports; without a key scans still work and get none, and `POST …/fix-report` answers 503 `FIX_REPORTS_UNAVAILABLE` |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) | fix reports; without a key scans still work and get none, and `POST …/fix-report` answers 503 `FIX_REPORTS_UNAVAILABLE` |
 | `S3_ACCESS_KEY_ID`, `S3_ACCESS_KEY`, `S3_BUCKET_NAME`, `AWS_REGION` (+ optional `S3_ENDPOINT`, `S3_USE_PATH_STYLE`) | scan screenshots, from the same real bucket locally and deployed; without them rendered scans are stored without one |
 | `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified accounts, created on boot if missing. The template seeds public local ones (`demo@example.com`); the server's are TestSprite's and private |
 

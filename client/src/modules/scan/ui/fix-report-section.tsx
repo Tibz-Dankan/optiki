@@ -17,6 +17,7 @@ import { isFixReportActive } from '@utils/is-fix-report-active'
 import { useCopyToClipboard } from '@hooks/use-copy-to-clipboard'
 import { Button } from '@shared/ui/button'
 import { Skeleton } from '@shared/ui/skeleton'
+import { FixReportMarkdown } from '@modules/scan/ui/fix-report-markdown'
 
 type FixReportSectionProps = {
   scanID: string
@@ -142,7 +143,6 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
               <Download aria-hidden />
               Download .md
             </Button>
-            {canGenerate && generateButton('Regenerate report')}
           </div>
         )}
         {!report && generateButton('Generate report')}
@@ -170,18 +170,19 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
 
       {report?.status === 'COMPLETED' && report.content && (
         <>
-          <pre
+          <div
+            role='region'
+            aria-label='Fix prompt'
             tabIndex={0}
-            aria-labelledby='fix-report-heading'
-            className='max-h-128 overflow-auto rounded-md border border-border bg-muted/40 p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap'
+            className='max-h-160 overflow-auto rounded-md border border-border bg-background p-4 sm:p-5'
           >
-            <code>{report.content}</code>
-          </pre>
+            <FixReportMarkdown content={report.content} />
+          </div>
           <p className='text-xs text-muted-foreground'>
-            Written by {report.model ?? 'Gemini'}
-            {report.timing.completedAt &&
-              ` · ${formatDateTime(report.timing.completedAt)}`}{' '}
-            · covers {report.findingsCovered}{' '}
+            {report.timing.completedAt
+              ? `${formatDateTime(report.timing.completedAt)} · covers`
+              : 'Covers'}{' '}
+            {report.findingsCovered}{' '}
             {report.findingsCovered === 1 ? 'finding' : 'findings'}. It quotes
             markup from the scanned page, so read it before you run it.
           </p>
