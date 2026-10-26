@@ -1,3 +1,4 @@
+import { KeyRound, Monitor } from 'lucide-react'
 import type {
   TMultiplePageScanSkipReason,
   TMultiplePageScanStatus,
@@ -72,6 +73,15 @@ export const triggeredByLabels: Record<TScanTriggeredBy, string> = {
   ANONYMOUS: 'Anonymous',
   USER: 'You',
   API_TOKEN: 'API token',
+}
+
+export const scanSources: Record<
+  TScanTriggeredBy,
+  { label: string; icon: React.ElementType }
+> = {
+  USER: { label: 'Browser', icon: Monitor },
+  ANONYMOUS: { label: 'Browser', icon: Monitor },
+  API_TOKEN: { label: 'API', icon: KeyRound },
 }
 
 export const fixReportPollInterval = 3000

@@ -1,7 +1,6 @@
-import { severityLabels, severityTones } from '@constants/scan'
+import { ChevronRight } from 'lucide-react'
 import type { TRule } from '@typings/rules'
 import type { TScanFinding } from '@typings/scan'
-import { cn } from '@utils/classname'
 import { getCodeLanguage } from '@utils/get-code-language'
 import { CodeBlock } from '@shared/ui/code-block'
 
@@ -16,53 +15,50 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, rule }) => {
   return (
     <article
       aria-label={findingLabel}
-      className='rounded-md border border-border bg-card p-4'
+      className='grid gap-2.5 rounded-lg border border-border bg-background p-3.5'
     >
-      <div className='flex flex-wrap items-center gap-2'>
-        <span
-          className={cn(
-            'rounded border px-2 py-0.5 text-xs font-medium',
-            severityTones[finding.severity]
-          )}
-        >
-          {severityLabels[finding.severity]}
-        </span>
-        <code className='text-xs break-all text-muted-foreground'>
-          {finding.selectorPath}
-        </code>
-      </div>
-      <p className='mt-2 text-sm'>{finding.message}</p>
+      <p className='text-sm leading-normal'>{finding.message}</p>
       {finding.accessibleName && (
-        <p className='mt-1 text-xs text-muted-foreground'>
+        <p className='text-xs text-muted-foreground'>
           Accessible name: “{finding.accessibleName}”
         </p>
       )}
+      <code className='font-mono text-xs break-all text-muted-foreground'>
+        {finding.selectorPath}
+      </code>
       <CodeBlock
-        title='Snippet'
+        title='Snippet · html'
         language='html'
         code={finding.snippet}
         copyLabel={`Copy snippet of ${findingLabel}`}
-        className='mt-3'
       />
       {rule && (
-        <details className='mt-3 text-sm'>
-          <summary className='cursor-pointer font-medium'>
+        <details className='group text-sm'>
+          <summary className='inline-flex cursor-pointer list-none items-center gap-1.5 font-medium text-primary [&::-webkit-details-marker]:hidden'>
+            <ChevronRight
+              className='size-3.5 transition-transform group-open:rotate-90'
+              aria-hidden
+            />
             How to fix {finding.ruleID}
           </summary>
-          <p className='mt-2 text-muted-foreground'>{rule.fix}</p>
-          <div className='mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
-            <CodeBlock
-              title='Current'
-              language={getCodeLanguage(rule.fixBefore)}
-              code={rule.fixBefore}
-              copyLabel={`Copy current example for ${findingLabel}`}
-            />
-            <CodeBlock
-              title='Expected'
-              language={getCodeLanguage(rule.fixAfter)}
-              code={rule.fixAfter}
-              copyLabel={`Copy expected example for ${findingLabel}`}
-            />
+          <div className='mt-2.5 grid gap-2.5'>
+            <p className='text-muted-foreground'>{rule.fix}</p>
+            <div className='grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
+              <CodeBlock
+                title='Current'
+                language={getCodeLanguage(rule.fixBefore)}
+                code={rule.fixBefore}
+                copyLabel={`Copy current example for ${findingLabel}`}
+                className='border-destructive/30'
+              />
+              <CodeBlock
+                title='Expected'
+                language={getCodeLanguage(rule.fixAfter)}
+                code={rule.fixAfter}
+                copyLabel={`Copy expected example for ${findingLabel}`}
+                className='border-success/30'
+              />
+            </div>
           </div>
         </details>
       )}

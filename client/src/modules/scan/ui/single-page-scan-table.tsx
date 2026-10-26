@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import { KeyRound, Monitor } from 'lucide-react'
-import { statusLabels } from '@constants/scan'
-import type { TScanSummary, TScanTriggeredBy } from '@typings/scan'
+import { scanSources, statusLabels } from '@constants/scan'
+import type { TScanSummary } from '@typings/scan'
 import { cn } from '@utils/classname'
 import { describeScanHeading } from '@utils/describe-scan-heading'
 import { describeScanTarget } from '@utils/describe-scan-target'
@@ -19,15 +18,6 @@ import {
 import { ScanInputTypeIcon } from '@modules/scan/ui/scan-input-type-icon'
 import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
 import { ScanStatusBadge } from '@modules/scan/ui/scan-status-badge'
-
-const sources: Record<
-  TScanTriggeredBy,
-  { label: string; icon: React.ElementType }
-> = {
-  USER: { label: 'Browser', icon: Monitor },
-  ANONYMOUS: { label: 'Browser', icon: Monitor },
-  API_TOKEN: { label: 'API', icon: KeyRound },
-}
 
 const headClassName =
   'h-10 bg-card px-3 text-xs text-muted-foreground first:ps-4'
@@ -89,7 +79,7 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
             const { title, subtitle } = describeScanHeading(scan)
             const score = scan.scores.overall
             const findings = summarizeFindings(scan)
-            const source = sources[scan.triggeredBy]
+            const source = scanSources[scan.triggeredBy]
             const SourceIcon = source.icon
             return (
               <TableRow key={scan.id}>

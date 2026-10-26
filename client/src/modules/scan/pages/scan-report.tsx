@@ -8,7 +8,7 @@ export const ScanReport: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className='mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-6 px-6 py-12'>
+      <div className='mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 px-6 py-12'>
         <GuestHistoryBanner />
         <ScanReportContent id={id} scanAnotherPath='/scan' />
       </div>

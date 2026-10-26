@@ -1,5 +1,6 @@
 import { Dumbbell, FileCode, Globe } from 'lucide-react'
 import type { TScanInputType } from '@typings/scan'
+import { cn } from '@utils/classname'
 
 const inputTypeIcons: Record<TScanInputType, React.ElementType> = {
   URL: Globe,
@@ -9,16 +10,21 @@ const inputTypeIcons: Record<TScanInputType, React.ElementType> = {
 
 type ScanInputTypeIconProps = {
   inputType?: TScanInputType
+  className?: string
 }
 
 export const ScanInputTypeIcon: React.FC<ScanInputTypeIconProps> = ({
   inputType = 'URL',
+  className,
 }) => {
   const Icon = inputTypeIcons[inputType]
   return (
     <span
       aria-hidden
-      className='flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground'
+      className={cn(
+        'flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground',
+        className
+      )}
     >
       <Icon className='size-4' />
     </span>

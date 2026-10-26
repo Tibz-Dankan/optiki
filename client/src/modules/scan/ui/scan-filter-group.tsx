@@ -4,7 +4,7 @@ type ScanFilterGroupProps = {
   id: string
   label: string
   value: string
-  options: { value: string; label: string }[]
+  options: { value: string; label: string; count?: number }[]
   onChange: (value: string) => void
 }
 
@@ -34,13 +34,18 @@ export const ScanFilterGroup: React.FC<ScanFilterGroupProps> = ({
               aria-pressed={isSelected}
               onClick={() => onChange(option.value)}
               className={cn(
-                'h-8 rounded-md px-3.5 text-[13px] font-medium transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-3.5 text-[13px] font-medium transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50',
                 isSelected
                   ? 'bg-muted text-foreground shadow-sm'
                   : 'text-muted-foreground'
               )}
             >
               {option.label}
+              {option.count !== undefined && (
+                <span className='text-xs text-muted-foreground'>
+                  {option.count}
+                </span>
+              )}
             </button>
           )
         })}
