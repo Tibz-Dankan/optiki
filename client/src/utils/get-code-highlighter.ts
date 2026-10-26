@@ -12,7 +12,11 @@ export function getCodeHighlighter(): Promise<HighlighterCore> {
         import('shiki/themes/github-light-default.mjs'),
         import('shiki/themes/github-dark-default.mjs'),
       ],
-      langs: [import('shiki/langs/html.mjs'), import('shiki/langs/css.mjs')],
+      langs: [
+        import('shiki/langs/html.mjs'),
+        import('shiki/langs/css.mjs'),
+        import('shiki/langs/shellscript.mjs'),
+      ],
       engine: createJavaScriptRegexEngine({ forgiving: true }),
     })
   )

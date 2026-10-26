@@ -14,6 +14,9 @@ const urlScanSchema = Yup.object({
 })
 
 type UrlScanFormProps = {
+  id?: string
+  label?: string
+  submitLabel?: React.ReactNode
   isPending: boolean
   pendingMessage: string
   error?: string
@@ -23,6 +26,9 @@ type UrlScanFormProps = {
 }
 
 export const UrlScanForm: React.FC<UrlScanFormProps> = ({
+  id = 'url',
+  label = 'Page address',
+  submitLabel = 'Scan',
   isPending,
   pendingMessage,
   error,
@@ -38,10 +44,10 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
   const isInvalid = !!(formik.touched.url && formik.errors.url)
   const errorMessage = (isInvalid && formik.errors.url) || error
   const describedBy = isPending
-    ? 'scan-status'
+    ? `${id}-status`
     : errorMessage
-      ? 'url-error url-hint'
-      : 'url-hint'
+      ? `${id}-error ${id}-hint`
+      : `${id}-hint`
 
   return (
     <div>
@@ -56,11 +62,9 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
         )}
       >
         <FormField
-          name='url'
+          name={id}
           label={
-            <span className='text-[13px] text-muted-foreground'>
-              Page address
-            </span>
+            <span className='text-[13px] text-muted-foreground'>{label}</span>
           }
           className='ps-5 pe-3 pt-4 pb-3'
         >
@@ -70,7 +74,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
               aria-hidden
             />
             <Input
-              id='url'
+              id={id}
               name='url'
               type='url'
               inputMode='url'
@@ -102,7 +106,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
                   aria-hidden
                 />
               )}
-              Scan
+              {submitLabel}
             </Button>
           </div>
         </FormField>
@@ -123,7 +127,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
 
       {errorMessage && (
         <p
-          id='url-error'
+          id={`${id}-error`}
           role='alert'
           className='mt-3 flex items-center gap-2 text-sm text-destructive'
         >
@@ -134,7 +138,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
 
       {isPending ? (
         <p
-          id='scan-status'
+          id={`${id}-status`}
           role='status'
           className='mt-3.5 text-sm text-muted-foreground'
         >
@@ -142,7 +146,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
         </p>
       ) : (
         <div
-          id='url-hint'
+          id={`${id}-hint`}
           className='mt-3.5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2'
         >
           <div className='flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground'>

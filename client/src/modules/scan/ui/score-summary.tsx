@@ -12,7 +12,8 @@ import type {
 } from '@typings/scan'
 import { cn } from '@utils/classname'
 import { getCategoryScore } from '@utils/get-category-score'
-import { getScoreTone } from '@utils/get-score-tone'
+import { ScoreBar } from '@modules/scan/ui/score-bar'
+import { ScoreGauge } from '@modules/scan/ui/score-gauge'
 
 type ScoreSummaryProps = {
   scores: TScanScores
@@ -24,8 +25,6 @@ type ScoreSummaryProps = {
   className?: string
 }
 
-const minimumFill = 2
-
 const severityOrder: TSeverity[] = ['CRITICAL', 'SERIOUS', 'MODERATE', 'MINOR']
 
 const severityFills: Record<TSeverity, string> = {
@@ -33,58 +32,6 @@ const severityFills: Record<TSeverity, string> = {
   SERIOUS: 'bg-warning',
   MODERATE: 'bg-muted-foreground',
   MINOR: 'bg-muted-foreground/40',
-}
-
-const ScoreGauge: React.FC<{ score: number | null; isPending: boolean }> = ({
-  score,
-  isPending,
-}) => {
-  const radius = 52
-  const circumference = 2 * Math.PI * radius
-  return (
-    <svg
-      aria-hidden='true'
-      viewBox='0 0 120 120'
-      className='size-34 -rotate-90'
-    >
-      <circle
-        cx='60'
-        cy='60'
-        r={radius}
-        fill='none'
-        strokeWidth='6.67'
-        strokeDasharray={isPending ? '4 6' : undefined}
-        className='stroke-muted'
-      />
-      {score !== null && !isPending && (
-        <circle
-          cx='60'
-          cy='60'
-          r={radius}
-          fill='none'
-          strokeWidth='6.67'
-          stroke='currentColor'
-          strokeLinecap='round'
-          strokeDasharray={`${(Math.max(score, minimumFill) / 100) * circumference} ${circumference}`}
-          className={getScoreTone(score)}
-        />
-      )}
-    </svg>
-  )
-}
-
-const ScoreBar: React.FC<{ score: number }> = ({ score }) => {
-  return (
-    <div
-      aria-hidden='true'
-      className='mt-1.5 h-1.25 overflow-hidden rounded-full bg-muted'
-    >
-      <div
-        className={cn('h-full rounded-full bg-current', getScoreTone(score))}
-        style={{ width: `${Math.max(score, minimumFill)}%` }}
-      />
-    </div>
-  )
 }
 
 const FindingsBreakdown: React.FC<{
