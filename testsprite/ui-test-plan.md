@@ -32,7 +32,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-101-broken.html into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: The OPT-101 rule in the report shows the result "Fail"
   5. Action: Click "How to fix OPT-101"
   6. Assertion: A code example titled "After" is visible
@@ -44,7 +44,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-101-fixed.html into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: The OPT-101 rule in the report shows the result "Pass"
 
 ### U3 · Scanning the Perfect Gym page scores 100
@@ -54,7 +54,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type https://optikiapi.tuliime.com/gym/pages/perfect.html into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: The number shown above "Overall score" is 100
 
 ### U4 · A signed-out URL scan of docease-v2 runs statically with the 9 core rules
@@ -64,7 +64,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type https://docease-v2.netlify.app into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: The report shows a "Static" badge
   5. Assertion: The report shows a notice starting "Ran the 9 core rules."
 
@@ -75,7 +75,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type http://127.0.0.1 into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: An alert reads "This address isn't allowed"
 
 ### U6 · An address without https:// is rejected before scanning
@@ -85,7 +85,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type docease-v2.netlify.app into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: The "Page address" field shows the error "Enter a full address starting with https://"
 
 ### U11 · A signed-out scan's report asks the visitor to sign in to keep their history
@@ -95,7 +95,7 @@ Every case asserts on the scan it just created, never on history order or counts
 - **Steps:**
   1. Action: Navigate to /scan
   2. Action: Type https://optikiapi.tuliime.com/gym/pages/perfect.html into the "Page address" field
-  3. Action: Click the "Scan URL" button
+  3. Action: Click the "Scan" button
   4. Assertion: A notice starting "Your scans are saved in this browser only." is shown
 
 ---
@@ -125,7 +125,7 @@ Each case signs in itself, with the test account's credentials from the portal.
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
   5. Action: Type https://docease-v2.netlify.app into the "Page address" field
-  6. Action: Click the "Scan URL" button
+  6. Action: Click the "Scan" button
   7. Assertion: The report shows a "Rendered" badge
   8. Assertion: The report has a "Page screenshot" section
 
@@ -139,7 +139,7 @@ Each case signs in itself, with the test account's credentials from the portal.
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
   5. Action: Type https://optikiapi.tuliime.com/gym/pages/perfect.html into the "Page address" field
-  6. Action: Click the "Scan URL" button
+  6. Action: Click the "Scan" button
   7. Assertion: The report's visibility badge reads "Private"
   8. Action: Click the "Scan actions" button
   9. Action: Click the "Make scan public" menu item
@@ -156,7 +156,7 @@ Each case signs in itself, with the test account's credentials from the portal.
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
   5. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-101-fixed.html into the "Page address" field
-  6. Action: Click the "Scan URL" button
+  6. Action: Click the "Scan" button
   7. Action: Click the "Scan actions" button
   8. Action: Click the "Delete scan" menu item
   9. Action: Click the "Delete scan" button in the confirmation dialog
@@ -173,5 +173,5 @@ Each case signs in itself, with the test account's credentials from the portal.
   4. Action: Click the "Sign in" button
   5. Action: Type https://docease-v2.netlify.app into the "Page address" field
   6. Action: Click the "Automatically discover other pages of the host and scan them too" checkbox
-  7. Action: Click the "Scan URL" button
+  7. Action: Click the "Scan" button
   8. Assertion: The "Scanned pages" table lists the page "/"

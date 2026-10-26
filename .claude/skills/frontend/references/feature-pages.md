@@ -48,7 +48,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 **URL only.** The client never sends `html` or `gym`; those inputs stay on the server for the token API. There are no tabs and no "Load example" buttons, and Home and the Gym page don't scan.
 
 - Both pages render `scan/ui/scan-panel.tsx` → `ScanPanel` (`isGuest` on `/scan`), which owns the one `scanAPI.create` mutation:
-  - wording on top ("Scan a page" + subtitle), then `url-scan-form.tsx`: the "Page address" label, then the input and the "Scan URL" button side by side, then a hint (guests: "… N of 3 free scans left"; signed in: rendered, 17 rules, screenshot)
+  - wording on top ("Scan a page" + subtitle), then `url-scan-form.tsx`: the "Page address" label, then the input and the "Scan" button side by side, then a hint (guests: "… N of 3 free scans left"; signed in: rendered, 17 rules, screenshot)
   - on success it invalidates `scanKeys.all` and navigates to `/scans/:id` (guest) or `/u/scans/:id` (signed in)
 - **Guests** (signed out, or signed in but unverified — the server scans both anonymously):
   - each create sends `anonymousID: getAnonymousID()`; the server requires it for anonymous callers
@@ -57,7 +57,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - below the panel: a "Recent scans" section with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
   - `reconcileAnonymousUser` claims them on the server (they become private) and empties the store
 - **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans".
-  - Under the address field, `url-scan-form.tsx` shows the checkbox "Automatically discover other pages of the host and scan them too" (unchecked; `discoverPages` / `onDiscoverPagesChange`, owned by `ScanPanel`). Checked, the same "Scan URL" button calls `createMultiplePage` and opens `/u/scans/multiple/:id`, and the hint describes the crawl. Guests get no checkbox, only "Sign in to scan multiple pages".
+  - Under the address field, `url-scan-form.tsx` shows the checkbox "Automatically discover other pages of the host and scan them too" (unchecked; `discoverPages` / `onDiscoverPagesChange`, owned by `ScanPanel`). Checked, the same "Scan" button calls `createMultiplePage` and opens `/u/scans/multiple/:id`, and the hint describes the crawl. Guests get no checkbox, only "Sign in to scan multiple pages".
   - Each row links its target and, through `RecentScanList`'s `renderActions`, gets the report's `ScanOwnerActions` menu named "Actions for scan of <target>" (no `redirectTo`). The guest list passes no `renderActions`.
 - A local `onError` replaces the global toast with an inline `role='alert'`, keyed on `error.error` through `scanErrorMessages`:
 

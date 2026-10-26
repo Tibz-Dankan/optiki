@@ -61,7 +61,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
             className='shrink-0'
             disabled={isPending}
           >
-            Scan URL
+            Scan
             {isPending && <Loader2 className='animate-spin' />}
           </Button>
         </div>

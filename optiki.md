@@ -444,7 +444,7 @@ The README's "Deploying" section has the exact commands.
 >
 > **Features and acceptance criteria**
 >
-> 1. **Scan.** On `/scan` (signed in: `/u/scan`), anyone can enter a page's address and press "Scan URL". The report opens when the scan is done.
+> 1. **Scan.** On `/scan` (signed in: `/u/scan`), anyone can enter a page's address and press "Scan". The report opens when the scan is done.
 >    - The report shows an overall score (0–100) and Operable, Perceivable, Stable and Discoverable scores as visible numbers.
 >    - Signed-out visitors get the 9 core rules and a banner saying so, and 3 free scans; after that they must sign in to scan more. Signed-in, verified users get all 17 rules, and URL scans render in a real browser.
 >    - Static scans show Stable as "needs rendered scan".
