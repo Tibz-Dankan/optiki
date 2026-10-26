@@ -42,6 +42,8 @@ export const App: React.FC = () => {
     return <LoadingPage />
   }
 
+  // no local scan page btw
+
   return (
     <BrowserRouter>
       <PageCapturer />
