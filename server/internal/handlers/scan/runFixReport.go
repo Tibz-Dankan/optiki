@@ -67,11 +67,11 @@ func runFixReport(id string) {
 		log.Printf("generating fix report %s: %v", id, err)
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			failFixReport(id, "TIMEOUT", "Gemini took too long to write this report. Generate it again.", started)
+			failFixReport(id, "TIMEOUT", "This report took too long to write. Generate it again.", started)
 		case pkg.IsGeminiRateLimited(err):
-			failFixReport(id, "GEMINI_BUSY", "Gemini is busy right now. Generate the report again in a minute.", started)
+			failFixReport(id, "GENERATION_BUSY", "Report generation is busy right now. Generate it again in a minute.", started)
 		default:
-			failFixReport(id, "GENERATION_FAILED", "Gemini couldn't write this report. Generate it again.", started)
+			failFixReport(id, "GENERATION_FAILED", "This report couldn't be written. Generate it again.", started)
 		}
 		return
 	}

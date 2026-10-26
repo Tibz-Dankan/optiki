@@ -154,8 +154,7 @@ export const FixReportSection: React.FC<FixReportSectionProps> = ({
           className='flex items-center gap-2 text-sm text-muted-foreground'
         >
           <Loader2 className='size-4 animate-spin' aria-hidden />
-          Generating your fix report with Gemini. This usually takes under a
-          minute.
+          Generating your fix report. This usually takes under a minute.
         </p>
       )}
 

@@ -35,7 +35,7 @@ Every case asserts on the scan it just created, never on history order or counts
   3. Action: Click the "Scan" button
   4. Assertion: The OPT-101 rule in the report shows the result "Fail"
   5. Action: Click "How to fix OPT-101"
-  6. Assertion: A code example titled "After" is visible
+  6. Assertion: A code example titled "Expected" is visible
 
 ### U2 · Scanning the OPT-101 fixed Gym page passes OPT-101
 

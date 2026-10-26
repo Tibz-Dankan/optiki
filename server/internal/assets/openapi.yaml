@@ -338,7 +338,7 @@ components:
         error:
           type: [object, 'null']
           properties:
-            code: { type: string, example: GEMINI_BUSY }
+            code: { type: string, example: GENERATION_BUSY }
             message: { type: string }
         timing:
           type: object
