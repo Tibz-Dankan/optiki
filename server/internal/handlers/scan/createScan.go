@@ -4,21 +4,25 @@ import (
 	"errors"
 
 	"github.com/Tibz-Dankan/optiki/internal/constants"
+	"github.com/Tibz-Dankan/optiki/internal/models"
 	"github.com/Tibz-Dankan/optiki/internal/pkg"
 	"github.com/gofiber/fiber/v2"
 )
 
 type CreateScanInput struct {
-	HTML       *string `json:"html"`
-	URL        *string `json:"url"`
-	Gym        *string `json:"gym"`
-	Route      *string `json:"route"`
-	Title      *string `json:"title"`
-	Repository *string `json:"repository"`
-	Branch     *string `json:"branch"`
-	CommitSHA  *string `json:"commitSHA"`
-	PRNumber   *int    `json:"prNumber"`
-	RunURL     *string `json:"runURL"`
+	HTML        *string `json:"html"`
+	URL         *string `json:"url"`
+	Gym         *string `json:"gym"`
+	Route       *string `json:"route"`
+	Title       *string `json:"title"`
+	Repository  *string `json:"repository"`
+	Branch      *string `json:"branch"`
+	CommitSHA   *string `json:"commitSHA"`
+	PRNumber    *int    `json:"prNumber"`
+	RunURL      *string `json:"runURL"`
+	AnonymousID *string `json:"anonymousID"`
+
+	MultiplePageScan *bool `json:"multiplePageScan"`
 }
 
 var CreateScan = func(c *fiber.Ctx) error {
@@ -38,6 +42,30 @@ var CreateScan = func(c *fiber.Ctx) error {
 	request, err := validateScanInput(input, caller)
 	if err != nil {
 		return err
+	}
+
+	if request.multiplePageScan {
+		if caller.apiToken == nil {
+			user, signedIn := c.Locals("user").(models.User)
+			if !signedIn {
+				return fiber.NewError(fiber.StatusUnauthorized, "Sign in to scan multiple pages!")
+			}
+			if !user.EmailVerified {
+				return pkg.NewReasonError(fiber.StatusForbidden, constants.ErrReasonEmailNotVerified, "Verify your email to scan multiple pages!")
+			}
+		}
+		return createMultiplePageScan(c, caller, request)
+	}
+
+	if request.anonymousID != nil {
+		scanModel := models.Scan{}
+		count, err := scanModel.CountUnclaimedByAnonymousID(*request.anonymousID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if count >= constants.ANONYMOUS_SCAN_LIMIT {
+			return pkg.NewReasonError(fiber.StatusForbidden, constants.ErrReasonAnonymousScanLimit, constants.ErrAnonymousScanLimit)
+		}
 	}
 
 	scan, err := runScan(c.UserContext(), caller, request)

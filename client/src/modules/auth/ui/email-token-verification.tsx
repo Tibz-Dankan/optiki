@@ -7,6 +7,7 @@ import type { TVerifyEmailResponse } from '@typings/auth'
 import { appearanceKeys } from '@api/appearance'
 import { authAPI, authKeys } from '@api/auth'
 import { useAuthStore } from '@stores/auth'
+import { reconcileAnonymousUser } from '@utils/reconcile-anonymous-user'
 import { Button } from '@shared/ui/button'
 import {
   Card,
@@ -28,7 +29,8 @@ export const EmailTokenVerification: React.FC<EmailTokenVerificationProps> = ({
   token,
 }) => {
   const queryClient = useQueryClient()
-  const isLoggedIn = useAuthStore((state) => !!state.auth.session.userID)
+  const userID = useAuthStore((state) => state.auth.session.userID)
+  const isLoggedIn = !!userID
 
   const [result, setResult] = useState<TVerificationResult | null>(null)
 
@@ -38,6 +40,7 @@ export const EmailTokenVerification: React.FC<EmailTokenVerificationProps> = ({
       setResult({ status: 'success', data: response })
       toast.success(response.message)
       if (!isLoggedIn) return
+      reconcileAnonymousUser(userID, queryClient)
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       queryClient.invalidateQueries({ queryKey: appearanceKeys.me() })
     },
@@ -74,8 +77,8 @@ export const EmailTokenVerification: React.FC<EmailTokenVerificationProps> = ({
         </CardHeader>
         <CardFooter>
           <Button asChild className='w-full'>
-            <Link to={isLoggedIn ? '/u/dashboard' : '/auth/signin'} replace>
-              {isLoggedIn ? 'Continue to dashboard' : 'Sign in'}
+            <Link to={isLoggedIn ? '/u/scan' : '/auth/signin'} replace>
+              {isLoggedIn ? 'Start scanning' : 'Sign in'}
             </Link>
           </Button>
         </CardFooter>

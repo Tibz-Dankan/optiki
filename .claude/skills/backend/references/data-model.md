@@ -23,6 +23,7 @@ users ─┬─< sessions        (CASCADE)
        ├─< api_tokens      (CASCADE) ─< api_token_permissions >─ permissions (seeded)
        ├─< attachments     (CASCADE)
        ├─< scans           (CASCADE)
+       ├─< multiple_page_scans (CASCADE)
        ├─< devices         (CASCADE; userID NULL rows are shared by anonymous visitors)
        ├─< site_visits     (SET NULL)
        ├─< anonymous_user_links (CASCADE)
@@ -32,11 +33,14 @@ locations   ─< site_visits (SET NULL; one row per public IP, no owner)
 api_tokens  ─< scans       (SET NULL: deleting a token keeps its scans)
 attachments ─< scans       (scans.screenshotAttachmentID, SET NULL; the scan delete removes it explicitly)
 projects    ─< scans       (SET NULL)                        — not built yet
+multiple_page_scans ─< scans (CASCADE: deleting the parent deletes its page scans)
+multiple_page_scans ── fix_reports (CASCADE, at most one per multiple-page scan)
 scans ─┬─< scan_rule_results (CASCADE)
-       └─< scan_findings     (CASCADE)
+       ├─< scan_findings     (CASCADE)
+       └── fix_reports       (CASCADE, at most one per scan)
 ```
 
-Anonymous scans have `userID NULL` and belong to nobody.
+Anonymous scans have `userID NULL` and belong to nobody until `anony-reconcile` claims them by their `anonymousID`.
 
 ## Existing tables (unchanged)
 
@@ -244,7 +248,9 @@ type Scan struct {
 	ID          string  `gorm:"column:id;type:uuid;primaryKey" json:"id"`
 	UserID                 *string `gorm:"column:userID;type:uuid;default:null;index:idx_scans_user_created,priority:1" json:"userID"`
 	APITokenID             *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
+	AnonymousID            *string `gorm:"column:anonymousID;type:uuid;default:null;index" json:"-"`
 	ScreenshotAttachmentID *string `gorm:"column:screenshotAttachmentID;type:uuid;default:null;index" json:"screenshotAttachmentID"`
+	MultiplePageScanID     *string `gorm:"column:multiplePageScanID;type:uuid;default:null;index" json:"multiplePageScanID"`
 	TriggeredBy            string  `gorm:"column:triggeredBy;not null;index" json:"triggeredBy"`           // ANONYMOUS, USER, API_TOKEN
 	Visibility             string  `gorm:"column:visibility;not null;default:'PRIVATE'" json:"visibility"` // PRIVATE, PUBLIC
 	Title                  *string `gorm:"column:title;size:120;default:null" json:"title"`
@@ -321,13 +327,61 @@ What each group of columns records:
 
 | Group | Columns | Notes |
 |---|---|---|
-| Ownership | `userID`, `apiTokenID`, `screenshotAttachmentID`, `triggeredBy`, `visibility`, `title` (and `projectID` once projects land) | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`. Everything else starts `PRIVATE` |
+| Ownership | `userID`, `apiTokenID`, `anonymousID`, `screenshotAttachmentID`, `triggeredBy`, `visibility`, `title` (and `projectID` once projects land) | Anonymous scans are `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC`, with the browser's `anonymousID` (nullable; added October 2026, additive). A claim sets `userID` and `PRIVATE`. Everything else starts `PRIVATE` |
 | Input | `inputType` … `pageLang` | `targetURL` is what was asked for, `finalURL` where redirects ended. `inputSha256`/`inputBytes` describe the HTML actually analysed (pasted, fetched or rendered). The HTML itself is never stored |
 | Engine | `mode` … `controlCount` | `ruleSet` and `rulesetHash` say exactly which rules ran. `reportHash` is the engine's hash of the canonical report JSON |
 | Lifecycle | `status` … `analyzeMs` | Scans run synchronously, so a row moves `RUNNING` → `COMPLETED` or `FAILED` inside one request. A `RUNNING` row older than a minute was interrupted (a container restart) |
 | Scores | `overallScore` … `discoverableScore` | Integers 0–100, rounded by the engine. `NULL` until completed, and `NULL` for a category with no applicable rules (a static scan's Stable) |
 | Counts | `findingsCount` … `findingsTruncated` | Severity counts use the *effective* severity. `findingsCount` is the true total even when more than 500 findings meant only the first 500 rows were stored |
 | CI context | `repository` … `runURL` | Set only through the token API. Lets the future GitHub Action find a base commit's scan with `(repository, commitSHA)` |
+
+`multiplePageScanID` (nullable, added October 2026, additive) marks a page scanned for a multiple-page scan. `FindAllByUser` leaves those rows out of history.
+
+```go
+type MultiplePageScan struct {
+	ID          string  `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	UserID      string  `gorm:"column:userID;type:uuid;not null;index:idx_multiple_page_scans_user_created,priority:1" json:"userID"`
+	APITokenID  *string `gorm:"column:apiTokenID;type:uuid;default:null;index" json:"apiTokenID"`
+	TriggeredBy string  `gorm:"column:triggeredBy;not null" json:"triggeredBy"` // USER, API_TOKEN
+	Title       *string `gorm:"column:title;size:120;default:null" json:"title"`
+
+	StartURL      string  `gorm:"column:startURL;not null" json:"startURL"`
+	Origin        *string `gorm:"column:origin;size:255;default:null" json:"origin"`
+	Mode          string  `gorm:"column:mode;not null" json:"mode"`       // STATIC, RENDERED
+	RuleSet       string  `gorm:"column:ruleSet;not null" json:"ruleSet"` // CORE, FULL
+	EngineVersion string  `gorm:"column:engineVersion;size:32;not null" json:"engineVersion"`
+	RulesetHash   string  `gorm:"column:rulesetHash;size:64;not null" json:"rulesetHash"`
+	MaxPages      int     `gorm:"column:maxPages;not null" json:"maxPages"`
+
+	Status       string     `gorm:"column:status;not null;index" json:"status"` // QUEUED, RUNNING, COMPLETED, FAILED
+	ErrorCode    *string    `gorm:"column:errorCode;size:64;default:null" json:"errorCode"`
+	ErrorMessage *string    `gorm:"column:errorMessage;size:512;default:null" json:"errorMessage"`
+	StartedAt    *time.Time `gorm:"column:startedAt;default:null" json:"startedAt"`
+	CompletedAt  *time.Time `gorm:"column:completedAt;default:null" json:"completedAt"`
+	DurationMs   *int       `gorm:"column:durationMs;default:null" json:"durationMs"`
+
+	PagesDiscovered int             `gorm:"column:pagesDiscovered;not null;default:0" json:"pagesDiscovered"`
+	PagesScanned    int             `gorm:"column:pagesScanned;not null;default:0" json:"pagesScanned"`
+	PagesSkipped    int             `gorm:"column:pagesSkipped;not null;default:0" json:"pagesSkipped"`
+	LimitReached    bool            `gorm:"column:limitReached;not null;default:false" json:"limitReached"`
+	Skipped         json.RawMessage `gorm:"column:skipped;type:jsonb;default:null" json:"skipped"`
+
+	OverallScore … DiscoverableScore *int  // smallint, the mean over completed pages
+	FindingsCount … MinorCount       int   // summed over completed pages
+
+	CreatedAt time.Time `gorm:"column:createdAt;index;index:idx_multiple_page_scans_user_created,priority:2" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	User     *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	APIToken *APIToken `gorm:"foreignKey:APITokenID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Scans    []*Scan   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+}
+```
+
+- One row per multiple-page scan: the parent of its page scans. It has no findings of its own; the per-rule rollup is a GROUP BY over its pages' `scan_rule_results` at read time.
+- `skipped` is `[{url, reason, httpStatus}]` for the pages found but not scanned (reasons in `scans.md`). It is bounded by the 40-attempt cap.
+- State changes are conditional (`QUEUED → RUNNING → COMPLETED`, or `FAILED` from either). A boot marks leftover `QUEUED`/`RUNNING` rows `FAILED` `INTERRUPTED`.
 
 ```go
 type ScanRuleResult struct {
@@ -405,6 +459,38 @@ type ScanFinding struct {
 | OPT-302 | `{"cls":0.23}` |
 | any rendered finding | adds `"box":{"x":0,"y":0,"width":0,"height":0}` |
 
+## Fix reports
+
+A Gemini-written prompt for a coding agent, one per scan or multiple-page scan (`references/scans.md` § Fix reports). Exactly one of `scanID` and `multiplePageScanID` is set; each is a unique index, so generating again resets the same row.
+
+```go
+type FixReport struct {
+	ID                 string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	ScanID             *string    `gorm:"column:scanID;type:uuid;default:null;uniqueIndex" json:"scanID"`
+	MultiplePageScanID *string    `gorm:"column:multiplePageScanID;type:uuid;default:null;uniqueIndex" json:"multiplePageScanID"`
+	TriggeredBy        string     `gorm:"column:triggeredBy;not null" json:"triggeredBy"` // SCAN_COMPLETION, USER, API_TOKEN
+	Status             string     `gorm:"column:status;not null;index" json:"status"`     // QUEUED, RUNNING, COMPLETED, FAILED
+	Model              *string    `gorm:"column:model;size:64;default:null" json:"model"`
+	Content            *string    `gorm:"column:content;type:text;default:null" json:"content"`
+	FindingsCovered    int        `gorm:"column:findingsCovered;not null;default:0" json:"findingsCovered"`
+	InputTokens        *int       `gorm:"column:inputTokens;default:null" json:"inputTokens"`
+	OutputTokens       *int       `gorm:"column:outputTokens;default:null" json:"outputTokens"`
+	ErrorCode          *string    `gorm:"column:errorCode;size:64;default:null" json:"errorCode"`
+	ErrorMessage       *string    `gorm:"column:errorMessage;size:512;default:null" json:"errorMessage"`
+	StartedAt          *time.Time `gorm:"column:startedAt;default:null" json:"startedAt"`
+	CompletedAt        *time.Time `gorm:"column:completedAt;default:null" json:"completedAt"`
+	DurationMs         *int       `gorm:"column:durationMs;default:null" json:"durationMs"`
+	CreatedAt          time.Time  `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt          time.Time  `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	Scan             *Scan             `gorm:"foreignKey:ScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	MultiplePageScan *MultiplePageScan `gorm:"foreignKey:MultiplePageScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+```
+
+`Scan` and `MultiplePageScan` each declare the has-one side, `FixReport *FixReport` (cascade). Token counts stay server-side; `fixReportData` leaves them out.
+
 ## AutoMigrate order and seeding
 
 ```go
@@ -413,7 +499,8 @@ err = gormDB.AutoMigrate(
 	&Device{}, &Location{}, &SiteVisit{}, &AnonymousUserLink{},
 	&Permission{}, &APIToken{}, &APITokenPermission{},
 	&Attachment{},
-	&Scan{}, &ScanRuleResult{}, &ScanFinding{},
+	&MultiplePageScan{}, &Scan{}, &ScanRuleResult{}, &ScanFinding{},
+	&FixReport{},
 )
 ```
 

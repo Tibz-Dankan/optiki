@@ -46,8 +46,8 @@ type snapshotOutcome struct {
 }
 
 // runScan validates the target, records the scan as RUNNING, takes a snapshot (static, fetched or
-// rendered), runs the engine, stores the screenshot, and completes the row. Failures after the row exists
-// are stored as FAILED, except a busy renderer, whose row is dropped.
+// rendered), runs the engine, stores the screenshot, completes the row, and queues the fix report of a scan
+// with findings. Failures after the row exists are stored as FAILED, except a busy renderer, whose row is dropped.
 func runScan(ctx context.Context, caller scanCaller, request scanRequest) (models.Scan, error) {
 	if request.inputType == constants.SCAN_INPUT_URL {
 		if _, err := pkg.ValidatePublicURL(ctx, request.url); err != nil {
@@ -66,6 +66,7 @@ func runScan(ctx context.Context, caller scanCaller, request scanRequest) (model
 	saved, err := scanModel.Create(models.Scan{
 		UserID:        caller.userID(),
 		APITokenID:    caller.apiTokenID(),
+		AnonymousID:   request.anonymousID,
 		TriggeredBy:   caller.triggeredBy,
 		Visibility:    caller.visibility,
 		Title:         request.title,
@@ -103,24 +104,41 @@ func runScan(ctx context.Context, caller scanCaller, request scanRequest) (model
 		return models.Scan{}, failure.err
 	}
 
+	completed, err := completeScan(ctx, saved.ID, caller.userID(), set, outcome, started)
+	if err != nil {
+		return models.Scan{}, err
+	}
+	if completed.FindingsCount > 0 && pkg.GeminiConfigured() {
+		if _, err := queueFixReport(models.FixReport{
+			ScanID: &completed.ID, TriggeredBy: constants.FIX_REPORT_TRIGGERED_BY_SCAN_COMPLETION,
+		}); err != nil {
+			log.Printf("queueing the fix report of scan %s: %v", completed.ID, err)
+		}
+	}
+	return completed, nil
+}
+
+// completeScan analyses a scan's snapshot, stores its screenshot, and writes the finished scan
+func completeScan(ctx context.Context, scanID string, userID *string, set engine.RuleSet, outcome snapshotOutcome, started time.Time) (models.Scan, error) {
+	scanModel := models.Scan{}
 	analyzeStarted := time.Now()
 	report := engine.Scan(outcome.snapshot, set)
 	analyzeMs := int(time.Since(analyzeStarted).Milliseconds())
 
-	screenshot := storeScreenshot(ctx, saved.ID, caller.userID(), outcome)
-	completion := buildCompletion(saved.ID, report, outcome, started, analyzeMs)
+	screenshot := storeScreenshot(ctx, scanID, userID, outcome)
+	completion := buildCompletion(scanID, report, outcome, started, analyzeMs)
 	completion.Screenshot = screenshot
-	if err := scanModel.Complete(saved.ID, completion); err != nil {
+	if err := scanModel.Complete(scanID, completion); err != nil {
 		if screenshot != nil {
 			deleteObject(ctx, screenshot.Key)
 		}
-		if failErr := scanModel.Fail(saved.ID, "INTERNAL", "The scan could not be saved.", started); failErr != nil {
+		if failErr := scanModel.Fail(scanID, "INTERNAL", "The scan could not be saved.", started); failErr != nil {
 			log.Println("marking scan failed:", failErr)
 		}
 		return models.Scan{}, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	completed, err := scanModel.FindOne(saved.ID)
+	completed, err := scanModel.FindOne(scanID)
 	if err != nil {
 		return models.Scan{}, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

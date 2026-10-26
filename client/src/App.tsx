@@ -42,8 +42,6 @@ export const App: React.FC = () => {
     return <LoadingPage />
   }
 
-  // no local scan page btw
-
   return (
     <BrowserRouter>
       <PageCapturer />
@@ -82,15 +80,12 @@ export const App: React.FC = () => {
       {isLoggedInUser && (
         <Routes>
           <Route path='/' element={<Home />} />
-          <Route path='/scan' element={<Scan />} />
+          <Route path='/scan' element={<Navigate to='/u/scan' replace />} />
           <Route path='/scans/:id' element={<ScanReport />} />
           <Route path='/rules' element={<Rules />} />
           <Route path='/rules/:id' element={<Rule />} />
           <Route path='/gym' element={<Gym />} />
-          <Route
-            path='/auth/*'
-            element={<Navigate to='/u/dashboard' replace />}
-          />
+          <Route path='/auth/*' element={<Navigate to='/u/scan' replace />} />
           <Route path='/*' element={<RenderUserRoutes />} />
         </Routes>
       )}

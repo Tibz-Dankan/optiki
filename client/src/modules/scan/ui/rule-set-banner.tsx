@@ -14,7 +14,7 @@ export const RuleSetBanner: React.FC<RuleSetBannerProps> = ({ scan }) => {
         <span>
           Ran the 9 core rules.{' '}
           <Link
-            to='/auth/signin?redirectTo=/scan'
+            to='/auth/signin?redirectTo=/u/scan'
             className='font-medium underline underline-offset-4'
           >
             Sign in to run all 17 rules

@@ -1,6 +1,7 @@
+import { Navigate } from 'react-router-dom'
 import {
+  History,
   KeyRound,
-  LayoutDashboard,
   ScanSearch,
   Settings,
   UserCog,
@@ -9,31 +10,57 @@ import {
 import type { TRoute } from '@typings/routes'
 import { NotFoundError } from '@shared/pages/not-found-error'
 import { APITokens } from '@modules/api-token/pages/api-tokens'
-import { Dashboard } from '@modules/dashboard/pages/dashboard'
+import { MultiplePageScanReport } from '@modules/scan/pages/multiple-page-scan-report'
 import { Scans } from '@modules/scan/pages/scans'
+import { UserScan } from '@modules/scan/pages/user-scan'
+import { UserScanReport } from '@modules/scan/pages/user-scan-report'
 import { SettingsAccount } from '@modules/settings/pages/account'
 import { SettingsGeneral } from '@modules/settings/pages/general'
 
 export const userRoutes: TRoute = {
-  title: 'Dashboard',
-  homePath: '/u/dashboard',
+  title: 'Scan',
+  homePath: '/u/scan',
   groups: [
     {
       title: 'General',
       pages: [
         {
-          title: 'Dashboard',
-          path: '/u/dashboard',
-          icon: LayoutDashboard,
+          title: 'Scan',
+          path: '/u/scan',
+          icon: ScanSearch,
           showInSidebar: true,
-          element: <Dashboard />,
+          element: <UserScan />,
         },
         {
           title: 'Scans',
           path: '/u/scans',
-          icon: ScanSearch,
+          icon: History,
           showInSidebar: true,
           element: <Scans />,
+        },
+        {
+          title: 'Scan report',
+          path: '/u/scans/:id',
+          showInSidebar: false,
+          element: <UserScanReport />,
+        },
+        {
+          title: 'Multiple-page scan report',
+          path: '/u/scans/multiple/:id',
+          showInSidebar: false,
+          element: <MultiplePageScanReport />,
+        },
+        {
+          title: 'Scan',
+          path: '/u/home',
+          showInSidebar: false,
+          element: <Navigate to='/u/scan' replace />,
+        },
+        {
+          title: 'Scan',
+          path: '/u/dashboard',
+          showInSidebar: false,
+          element: <Navigate to='/u/scan' replace />,
         },
       ],
     },

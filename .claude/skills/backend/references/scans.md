@@ -8,14 +8,16 @@ The handler decides the rule set and mode from the caller. The engine never sees
 
 | Caller | How the server knows | Rule set | URL input | HTML / Gym input | Stored as |
 |---|---|---|---|---|---|
-| Anonymous | no valid session, **or** a session whose user hasn't verified their email | `CORE`: the 9 P0 rules | `STATIC`: fetched with `pkg.FetchPublicPage` | `STATIC` | `userID NULL`, `triggeredBy ANONYMOUS`, `visibility PUBLIC` |
+| Anonymous | no valid session, **or** a session whose user hasn't verified their email | `CORE`: the 9 P0 rules | `STATIC`: fetched with `pkg.FetchPublicPage` | `STATIC` | `userID NULL`, `anonymousID` (the browser's), `triggeredBy ANONYMOUS`, `visibility PUBLIC` |
 | Verified user | valid session cookie, `emailVerified` | `FULL`: all 17 rules | `RENDERED` in the server's Chromium | `STATIC`; OPT-204/301/302 come back `NEEDS_RENDERED` | owner, `triggeredBy USER`, `PRIVATE` |
 | API token | `Authorization: Bearer opt_…` with `scan:create:own` | `FULL` | `RENDERED` | `STATIC` | token owner + `apiTokenID`, `triggeredBy API_TOKEN`, `PRIVATE` |
 
 - `CORE` is the 9 must-have rules (101, 102, 103, 104, 106, 201, 202, 203, 401). `FULL` adds the 8 optional ones (105, 205, 402, 403, 107 and the rendered-only 204, 301, 302).
 - Anonymous scans are `PUBLIC` because nobody owns them. Their unguessable UUID is the share link.
+- **Guest limit.** An anonymous caller must send `anonymousID` (the browser's UUID, the same one site visits use); a missing or malformed one is a 400. Once that ID has `ANONYMOUS_SCAN_LIMIT` (3) completed scans that no account owns (`Scan.CountUnclaimedByAnonymousID`), `CreateScan` answers 403 `ANONYMOUS_SCAN_LIMIT` "Sign in to scan more than 3 pages!" before anything runs. The client enforces the same 3 from its local store; clearing site data resets both, which is accepted.
+- **Claiming.** `anony-reconcile` (`references/site-visits.md`) calls `Scan.ClaimAnonymous(anonymousID, userID)` after it links the ID: every scan with that `anonymousID` and `userID NULL` gets the user and becomes `PRIVATE`. `triggeredBy` stays `ANONYMOUS`. Anonymous scans never have screenshots, so no attachment changes owner. `anonymousID` is never returned in a response.
 - Signed-in scans start `PRIVATE`; the owner shares one by setting `visibility: PUBLIC`.
-- An unverified user scans exactly like an anonymous visitor, and the scan is not attached to their account.
+- An unverified user scans exactly like an anonymous visitor (including the guest limit), and the scan is not attached to their account until the next reconcile claims it.
 - The report always states `ruleSet` and `mode`. The client shows a banner on `CORE` results ("9 core rules — sign in to run all 17") and on static scans of client-rendered pages.
 
 `handlers/scan/resolveScanCaller.go` holds that decision in one place:
@@ -53,6 +55,10 @@ One handler per endpoint, registered on both surfaces where the behaviour is the
 | `GET /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:view:own)` | `GetScan` | the owner's only, even if `PUBLIC` |
 | `PATCH /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:edit:own)` | `UpdateScan` | |
 | `DELETE /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:delete:own)` | `DeleteScan` | |
+| `GET /api/v1/scan/:id/fix-report` | `OptionalAuth` | `GetFixReport` | same visibility as `GetScan`; `data: null` before a report exists |
+| `POST /api/v1/scan/:id/fix-report` | `Auth → VerifiedEmail → FixReportRateLimit` | `CreateFixReport` | owner only; generates or regenerates |
+| `GET`/`POST /api/v1/scan/multiple/:id/fix-report` | `Auth → VerifiedEmail` (`→ FixReportRateLimit` on POST) | `GetMultiplePageFixReport` / `CreateMultiplePageFixReport` | owner only |
+| `GET`/`POST /client/v1/scan/…/fix-report` | `AuthAPI → RequirePermission(scan:view:own` / `scan:edit:own)` (`→ FixReportRateLimit` on POST) | the same four | |
 
 `ScanRateLimit` runs **after** the auth middleware because it keys on the caller.
 
@@ -71,6 +77,8 @@ type CreateScanInput struct {
 	CommitSHA  *string `json:"commitSHA"`
 	PRNumber   *int    `json:"prNumber"`
 	RunURL     *string `json:"runURL"`
+
+	AnonymousID *string `json:"anonymousID"` // required for anonymous callers, ignored otherwise
 }
 ```
 
@@ -90,6 +98,8 @@ Validation, in this order. The first failure wins, and none of these create a ro
 | Any CI field on the browser API (no `apiToken` local) | 400 "Only API tokens can set CI fields" |
 | `commitSHA` not 7–64 hex characters, `repository` not `owner/name`, `prNumber` < 1 | 400 |
 | URL with a non-web scheme (`file:`, `ftp:`, `gopher:`) | 400 `SSRF_BLOCKED` "This address isn't allowed" |
+| Anonymous caller without a UUID `anonymousID` | 400 `ErrInvalidAnonymousID` |
+| Anonymous caller whose `anonymousID` already has 3 unclaimed completed scans | 403 `ANONYMOUS_SCAN_LIMIT` |
 | URL fails the pre-flight (port/resolve to a public address) | 400 `SSRF_BLOCKED`; an unresolvable host is a plain 400 |
 
 The pipeline (`handlers/scan/runScan.go`, unexported, shared by both surfaces):
@@ -196,7 +206,7 @@ type UpdateScanInput struct {
 - `visibility` is `PRIVATE` or `PUBLIC`.
 - Findings and scores are immutable: re-running means a new scan.
 - `DELETE` removes the scan and its screenshot row (rule results and findings cascade), then deletes the screenshot object. It returns 200 with a message.
-- Anonymous scans can't be edited or deleted by anyone through the API.
+- Anonymous scans can't be edited or deleted by anyone through the API until a reconcile gives them an owner.
 
 ## Rate limits and render slots
 
@@ -204,7 +214,7 @@ type UpdateScanInput struct {
 
 | Key | Limit |
 |---|---|
-| Anonymous, per IP | `SCAN_RATE_LIMIT_ANONYMOUS` 30 per 10 min, and URL scans 5 per minute |
+| Anonymous, per IP | `SCAN_RATE_LIMIT_ANONYMOUS` 30 per 10 min, and URL scans 10 per minute (`SCAN_URL_RATE_LIMIT_ANONYMOUS`; TestSprite's signed-out cases are all URL scans from shared runner IPs) |
 | Verified user, per `userID` | 60 per 10 min |
 | Token, per `apiTokenID` | 60 per 10 min |
 
@@ -245,12 +255,55 @@ type UpdateScanInput struct {
   - A full-page JPEG screenshot is taken last (1280 wide, height capped at 6,000 px).
 - The rendered DOM is serialised once to compute `inputSha256`/`inputBytes`. It is never stored.
 
+## Multiple-page scans
+
+`POST /scan` with **`multiplePageScan: true`** (browser or token API) crawls a site from `url` instead of scanning one page. If the field is `false` or left out, the scan runs exactly as above.
+
+- **Who:** verified users and API tokens only. Signed out → 401 "Sign in to scan multiple pages!"; signed in but unverified → 403 `EMAIL_NOT_VERIFIED`. These checks run before the guest `anonymousID` rules.
+- **Input:** `url` only (not `html` or `gym`), no `route` (each page's route is its own path), and no CI fields yet. All of those are 400. `title` is kept on the parent.
+- **Create:** the URL pre-flight runs first, so a blocked or unresolvable address creates no row. Then the parent `multiple_page_scans` row is inserted as `QUEUED`, with the caller's rule set and mode and `maxPages` 25, and its id goes on the in-process queue (`multiplePageScanQueue.go`: `MULTIPLE_PAGE_SCAN_QUEUE_SIZE` 10, `MULTIPLE_PAGE_SCAN_WORKERS` 1). The answer is **201** "Multiple-page scan started" with the summary (`multiplePageScan: true`). A full queue drops the row and answers 429 `SCAN_QUEUE_FULL` with `Retry-After: 60`.
+- **Crawl** (`runMultiplePageScan.go`, 6-minute budget): breadth-first from the start URL, at most 25 scanned pages and 40 attempts.
+  - Each page goes through `ValidatePublicURL` and `takeSnapshot`. A busy renderer is retried 3 times.
+  - A public page becomes an ordinary `scans` row (`multiplePageScanID` set, `PRIVATE`, the parent's owner and token) and is finished by `completeScan`, the same code `runScan` uses.
+  - Its same-site links (`snapshot/links`: `<a>`/`<area>` hrefs, query and fragment dropped, assets skipped, `www.` and the scheme ignored) go to the back of the queue.
+  - Pages that aren't scanned are recorded in `skipped` with a reason: `NOT_PUBLIC` (401/403, or a redirect off the site), `NOT_FOUND` (404/410), `HTTP_ERROR` (other ≥ 400), `NOT_HTML`, `BLOCKED`, `TIMEOUT`, `FAILED`, and `DUPLICATE` (redirects to a page already scanned, such as protected pages that all land on `/login`).
+  - **The start page is the exception:** if it would be skipped, the whole scan is `FAILED` with that reason.
+  - Progress (counts, `skipped`, `origin`) is written after every page. At the end the parent stores the mean of each score over its completed pages (half-up), the summed counts and `limitReached`.
+- **Restart:** the queue lives in memory. `cmd/main.go` marks every `QUEUED`/`RUNNING` parent `FAILED` `INTERRUPTED` at boot.
+- **Read and delete:** `GET /scan/multiple` (list, cursor pagination), `GET /scan/multiple/:id` (owner only, else 404; adds `pages`, a per-rule `rules` rollup and `skipped`), `DELETE /scan/multiple/:id` (409 while active; deletes the page scans and their screenshot objects). Registered before `/:id` on both surfaces, with `scan:view:own` / `scan:delete:own` on the token API.
+- `GET /scan` leaves out pages that belong to a multiple-page scan, so history isn't flooded. Each page's own report still says `multiplePageScanID`.
+
+## Fix reports
+
+A fix report is a Markdown prompt, written by Gemini, that the user pastes into a coding agent (Claude Code, Codex, Cursor, Antigravity…) to fix a scan's findings.
+
+- **When:** `runScan` queues one after `completeScan` for every completed scan with findings (anonymous, signed-in and token scans alike), and `runMultiplePageScan` queues one for the whole crawl after `Complete`. Both happen only when `pkg.GeminiConfigured()`, and a queueing failure is logged, never a failed scan. Page scans inside a crawl aren't queued automatically. Because `runScan` queues before `CreateScan` answers, the client's first read already sees `QUEUED`.
+- **On demand:** `POST …/fix-report` (owner only, `FixReportRateLimit` 10 per 10 minutes per user or token) generates a report for an older scan, regenerates one, or retries a failed one. 422 for a scan that isn't `COMPLETED`, 422 `NO_FINDINGS`, 409 `FIX_REPORT_IN_PROGRESS` while one is `QUEUED`/`RUNNING`, 429 `FIX_REPORT_QUEUE_FULL` (`Retry-After: 60`), 503 `FIX_REPORTS_UNAVAILABLE` without a key. 201 with the queued report.
+- **Pipeline:** `queueFixReport` → `FixReport.Queue` (a row lock; creates the row or resets a finished one) → `enqueueFixReport` (`fixReportQueue.go`: `FIX_REPORT_QUEUE_SIZE` 100, `FIX_REPORT_WORKERS` 2, which also caps how fast anonymous scans can spend quota). A full queue stores the row as `FAILED` `QUEUE_FULL`. `runFixReport` (3-minute budget) marks it `RUNNING`, builds the input, calls `pkg.Gemini().Generate` and completes or fails it (`TIMEOUT`, `GENERATION_BUSY`, `GENERATION_FAILED`, `UNAVAILABLE`).
+- **Input** (`buildFixReportInput.go`): deterministic JSON, encoded without HTML escaping. It holds the scan context, the failing rules most severe first with their catalog `why`/`fix`/`fixBefore`/`fixAfter`/`wcag`, and every instance's routes, selector, role, name, message, snippet and evidence. A crawl merges an element that fails the same rule on several pages into one instance by `(ruleID, selectorPath, snippet)`; fingerprints include the route, so they can't. At most `FIX_REPORT_MAX_INSTANCES_PER_RULE` (25) instances per rule, plus `omittedInstances`. Passed and `NEEDS_RENDERED` rules are listed by name.
+- **Instructions:** `templates/prompt/fix-report.md`, embedded as `templates.PromptFS`. It fixes the prompt's sections (task, ground rules, finding the source, issues, not checked, acceptance criteria, verify). Page content is attacker-controllable, so it is fenced as data: Gemini must never carry over instructions from snippets or names, and the prompt it writes tells the agent the same and limits it to the project's own scripts.
+- **Restart:** the queue lives in memory; `cmd/main.go` marks every `QUEUED`/`RUNNING` report `FAILED` `INTERRUPTED` at boot.
+- **Verify locally without a key:** the genai SDK honours `GOOGLE_GEMINI_BASE_URL`, so a stub server that answers `POST /v1beta/models/{model}:generateContent` exercises the whole pipeline.
+
 ## Files
 
 ```
 handlers/scan/
   createScan.go  getScans.go  getScan.go  updateScan.go  deleteScan.go
-  resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go
+  resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go  parseScanURL.go
+  createMultiplePageScan.go  getMultiplePageScans.go  getMultiplePageScan.go  deleteMultiplePageScan.go
+  multiplePageScanQueue.go  runMultiplePageScan.go  multiplePageScanResponseData.go
+  getFixReport.go  createFixReport.go  getMultiplePageFixReport.go  createMultiplePageFixReport.go  canViewScan.go
+  fixReportQueue.go  queueFixReport.go  runFixReport.go  buildFixReportInput.go  fixReportResponseData.go
+  fixReportTriggeredBy.go  fixReportQueueError.go
+models/fixReport.go            FindOne, FindByScan, FindByMultiplePageScan, Queue, MarkRunning, Complete, Fail,
+                               FailInterrupted
+pkg/gemini.go                  GeminiConfigured, Gemini() → Generate, IsGeminiRateLimited
+templates/prompt/fix-report.md Gemini's instructions
+middlewares/fixReportRateLimit.go
+models/multiplePageScan.go     Create, FindOne, FindPages, RuleRollup, FindAllByUser, MarkRunning, UpdateProgress,
+                               Complete, Fail, FailInterrupted, DeleteQueued, Delete (returns the screenshots)
+snapshot/links/                Extract, SameSite, Key (+ links_test.go)
 models/scan.go                 Create, FindOne (rule results + findings + screenshot), FindAllByUser(filters, limit, cursor),
                                UpdateDetails, Delete (returns the screenshot), DeleteRunning, Complete — one
                                transaction — and Fail(code, message)

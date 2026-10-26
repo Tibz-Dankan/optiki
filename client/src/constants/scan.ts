@@ -1,4 +1,6 @@
 import type {
+  TMultiplePageScanSkipReason,
+  TMultiplePageScanStatus,
   TRuleCategory,
   TRuleResult,
   TScanInputType,
@@ -9,6 +11,8 @@ import type {
 import type { TServerErrorName } from '@typings/server-response'
 
 export const scanPageSize = 20
+
+export const guestScanLimit = 3
 
 export const categoryOrder: TRuleCategory[] = [
   'OPERABLE',
@@ -70,6 +74,8 @@ export const triggeredByLabels: Record<TScanTriggeredBy, string> = {
   API_TOKEN: 'API token',
 }
 
+export const fixReportPollInterval = 3000
+
 export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
   SSRF_BLOCKED: "This address isn't allowed",
   TOO_LARGE: 'That page is over 2 MB',
@@ -78,4 +84,36 @@ export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
   RENDER_TIMEOUT: 'That page took too long to load',
   RENDERER_BUSY: 'Too many scans are rendering — try again in a few seconds',
   TOO_MANY_REQUESTS: 'Slow down — too many scans. Try again in a minute',
+  ANONYMOUS_SCAN_LIMIT:
+    "You've used your 3 free scans. Sign in to scan more pages",
+  SCAN_QUEUE_FULL:
+    'Too many multiple-page scans are waiting — try again in a minute',
+  FIX_REPORTS_UNAVAILABLE: "Fix reports aren't available right now",
+  FIX_REPORT_QUEUE_FULL:
+    'Too many fix reports are being generated — try again in a minute',
+}
+
+export const multiplePageScanMaxPages = 25
+
+export const multiplePageScanPollInterval = 2000
+
+export const multiplePageScanStatusLabels: Record<
+  TMultiplePageScanStatus,
+  string
+> = {
+  QUEUED: 'Queued',
+  RUNNING: 'Scanning',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed',
+}
+
+export const skipReasonLabels: Record<TMultiplePageScanSkipReason, string> = {
+  NOT_PUBLIC: 'Needs a sign-in or redirects off the site',
+  NOT_FOUND: 'Not found',
+  HTTP_ERROR: 'The server answered with an error',
+  NOT_HTML: 'Not an HTML page',
+  BLOCKED: "This address isn't allowed",
+  TIMEOUT: 'Took too long to load',
+  FAILED: 'Could not be loaded',
+  DUPLICATE: 'Redirects to a page already scanned',
 }

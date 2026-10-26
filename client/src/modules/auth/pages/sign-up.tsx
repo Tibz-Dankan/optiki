@@ -45,7 +45,7 @@ export const SignUp: React.FC = () => {
     mutationFn: authAPI.signUp,
     onSuccess: (response: TAuthResponse) => {
       updateSession(response.session)
-      reconcileAnonymousUser(response.session.userID)
+      reconcileAnonymousUser(response.session.userID, queryClient)
       queryClient.invalidateQueries({ queryKey: authKeys.me() })
       navigate(response.redirectToPath, {
         replace: true,

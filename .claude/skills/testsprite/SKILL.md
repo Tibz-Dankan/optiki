@@ -59,7 +59,8 @@ S4 rules that bite:
 - There is **one production database** shared by every run, and nothing is reset between runs. Tests must tolerate leftovers: assert on the scan this case just created, never on history order or a total count. Signed-in cases can run at once on the same account.
 - **No sign-up or password-reset tests** (TestSprite can't read inboxes). Signed-in cases sign in with the seeded account.
 - Signed-out scan cases need no account. They must *not* carry the seeded account's session, or they get the `FULL` rule set.
-- URL scans use `https://docease-v2.netlify.app`, a client-rendered app: static signed out, rendered with a screenshot signed in. Anonymous URL scans are limited to 5 a minute per IP, so keep them to a couple per run.
+- Scanning is URL-only. Rule cases scan the Gym fixtures by URL (`https://optikiapi.tuliime.com/gym/pages/<id>.html`); U4 and U8 scan `https://docease-v2.netlify.app`, a client-rendered app: static signed out, rendered with a screenshot signed in.
+- Anonymous URL scans are limited to 10 a minute per IP, and a signed-out browser gets 3 free scans. Every signed-out case makes at most one scan in its own fresh browser; never chain more than 3 signed-out scans in one case.
 
 ## Writing plans the AI tester executes reliably (Season 3 lessons)
 
@@ -69,7 +70,7 @@ S4 rules that bite:
 - **Name the test as a behavior** ("Scanning the Perfect page example scores 100"), and rename it when its scope changes — a stale name steers the agent (Nora).
 - **Name look-alike controls by widget type and exclude the sibling** ("the Sign out button in the confirmation dialog, not the menu item") (Ouroboros L5).
 - **Assert settled end-states, never animation** (Ouroboros L2). **Assume a desktop viewport** — the runner doesn't resize (Nora).
-- **Use "Load example" buttons**, never make the agent type long HTML.
+- **Type a Gym page URL**, never make the agent type long HTML.
 - **Seed data instead of loosening assertions** when a page renders an empty state (Nora).
 - **Keep plans short.** Long navigation burns the agent's step budget and comes back `blocked`.
 - **Never assert a token's full value in UI tests.** Assert that the created dialog shows a value starting with `opt_`, and that the table shows it masked.
@@ -83,16 +84,18 @@ The steps for every case live in **`testsprite/ui-test-plan.md`**, the reviewed 
 
 | # | Scenario (named as a behavior) | Proves |
 |---|---|---|
-| U1 | Scanning the OPT-101 broken example fails OPT-101 and shows how to fix it | A rule fails on its broken page; the fix is shown |
-| U2 | Scanning the OPT-101 fixed example passes OPT-101 | The rule passes once fixed |
-| U3 | Scanning the Perfect page example scores 100 | No false positives |
+| U1 | Scanning the OPT-101 broken Gym page fails OPT-101 and shows how to fix it | A rule fails on its broken page; the fix is shown |
+| U2 | Scanning the OPT-101 fixed Gym page passes OPT-101 | The rule passes once fixed |
+| U3 | Scanning the Perfect Gym page scores 100 | No false positives |
 | U4 | A signed-out URL scan of docease-v2 runs statically with the 9 core rules | Anonymous tier, real fetch |
 | U5 | Scanning a private address shows "This address isn't allowed" | SSRF blocking in the UI |
 | U6 | An address without https:// is rejected before scanning | Form validation |
-| U7 | Signing in with the demo account opens the dashboard | Session flow |
+| U7 | Signing in with the demo account opens the scan page | Session flow |
 | U8 | A signed-in URL scan of docease-v2 renders in a real browser | Signed-in tier: rendered + screenshot |
 | U9 | Making a signed-in scan public updates its visibility | Private by default; sharing |
 | U10 | Deleting a scan from its report returns to the Scans page | Owner delete |
+| U11 | A signed-out scan's report asks the visitor to sign in to keep their history | Guest history prompt |
+| U12 | A signed-in multiple-page scan lists the pages it scanned | `multiplePageScan`: crawl, background queue, live report |
 
 ## Credit hygiene
 

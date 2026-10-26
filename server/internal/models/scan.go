@@ -60,9 +60,19 @@ func (s *Scan) FindOne(id string) (Scan, error) {
 	return scan, nil
 }
 
+// FindSummary loads a scan's own row, without its rule results, findings or screenshot
+func (s *Scan) FindSummary(id string) (Scan, error) {
+	var scan Scan
+	err := db.First(&scan, "id = ?", id).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return scan, err
+	}
+	return scan, nil
+}
+
 func (s *Scan) FindAllByUser(userID string, filters ScanFilters, limit float64, cursor string) ([]Scan, error) {
 	var scans []Scan
-	query := db.Model(&Scan{}).Preload("Screenshot").Where("\"userID\" = ?", userID)
+	query := db.Model(&Scan{}).Preload("Screenshot").Where("\"userID\" = ? AND \"multiplePageScanID\" IS NULL", userID)
 	if filters.Status != "" {
 		query = query.Where("status = ?", filters.Status)
 	}
@@ -138,6 +148,23 @@ func (s *Scan) DeleteRunning(id string) error {
 
 func (s *Scan) UpdateDetails(id string, updates map[string]interface{}) error {
 	return db.Model(&Scan{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// CountUnclaimedByAnonymousID counts the completed scans a signed-out browser has made that no account owns yet
+func (s *Scan) CountUnclaimedByAnonymousID(anonymousID string) (int64, error) {
+	var count int64
+	err := db.Model(&Scan{}).
+		Where("\"anonymousID\" = ? AND \"userID\" IS NULL AND status = ?", anonymousID, "COMPLETED").
+		Count(&count).Error
+	return count, err
+}
+
+// ClaimAnonymous gives a signed-out browser's unowned scans to the user and makes them private
+func (s *Scan) ClaimAnonymous(anonymousID, userID string) (int64, error) {
+	result := db.Model(&Scan{}).
+		Where("\"anonymousID\" = ? AND \"userID\" IS NULL", anonymousID).
+		Updates(map[string]interface{}{"userID": userID, "visibility": "PRIVATE"})
+	return result.RowsAffected, result.Error
 }
 
 // Delete removes the caller's scan (results and findings cascade) and its screenshot row, and returns the

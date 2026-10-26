@@ -8,7 +8,7 @@ import { getCookie, removeCookie, setCookie } from '@utils/cookies'
 
 type ResolvedTheme = Exclude<TTheme, 'system'>
 
-const DEFAULT_THEME = 'system'
+const DEFAULT_THEME = 'dark'
 const THEME_COOKIE_NAME = 'optiki-ui-theme'
 const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
@@ -28,7 +28,7 @@ type ThemeProviderState = {
 
 const initialState: ThemeProviderState = {
   defaultTheme: DEFAULT_THEME,
-  resolvedTheme: 'light',
+  resolvedTheme: 'dark',
   theme: DEFAULT_THEME,
   setTheme: () => null,
   resetTheme: () => null,

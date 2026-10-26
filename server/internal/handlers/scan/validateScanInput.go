@@ -9,6 +9,7 @@ import (
 	"github.com/Tibz-Dankan/optiki/internal/gym"
 	"github.com/Tibz-Dankan/optiki/internal/pkg"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 var commitSHAPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -16,17 +17,20 @@ var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,39}/[A-Za-z0-9_.-]
 
 // scanRequest is a validated create-scan input.
 type scanRequest struct {
-	inputType  string
-	html       string
-	url        string
-	gymID      string
-	route      string
-	title      *string
-	repository *string
-	branch     *string
-	commitSHA  *string
-	prNumber   *int
-	runURL     *string
+	inputType   string
+	html        string
+	url         string
+	gymID       string
+	route       string
+	title       *string
+	repository  *string
+	branch      *string
+	commitSHA   *string
+	prNumber    *int
+	runURL      *string
+	anonymousID *string
+
+	multiplePageScan bool
 }
 
 func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, error) {
@@ -45,6 +49,20 @@ func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, e
 		return request, fiber.NewError(fiber.StatusBadRequest, "Provide exactly one of html, url or gym!")
 	}
 
+	hasCIFields := input.Repository != nil || input.Branch != nil || input.CommitSHA != nil || input.PRNumber != nil || input.RunURL != nil
+	if input.MultiplePageScan != nil && *input.MultiplePageScan {
+		if input.URL == nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, "multiplePageScan needs a url!")
+		}
+		if input.Route != nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, "route can't be combined with multiplePageScan!")
+		}
+		if hasCIFields {
+			return request, fiber.NewError(fiber.StatusBadRequest, "CI fields can't be combined with multiplePageScan yet!")
+		}
+		request.multiplePageScan = true
+	}
+
 	switch {
 	case input.HTML != nil:
 		if len(*input.HTML) > constants.MAX_SCAN_HTML_BYTES {
@@ -57,20 +75,13 @@ func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, e
 		request.html = *input.HTML
 		request.route = "/"
 	case input.URL != nil:
-		raw := strings.TrimSpace(*input.URL)
-		parsed, err := url.Parse(raw)
-		if err != nil || len(raw) > constants.MAX_SCAN_URL_LENGTH || parsed.Scheme == "" {
-			return request, fiber.NewError(fiber.StatusBadRequest, "Enter a full http:// or https:// address!")
-		}
-		if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-			return request, pkg.NewReasonError(fiber.StatusBadRequest, constants.ErrReasonSSRFBlocked, constants.ErrAddressNotAllowed)
+		target, route, err := parseScanURL(*input.URL)
+		if err != nil {
+			return request, err
 		}
 		request.inputType = constants.SCAN_INPUT_URL
-		request.url = parsed.String()
-		request.route = parsed.EscapedPath()
-		if request.route == "" {
-			request.route = "/"
-		}
+		request.url = target
+		request.route = route
 	case input.Gym != nil:
 		id := strings.TrimSpace(*input.Gym)
 		if _, ok := gym.Page(id); !ok {
@@ -98,7 +109,6 @@ func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, e
 		}
 	}
 
-	hasCIFields := input.Repository != nil || input.Branch != nil || input.CommitSHA != nil || input.PRNumber != nil || input.RunURL != nil
 	if hasCIFields && caller.apiToken == nil {
 		return request, fiber.NewError(fiber.StatusBadRequest, "Only API tokens can set CI fields!")
 	}
@@ -134,6 +144,17 @@ func validateScanInput(input CreateScanInput, caller scanCaller) (scanRequest, e
 			return request, fiber.NewError(fiber.StatusBadRequest, "The runURL must be an http(s) address!")
 		}
 		request.runURL = input.RunURL
+	}
+	if caller.triggeredBy == constants.SCAN_TRIGGERED_BY_ANONYMOUS && !request.multiplePageScan {
+		if input.AnonymousID == nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, constants.ErrInvalidAnonymousID)
+		}
+		parsed, err := uuid.Parse(*input.AnonymousID)
+		if err != nil {
+			return request, fiber.NewError(fiber.StatusBadRequest, constants.ErrInvalidAnonymousID)
+		}
+		anonymousID := parsed.String()
+		request.anonymousID = &anonymousID
 	}
 	return request, nil
 }

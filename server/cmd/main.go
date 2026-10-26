@@ -6,6 +6,7 @@ import (
 
 	"github.com/Tibz-Dankan/optiki/internal/constants"
 	"github.com/Tibz-Dankan/optiki/internal/middlewares"
+	"github.com/Tibz-Dankan/optiki/internal/models"
 	"github.com/Tibz-Dankan/optiki/internal/pkg"
 	"github.com/Tibz-Dankan/optiki/internal/routes"
 	"github.com/Tibz-Dankan/optiki/internal/snapshot/rendered"
@@ -25,6 +26,7 @@ func main() {
 
 	checkRequiredEnv()
 	warnMissingFeatures()
+	failInterruptedScans()
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: pkg.DefaultErrorHandler,
@@ -76,5 +78,28 @@ func warnMissingFeatures() {
 	}
 	if os.Getenv("RESEND_API_KEY") == "" {
 		log.Println("RESEND_API_KEY isn't set: emails are logged in local development and fail when deployed")
+	}
+	if !pkg.GeminiConfigured() {
+		log.Println("GEMINI_API_KEY isn't set: scans won't get fix reports")
+	}
+}
+
+// failInterruptedScans fails the multiple-page scans and fix reports a previous process left queued or
+// running; their background work died with it
+func failInterruptedScans() {
+	multiplePageScan := models.MultiplePageScan{}
+	count, err := multiplePageScan.FailInterrupted()
+	if err != nil {
+		log.Println("failing interrupted multiple-page scans:", err)
+	} else if count > 0 {
+		log.Printf("Marked %d interrupted multiple-page scans as failed", count)
+	}
+
+	fixReport := models.FixReport{}
+	count, err = fixReport.FailInterrupted()
+	if err != nil {
+		log.Println("failing interrupted fix reports:", err)
+	} else if count > 0 {
+		log.Printf("Marked %d interrupted fix reports as failed", count)
 	}
 }

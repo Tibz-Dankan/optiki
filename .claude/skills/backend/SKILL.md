@@ -310,6 +310,7 @@ Stateless helpers, one concern per file, no handler logic. Reuse these:
 | `FetchPublicPage`, `ValidatePublicURL`, `PublicDialer` | **the only way to fetch a user-supplied URL**, its pre-flight check, and the dialer the render proxy shares (§ 11, `references/scans.md`) |
 | `S3Configured`, `S3()` → `PutObject`, `DeleteObject`, `PresignGet` | the one S3 client, built once from env; signing is local (`references/attachments.md`) |
 | `ResolvePageName(path)` | a client path's site visit page name from `data.SiteVisitPageNames`: exact match, then `:param` patterns, then `*` |
+| `GeminiConfigured`, `Gemini()` → `Generate(ctx, GeminiRequest)`, `IsGeminiRateLimited` | the one Gemini client (`google.golang.org/genai`, as in GradeScript), built once from env, with retries on transient errors; used only by fix reports (`references/scans.md`) |
 | `LookupIPGeolocation(ip)` | ip-api.com's JSON for a public IP; nil, with no request, for any other address (`references/site-visits.md`) |
 
 Adding an email is three edits: a template in `templates/email/` supplying the `content` and `preheader` blocks the layout expects, a `subject…` constant in `email.go`, and a `Send…` method delegating to `renderAndSend`.
@@ -333,6 +334,7 @@ A new optional service must work locally without Docker: real credentials in `.e
 | `GIT_SHA` | reported by `/health`; baked into the image at build time (`--build-arg GIT_SHA`) |
 | `CHROME_BIN`, `CHROMEDP_NO_SANDBOX` | set in the image (`/usr/bin/chromium`, `true`) for rendered scans; locally `CHROME_BIN` may stay empty and `rendered.ChromePath()` searches PATH |
 | `RESEND_API_KEY`, `RESEND_SENDER_EMAIL` | email |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) | fix reports; without a key scans still work and get none, and `POST …/fix-report` answers 503 `FIX_REPORTS_UNAVAILABLE` |
 | `S3_ACCESS_KEY_ID`, `S3_ACCESS_KEY`, `S3_BUCKET_NAME`, `AWS_REGION` (+ optional `S3_ENDPOINT`, `S3_USE_PATH_STYLE`) | scan screenshots, from the same real bucket locally and deployed; without them rendered scans are stored without one |
 | `SEED_DEMO`, `DEMO_NAME`/`DEMO_EMAIL`/`DEMO_PASSWORD` (and `_2`) | verified accounts, created on boot if missing. The template seeds public local ones (`demo@example.com`); the server's are TestSprite's and private |
 
@@ -362,7 +364,7 @@ Ports: 8000 (local), 8001 (deployed).
 **Only the deterministic core and the security boundaries get Go tests:**
 
 - `engine/` (rules, golden reports, invariants — `make golden` rewrites the goldens)
-- `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it)
+- `snapshot/` (the rendered tests drive local Chrome against the Gym pages and skip without it; `snapshot/links` is the multiple-page scan's link discovery)
 - `pkg/fetchPublicPage` and `pkg/publicDialer`
 - `pkg/apiToken`
 - `pkg/isAllowedOrigin` (the credentialed CORS allow-list)

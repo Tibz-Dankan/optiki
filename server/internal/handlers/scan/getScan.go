@@ -19,17 +19,13 @@ var GetScan = func(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	viewer := viewerID(c)
-	isOwner := viewer != "" && savedScan.UserID != nil && *savedScan.UserID == viewer
-	_, isToken := c.Locals("apiToken").(models.APIToken)
-	visible := isOwner || (!isToken && savedScan.Visibility == constants.SCAN_VISIBILITY_PUBLIC)
-	if savedScan.ID == "" || !visible {
+	if savedScan.ID == "" || !canViewScan(c, savedScan) {
 		return fiber.NewError(fiber.StatusNotFound, constants.ErrScanNotFound)
 	}
 
 	response := fiber.Map{
 		"status": "success",
-		"data":   scanReportData(c.UserContext(), savedScan, viewer),
+		"data":   scanReportData(c.UserContext(), savedScan, viewerID(c)),
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)

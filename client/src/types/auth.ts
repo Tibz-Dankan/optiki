@@ -148,5 +148,6 @@ export type TReconcileAnonymousUserResponse = TServerResponseStatus & {
     anonymousID: string
     userID: string
     linkedVisits: number
+    linkedScans: number
   }
 }

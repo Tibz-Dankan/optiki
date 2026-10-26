@@ -52,16 +52,16 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, rule }) => {
           <p className='mt-2 text-muted-foreground'>{rule.fix}</p>
           <div className='mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
             <CodeBlock
-              title='Before'
+              title='Current'
               language={getCodeLanguage(rule.fixBefore)}
               code={rule.fixBefore}
-              copyLabel={`Copy before example for ${findingLabel}`}
+              copyLabel={`Copy current example for ${findingLabel}`}
             />
             <CodeBlock
-              title='After'
+              title='Expected'
               language={getCodeLanguage(rule.fixAfter)}
               code={rule.fixAfter}
-              copyLabel={`Copy after example for ${findingLabel}`}
+              copyLabel={`Copy expected example for ${findingLabel}`}
             />
           </div>
         </details>

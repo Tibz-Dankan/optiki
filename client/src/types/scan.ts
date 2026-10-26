@@ -45,6 +45,8 @@ export type TScanScreenshot = {
 
 export type TScanSummary = {
   id: string
+  multiplePageScan: false
+  multiplePageScanID: string | null
   title: string | null
   visibility: TScanVisibility
   status: TScanStatus
@@ -115,10 +117,19 @@ export type TScanReport = TScanSummary & {
   findings: TScanFinding[]
 }
 
-export type TCreateScanInput =
-  | { html: string; title?: string }
-  | { url: string; title?: string }
-  | { gym: string; title?: string }
+export type TCreateScanInput = {
+  url: string
+  title?: string
+  anonymousID?: string
+  multiplePageScan?: boolean
+}
+
+export type TRecentScan = {
+  id: string
+  target: string
+  overallScore: number | null
+  createdAt: string
+}
 
 export type TUpdateScanInput = {
   id: string
@@ -145,4 +156,128 @@ export type TScanListResponse = TServerResponseStatus & {
 
 export type TDeleteScanResponse = TServerResponseStatus & {
   data: { id: string }
+}
+
+export type TMultiplePageScanStatus =
+  'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+export type TMultiplePageScanSkipReason =
+  | 'NOT_PUBLIC'
+  | 'NOT_FOUND'
+  | 'HTTP_ERROR'
+  | 'NOT_HTML'
+  | 'BLOCKED'
+  | 'TIMEOUT'
+  | 'FAILED'
+  | 'DUPLICATE'
+
+export type TPageCounts = Pick<
+  TScanCounts,
+  'findings' | 'critical' | 'serious' | 'moderate' | 'minor'
+>
+
+export type TMultiplePageScanSummary = {
+  id: string
+  multiplePageScan: true
+  title: string | null
+  status: TMultiplePageScanStatus
+  triggeredBy: Exclude<TScanTriggeredBy, 'ANONYMOUS'>
+  mode: TScanMode
+  ruleSet: TScanRuleSet
+  maxPages: number
+  target: { startURL: string; origin: string | null }
+  progress: {
+    pagesDiscovered: number
+    pagesScanned: number
+    pagesSkipped: number
+    limitReached: boolean
+  }
+  scores: TScanScores
+  counts: TPageCounts
+  engine: { engineVersion: string; rulesetHash: string }
+  timing: {
+    startedAt: string | null
+    completedAt: string | null
+    durationMs: number | null
+  }
+  error: { code: string; message: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type TMultiplePageScanPage = {
+  id: string
+  route: string
+  url: string | null
+  pageTitle: string | null
+  status: TScanStatus
+  scores: TScanScores
+  counts: TPageCounts
+  error: { code: string; message: string } | null
+}
+
+export type TMultiplePageScanRule = {
+  ruleID: string
+  name: string
+  position: number
+  category: TRuleCategory
+  priority: 'P0' | 'P1' | 'P2'
+  severity: TSeverity
+  pagesFailed: number
+  pagesChecked: number
+  findings: number
+}
+
+export type TMultiplePageScanSkippedPage = {
+  url: string
+  reason: TMultiplePageScanSkipReason
+  httpStatus: number | null
+}
+
+export type TMultiplePageScan = TMultiplePageScanSummary & {
+  pages: TMultiplePageScanPage[]
+  rules: TMultiplePageScanRule[]
+  skipped: TMultiplePageScanSkippedPage[]
+}
+
+export type TMultiplePageScanResponse = TServerResponseStatus & {
+  data: TMultiplePageScan
+}
+
+export type TMultiplePageScanSummaryResponse = TServerResponseStatus & {
+  data: TMultiplePageScanSummary
+}
+
+export type TMultiplePageScanListResponse = TServerResponseStatus & {
+  data: TMultiplePageScanSummary[]
+  pagination: TPagination
+}
+
+export type TFixReportStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+export type TFixReportTriggeredBy = 'SCAN_COMPLETION' | 'USER' | 'API_TOKEN'
+
+export type TFixReport = {
+  id: string
+  scanID: string | null
+  multiplePageScanID: string | null
+  status: TFixReportStatus
+  triggeredBy: TFixReportTriggeredBy
+  model: string | null
+  content: string | null
+  findingsCovered: number
+  error: { code: string; message: string } | null
+  timing: {
+    startedAt: string | null
+    completedAt: string | null
+    durationMs: number | null
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export type TFixReportResponse = TServerResponseStatus & {
+  data: TFixReport | null
+}
+
+export type TCreateFixReportResponse = TServerResponseStatus & {
+  data: TFixReport
 }

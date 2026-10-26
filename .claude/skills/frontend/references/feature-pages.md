@@ -8,16 +8,18 @@ Projects are designed (backend `references/projects.md`) but not built. There is
 
 | Path | Tree | Module · page | Notes |
 |---|---|---|---|
-| `/` | all three | `home/pages/home.tsx` → `Home` | "Try a demo scan" scans the kitchen-sink Gym page and opens its report |
-| `/scan` | all three | `scan/pages/scan.tsx` → `Scan` | the playground |
-| `/scans/:id` | all three | `scan/pages/scan-report.tsx` → `ScanReport` | one report; the share link |
+| `/` | all three | `home/pages/home.tsx` → `Home` | landing; links to `/scan` and `/gym` (no scan buttons) |
+| `/scan` | signed-out, unverified (user tree redirects to `/u/scan`) | `scan/pages/scan.tsx` → `Scan` | guest scan page: `ScanPanel isGuest` + guest recent scans |
+| `/scans/:id` | all three | `scan/pages/scan-report.tsx` → `ScanReport` | one report in `HomeLayout`; the share link |
 | `/rules`, `/rules/:id` | all three | `rules/pages/rules.tsx` → `Rules`, `rule.tsx` → `Rule` | catalog |
 | `/gym` | all three | `gym/pages/gym.tsx` → `Gym` | fixture index; links open `API_ORIGIN` + `/gym/pages/<id>.html` |
-| `/u/dashboard` | user | `dashboard/pages/dashboard.tsx` | recent scans (the 5 latest) |
+| `/u/scan` | user | `scan/pages/user-scan.tsx` → `UserScan` | the signed-in default (`homePath`, sign-in redirect): `ScanPanel` + `RecentScans` |
 | `/u/scans` | user | `scan/pages/scans.tsx` → `Scans` | history, a `TPage` under "General" |
+| `/u/scans/:id` | user | `scan/pages/user-scan-report.tsx` → `UserScanReport` | the report inside the app shell (hidden `TPage`) |
+| `/u/scans/multiple/:id` | user | `scan/pages/multiple-page-scan-report.tsx` → `MultiplePageScanReport` | a multiple-page scan's progress and results (hidden `TPage`) |
 | `/u/settings/api-tokens` | user | `api-token/pages/api-tokens.tsx` → `APITokens` | a Settings child, plus an entry in `settings/ui/settings-nav.tsx` |
 
-Every public page wraps itself in **`HomeLayout`** (`home/layout/home-layout.tsx`): the logo, the Scan / Rules / Gym nav, the theme switch, sign-in or "Open dashboard", `<main id='content'>`, and the footer.
+Every public page wraps itself in **`HomeLayout`** (`home/layout/home-layout.tsx`): the logo, the Scan / Rules / Gym nav, the theme switch, sign-in or "Open app" (to `/u/scan`), `<main id='content'>`, and the footer.
 
 Public pages render for everyone, and the server decides what each visitor gets. The page reads `ruleSet`, `mode` and `isOwner` from the response; it never infers them from the route tree.
 
@@ -25,7 +27,7 @@ Public pages render for everyone, and the server decides what each visitor gets.
 
 | File | Class · singleton | Keys | Types file |
 |---|---|---|---|
-| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update({id, title?, visibility?})`, `delete({id})` | `scanKeys = { all, list(filters), detail(id) }` | `types/scan.ts` |
+| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update({id, title?, visibility?})`, `delete({id})`; for multiple-page scans `createMultiplePage` (the same `POST /scan` with `multiplePageScan: true`), `getAllMultiplePage(limit, cursor)`, `getOneMultiplePage(id)`, `deleteMultiplePage({id})`; fix reports `getFixReport(id)`, `createFixReport({id})`, `getMultiplePageFixReport(id)`, `createMultiplePageFixReport({id})` | `scanKeys = { all, list(filters), detail(id), multipleList(), multipleDetail(id), fixReport(id), multipleFixReport(id) }` | `types/scan.ts` |
 | `api/api-token.ts` | `APITokenAPI` · `apiTokenAPI`: `create`, `getAll(limit, cursor)`, `getPermissions`, `update`, `revoke`, `delete` | `apiTokenKeys = { all, list(), permissions() }` | `types/api-token.ts` |
 | `api/rules.ts` | `RulesAPI` · `rulesAPI`: `getAll()` (FULL), `getOne(id)` | `rulesKeys = { all, list(), detail(id) }` | `types/rules.ts` |
 | `api/gym.ts` | `GymAPI` · `gymAPI`: `getAll` | `gymKeys = { all, list() }` | `types/gym.ts` |
@@ -41,13 +43,22 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 - `TScanReport = TScanSummary & { rules; findings }`
 - `TScanScreenshot = { id, url, expiresAt, contentType, size, width, height }`
 
-## Scan playground (`/scan`)
+## Scan page (`/scan` for guests, `/u/scan` signed in)
 
-- Three tabs (`@shared/ui/tabs`):
-  - **Gym example** (default): `scan/ui/gym-examples.tsx`. Buttons named by rule and variant ("Load example OPT-101 broken", "Load example Kitchen sink (every rule broken)"). **A Load example button scans immediately**: one click, short TestSprite plans.
-  - **URL**: `url-scan-form.tsx`, Formik + Yup. The text says whether the scan will render (verified) or run statically.
-  - **Paste HTML**: `html-scan-form.tsx`, with a 2 MB check in Yup.
-- The page owns the one `scanAPI.create` mutation. On success it invalidates `scanKeys.all` and navigates to `/scans/:id`.
+**URL only.** The client never sends `html` or `gym`; those inputs stay on the server for the token API. There are no tabs and no "Load example" buttons, and Home and the Gym page don't scan.
+
+- Both pages render `scan/ui/scan-panel.tsx` → `ScanPanel` (`isGuest` on `/scan`), which owns the one `scanAPI.create` mutation:
+  - wording on top ("Scan a page" + subtitle), then `url-scan-form.tsx`: the "Page address" label, then the input and the "Scan" button side by side, then a hint (guests: "… N of 3 free scans left"; signed in: rendered, 17 rules, screenshot)
+  - on success it invalidates `scanKeys.all` and navigates to `/scans/:id` (guest) or `/u/scans/:id` (signed in)
+- **Guests** (signed out, or signed in but unverified — the server scans both anonymously):
+  - each create sends `anonymousID: getAnonymousID()`; the server requires it for anonymous callers
+  - a completed scan is added to `stores/guest-scan.ts` (`useGuestScanStore`, persisted as `guest-scan-storage`) as a `TRecentScan` (`toRecentScan`)
+  - at `guestScanLimit` (3) stored scans, or on a server `ANONYMOUS_SCAN_LIMIT`, `guest-scan-limit-notice.tsx` replaces the form: "Sign in to scan more" (`?redirectTo=/u/scan`) and "Create an account", or "Verify your email" when unverified
+  - below the panel: a "Recent scans" section (heading with the `History` icon) with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
+  - `reconcileAnonymousUser` claims them on the server (they become private) and empties the store
+- **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans".
+  - Under the address field, `url-scan-form.tsx` shows the checkbox "Automatically discover other pages of the host and scan them too" (unchecked; `discoverPages` / `onDiscoverPagesChange`, owned by `ScanPanel`). Checked, the same "Scan" button calls `createMultiplePage` and opens `/u/scans/multiple/:id`, and the hint describes the crawl. Guests get no checkbox, only "Sign in to scan multiple pages".
+  - Each row links its target and, through `RecentScanList`'s `renderActions`, gets the report's `ScanOwnerActions` menu named "Actions for scan of <target>" (no `redirectTo`). The guest list passes no `renderActions`.
 - A local `onError` replaces the global toast with an inline `role='alert'`, keyed on `error.error` through `scanErrorMessages`:
 
 | Reason | Message |
@@ -58,21 +69,26 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 | `FETCH_TIMEOUT` / `RENDER_TIMEOUT` | "That page took too long to load" |
 | `RENDERER_BUSY` | "Too many scans are rendering — try again in a few seconds" |
 | `TOO_MANY_REQUESTS` | "Slow down — too many scans. Try again in a minute" |
+| `ANONYMOUS_SCAN_LIMIT` | shows the limit notice instead of an alert |
 
-## Report (`/scans/:id`)
+## Report (`/scans/:id` public, `/u/scans/:id` signed in)
 
-- **Header**: the target (`describeScanTarget`), source and time, and badges for Rendered/Static, "All 17 rules"/"9 core rules", and Public/Private. Owner actions (`scan/ui/scan-owner-actions.tsx`) appear only when `isOwner`:
-  - "Make scan public" / "Make scan private"
-  - "Copy link"
-  - "Delete scan", through `delete-scan-dialog.tsx`
-- **`rule-set-banner.tsx`**: on `CORE`, "Ran the 9 core rules. Sign in to run all 17 rules…" (`?redirectTo=/scan`). On a static `FULL` scan, it says how many rules need a rendered page.
+- Both pages render `scan/ui/scan-report-content.tsx` → `ScanReportContent` (`{ id, scanAnotherPath }`). The public page adds `GuestHistoryBanner` above it (it renders nothing for verified users).
+- **Header**: the target (`describeScanTarget`), source and time, and badges for Rendered/Static, "All 17 rules"/"9 core rules", and Public/Private; then "Scan another page" and, only when `isOwner`, `scan/ui/scan-owner-actions.tsx`:
+  - a `DropdownMenu modal={false}` behind an icon button named "Scan actions" (⋮), with "Make scan public"/"Make scan private", "Copy link" and "Delete scan"
+  - each item opens its own dialog; the menu keeps only which one is open: `scan-visibility-dialog.tsx` (`ConfirmDialog`, owns the update mutation), `copy-scan-link-dialog.tsx` (always the public `${origin}/scans/:id`, with "Copy link"), `delete-scan-dialog.tsx` (redirects to `redirectTo` when given; the report passes `/u/scans`)
+- **`rule-set-banner.tsx`**: on `CORE`, "Ran the 9 core rules. Sign in to run all 17 rules…" (`?redirectTo=/u/scan`). On a static `FULL` scan, it says how many rules need a rendered page.
 - **`score-summary.tsx`**:
   - The overall score and the four category scores **as visible text**, with each category's question.
   - The gauge is a decorative SVG with `aria-hidden`.
   - `null` shows "—", or "Needs rendered scan" when every rule in that category is `NEEDS_RENDERED`.
+- **`fix-report-section.tsx`** → `FixReportSection` (`{ scanID, multiplePage?, canGenerate, hasFindings }`), right after the scores and hidden on a `FAILED` scan:
+  - A "Fix report" section with the Gemini-written prompt for a coding agent. `useQuery` on `scanKeys.fixReport(id)` refetches every 3 s while the report is `QUEUED`/`RUNNING` (`isFixReportActive`).
+  - No report yet: a "Generate report" button for the owner when the scan has findings; nothing otherwise. Queued or running: a `role='status'` "Generating your fix report with Gemini…". Completed: "Copy prompt" (visible text, "Copied" after) and "Download .md", both of the raw Markdown; the prompt rendered by `fix-report-markdown.tsx` in a `role='region'` "Fix prompt" scroll box (`tabIndex={0}`, so keyboards can scroll it without tripping OPT-104); and a line with the time and the findings covered. There is no Regenerate button; the API still regenerates. Failed: the error and "Try again" (owner).
+  - `FixReportMarkdown` is `react-markdown` + `remark-gfm`, read-only. **No `rehype-raw`**, so HTML in the report (it quotes scanned pages) stays text, and `img` is disallowed so nothing remote loads. Headings shift down to start at `h3`; `html`/`css` fences use the shiki `HighlightedCode`; task-list checkboxes become `aria-hidden` icons (a disabled, unlabeled checkbox would trip OPT-106).
+  - The generate mutation writes its answer into the query cache, and on a 409 invalidates the query. Reason codes map to `scanErrorMessages`.
 - **`scan-screenshot.tsx`**:
-  - When `screenshot` is set: a "Page screenshot" heading and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
-  - An "Open full-size screenshot" link.
+  - When `screenshot` is set: a "Page" heading followed by the scan's `target.route` in muted text (e.g. "Page /pricing"), and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
   - The report query uses `staleTime` and `refetchInterval` of 25 minutes, so the 30-minute link is replaced before it expires.
 - **`rule-results.tsx`**: rules grouped by category. Each rule shows its ID (linking to `/rules/:id`), name, severity and result (Pass / Fail · n findings / Not applicable / Needs rendered scan). Failing rules list their findings in `finding-card.tsx`:
   - the severity and `message`
@@ -83,12 +99,27 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 - A 400 or 404 renders `NotFoundError`. That covers missing scans and other users' private ones alike.
 - Report grids use `grid-cols-[minmax(0,1fr)]`. A plain `1fr` track grows to fit a long snippet and the page scrolls sideways.
 
-## Scan history (`/u/scans`) and dashboard
+## Multiple-page scan (`/u/scans/multiple/:id`)
+
+- `useQuery` on `scanKeys.multipleDetail(id)` refetches every 2 s while the scan is `QUEUED` or `RUNNING` (`isMultiplePageScanActive`). A 400 or 404 renders `NotFoundError`.
+- Header: the start URL, status / mode / rule-set / Private badges, "Scan another page", and `multiple-page-scan-actions.tsx` → `MultiplePageScanActions`: the single-page report's ⋮ "Scan actions" menu with one "Delete scan" item (disabled while active), which opens `delete-multiple-page-scan-dialog.tsx` and redirects to `/u/scans`. There is no visibility or copy link; multiple-page scans are always private.
+- `multiple-page-scan-progress.tsx`: a `role='status'` sentence ("Scanning… 7 of up to 25 pages done, 23 found so far."), a decorative bar, the failure alert, and how many found pages were left after the 25-page cap.
+- `ScoreSummary` with `rules={[]}`, captioned as the average across the scanned pages. It is shown once the scan completes.
+- `FixReportSection` with `multiplePage` once the scan completes: one prompt for the whole crawl.
+- `multiple-page-rule-summary.tsx`: "Issues across the pages", the failing rules by pages failed ("Fails on 12 of 25 pages · 48 findings"), each linking `/rules/:id`.
+- `multiple-page-scan-pages.tsx`: "Scanned pages", one row per page (worst first once completed), each linking "Open report for <route>" to `/u/scans/:id`.
+- `multiple-page-scan-skipped.tsx`: a `<details>` "N pages not scanned" with each URL and its reason (`skipReasonLabels`).
+- A page's own report (`scan-report-content.tsx`) links back with "View all scanned pages" when it has a `multiplePageScanID`.
+
+## Scan history (`/u/scans`)
+
+- `multiple-page-scan-list.tsx` → `MultiplePageScanList` comes first: a "Multiple-page scans" table (start page, pages scanned, average score, status, created; per-row "Open multiple-page scan of <url>" and the `MultiplePageScanActions` ⋮ menu named "Actions for multiple-page scan of <url>", with no `redirectTo`). It polls while any row is active and renders nothing when there are none. The page scans below sit under a "Single-page scans" heading; `GET /scan` leaves out pages that belong to a multiple-page scan.
 
 - `useInfiniteQuery` over `scanKeys.list(filters)`, with "Load more scans" and status and source filters (shadcn `Select` with `aria-label`s).
-- Row actions are named per row: "Open scan of <target>", "Delete scan of <target>".
+- The Page cell is the target (`describeScanTarget`) linking to `/u/scans/:id`.
+- Actions is the report's `ScanOwnerActions` menu, its trigger named per row ("Actions for scan of <target>") and no `redirectTo`, so deleting keeps the list open.
 - No screenshots in lists; screenshots appear on the report only.
-- The dashboard shows the 5 most recent scans ("Open scan of …"), "See all scans", and "Scan a page".
+- Claimed guest scans appear in `/u/scan`'s Recent scans and here, with source "Anonymous", private.
 
 ## API tokens (`/u/settings/api-tokens`)
 
@@ -115,4 +146,4 @@ Ported from the GradeScript console's API-key page.
 ## Checked against optikí itself
 
 - Rendered through optikí's own engine (`FULL`, all 17 rules), `/`, `/scan`, `/rules`, `/rules/OPT-201`, `/gym` and `/auth/signin` all score 100.
-- A headless walkthrough found every control by its visible name: demo scan, Gym example, SSRF error, sign-in, rendered report with screenshot, share, token create → shown once → revoke, history, dashboard.
+- A headless walkthrough found every control by its visible name: URL scan, SSRF error, the guest limit and history banner, sign-in, rendered report with screenshot, share, token create → shown once → revoke, history.
