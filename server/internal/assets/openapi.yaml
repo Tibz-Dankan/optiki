@@ -321,6 +321,48 @@ components:
         fixAfter: { type: string }
         wcag: { type: string }
         origin: { type: string }
+    FixReport:
+      type: object
+      description: >-
+        A Gemini-written prompt that a coding agent (Claude Code, Codex, Cursor, Antigravity…) follows to fix
+        a scan's findings. One per scan or multiple-page scan; generating again replaces it.
+      properties:
+        id: { type: string, format: uuid }
+        scanID: { type: [string, 'null'], format: uuid }
+        multiplePageScanID: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [QUEUED, RUNNING, COMPLETED, FAILED] }
+        triggeredBy: { type: string, enum: [SCAN_COMPLETION, USER, API_TOKEN] }
+        model: { type: [string, 'null'], example: gemini-3.8-flash }
+        content: { type: [string, 'null'], description: The Markdown prompt, once COMPLETED }
+        findingsCovered: { type: integer, minimum: 0 }
+        error:
+          type: [object, 'null']
+          properties:
+            code: { type: string, example: GEMINI_BUSY }
+            message: { type: string }
+        timing:
+          type: object
+          properties:
+            startedAt: { type: [string, 'null'], format: date-time }
+            completedAt: { type: [string, 'null'], format: date-time }
+            durationMs: { type: [integer, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FixReportResponse:
+      type: object
+      properties:
+        status: { type: string, const: success }
+        data:
+          description: The report, or null when the scan has none yet
+          oneOf:
+            - { $ref: '#/components/schemas/FixReport' }
+            - { type: 'null' }
+    FixReportCreated:
+      type: object
+      properties:
+        status: { type: string, const: success }
+        message: { type: string, example: Fix report queued }
+        data: { $ref: '#/components/schemas/FixReport' }
   responses:
     BadRequest:
       description: Invalid input
@@ -348,6 +390,9 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Conflict:
       description: The resource is already in that state
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ServiceUnavailable:
+      description: FIX_REPORTS_UNAVAILABLE — the server has no Gemini API key
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 paths:
   /api/v1/auth/signup:
@@ -760,6 +805,41 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/scan/multiple/{id}/fix-report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans]
+      summary: Get the fix report of a multiple-page scan
+      description: >-
+        Owner only; anything else is 404. `data` is null until a report exists. A report is queued automatically when the crawl completes with
+        findings; poll this while its status is QUEUED or RUNNING.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: The fix report, or null
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Scans]
+      summary: Generate (or regenerate) the fix report of a multiple-page scan
+      description: >-
+        Owner only. The multiple-page scan must be COMPLETED (422) and have findings (422 NO_FINDINGS). 409
+        FIX_REPORT_IN_PROGRESS while one is QUEUED or RUNNING; 429 FIX_REPORT_QUEUE_FULL (with Retry-After) or a
+        rate limit of 10 per 10 minutes; 503 FIX_REPORTS_UNAVAILABLE without a Gemini key.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '201':
+          description: The queued report
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportCreated' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /api/v1/scan/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -807,6 +887,41 @@ paths:
         '200': { description: Deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/scan/{id}/fix-report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans]
+      summary: Get the fix report of a scan
+      description: >-
+        PUBLIC scans, or the caller's own; anything else is 404. `data` is null until a report exists. A report is queued automatically when the scan completes with
+        findings; poll this while its status is QUEUED or RUNNING.
+      security: [{}, { cookieAuth: [] }]
+      responses:
+        '200':
+          description: The fix report, or null
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Scans]
+      summary: Generate (or regenerate) the fix report of a scan
+      description: >-
+        Owner only. The scan must be COMPLETED (422) and have findings (422 NO_FINDINGS). 409
+        FIX_REPORT_IN_PROGRESS while one is QUEUED or RUNNING; 429 FIX_REPORT_QUEUE_FULL (with Retry-After) or a
+        rate limit of 10 per 10 minutes; 503 FIX_REPORTS_UNAVAILABLE without a Gemini key.
+      security: [{ cookieAuth: [] }]
+      responses:
+        '201':
+          description: The queued report
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportCreated' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /client/v1/scan:
     post:
       tags: [Scans (token API)]
@@ -918,6 +1033,41 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /client/v1/scan/multiple/{id}/fix-report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans (token API)]
+      summary: Get the fix report of a multiple-page scan
+      description: >-
+        Owner only; anything else is 404. `data` is null until a report exists. A report is queued automatically when the crawl completes with
+        findings; poll this while its status is QUEUED or RUNNING. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: The fix report, or null
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Scans (token API)]
+      summary: Generate (or regenerate) the fix report of a multiple-page scan
+      description: >-
+        Owner only. The multiple-page scan must be COMPLETED (422) and have findings (422 NO_FINDINGS). 409
+        FIX_REPORT_IN_PROGRESS while one is QUEUED or RUNNING; 429 FIX_REPORT_QUEUE_FULL (with Retry-After) or a
+        rate limit of 10 per 10 minutes; 503 FIX_REPORTS_UNAVAILABLE without a Gemini key. Needs `scan:edit:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: The queued report
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportCreated' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /client/v1/scan/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -965,6 +1115,41 @@ paths:
         '200': { description: Deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /client/v1/scan/{id}/fix-report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Scans (token API)]
+      summary: Get the fix report of a scan
+      description: >-
+        Owner only; anything else is 404. `data` is null until a report exists. A report is queued automatically when the scan completes with
+        findings; poll this while its status is QUEUED or RUNNING. Needs `scan:view:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: The fix report, or null
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Scans (token API)]
+      summary: Generate (or regenerate) the fix report of a scan
+      description: >-
+        Owner only. The scan must be COMPLETED (422) and have findings (422 NO_FINDINGS). 409
+        FIX_REPORT_IN_PROGRESS while one is QUEUED or RUNNING; 429 FIX_REPORT_QUEUE_FULL (with Retry-After) or a
+        rate limit of 10 per 10 minutes; 503 FIX_REPORTS_UNAVAILABLE without a Gemini key. Needs `scan:edit:own`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: The queued report
+          content: { application/json: { schema: { $ref: '#/components/schemas/FixReportCreated' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /api/v1/apitoken:
     post:
       tags: [API tokens]

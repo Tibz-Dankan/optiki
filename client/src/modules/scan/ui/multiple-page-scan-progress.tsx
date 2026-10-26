@@ -43,7 +43,7 @@ export const MultiplePageScanProgress: React.FC<
       </p>
       <div
         aria-hidden='true'
-        className='h-2 overflow-hidden rounded-full bg-muted'
+        className='h-1.25 overflow-hidden rounded-full bg-muted'
       >
         <div
           className='h-full rounded-full bg-primary transition-[width]'

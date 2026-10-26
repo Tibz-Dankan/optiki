@@ -175,9 +175,10 @@ type MultiplePageScan struct {
 	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
 
 	// Relationships
-	User     *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	APIToken *APIToken `gorm:"foreignKey:APITokenID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
-	Scans    []*Scan   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	User      *User      `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	APIToken  *APIToken  `gorm:"foreignKey:APITokenID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Scans     []*Scan    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	FixReport *FixReport `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
 
 type Scan struct {
@@ -257,6 +258,7 @@ type Scan struct {
 	MultiplePageScan *MultiplePageScan `gorm:"foreignKey:MultiplePageScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	RuleResults      []*ScanRuleResult `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 	Findings         []*ScanFinding    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	FixReport        *FixReport        `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
 
 type ScanRuleResult struct {
@@ -299,6 +301,30 @@ type ScanFinding struct {
 
 	// Relationships
 	Scan *Scan `gorm:"foreignKey:ScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+
+type FixReport struct {
+	ID                 string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	ScanID             *string    `gorm:"column:scanID;type:uuid;default:null;uniqueIndex" json:"scanID"`
+	MultiplePageScanID *string    `gorm:"column:multiplePageScanID;type:uuid;default:null;uniqueIndex" json:"multiplePageScanID"`
+	TriggeredBy        string     `gorm:"column:triggeredBy;not null" json:"triggeredBy"` // SCAN_COMPLETION, USER, API_TOKEN
+	Status             string     `gorm:"column:status;not null;index" json:"status"`     // QUEUED, RUNNING, COMPLETED, FAILED
+	Model              *string    `gorm:"column:model;size:64;default:null" json:"model"`
+	Content            *string    `gorm:"column:content;type:text;default:null" json:"content"`
+	FindingsCovered    int        `gorm:"column:findingsCovered;not null;default:0" json:"findingsCovered"`
+	InputTokens        *int       `gorm:"column:inputTokens;default:null" json:"inputTokens"`
+	OutputTokens       *int       `gorm:"column:outputTokens;default:null" json:"outputTokens"`
+	ErrorCode          *string    `gorm:"column:errorCode;size:64;default:null" json:"errorCode"`
+	ErrorMessage       *string    `gorm:"column:errorMessage;size:512;default:null" json:"errorMessage"`
+	StartedAt          *time.Time `gorm:"column:startedAt;default:null" json:"startedAt"`
+	CompletedAt        *time.Time `gorm:"column:completedAt;default:null" json:"completedAt"`
+	DurationMs         *int       `gorm:"column:durationMs;default:null" json:"durationMs"`
+	CreatedAt          time.Time  `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt          time.Time  `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	Scan             *Scan             `gorm:"foreignKey:ScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	MultiplePageScan *MultiplePageScan `gorm:"foreignKey:MultiplePageScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 type Device struct {

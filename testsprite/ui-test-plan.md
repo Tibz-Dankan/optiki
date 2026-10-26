@@ -98,6 +98,16 @@ Every case asserts on the scan it just created, never on history order or counts
   3. Action: Click the "Scan" button
   4. Assertion: A notice starting "Your scans are saved in this browser only." is shown
 
+### U13 · A scan with findings gets a fix report for coding agents
+
+- **Priority:** Medium
+- **Description:** Every completed scan with findings gets a fix report: a prompt, written by Gemini in the background, that the visitor pastes into a coding agent. The report page shows the "Fix report" section at once, while the prompt is generated. The case asserts only on the section, never on Gemini's text, which differs from run to run. It needs `GEMINI_API_KEY` on the production server.
+- **Steps:**
+  1. Action: Navigate to /scan
+  2. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-102-broken.html into the "Page address" field
+  3. Action: Click the "Scan" button
+  4. Assertion: A section headed "Fix report" is visible below the scores
+
 ---
 
 ## Signed-in scanning (demo account)

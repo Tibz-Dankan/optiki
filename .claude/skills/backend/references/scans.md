@@ -55,6 +55,10 @@ One handler per endpoint, registered on both surfaces where the behaviour is the
 | `GET /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:view:own)` | `GetScan` | the owner's only, even if `PUBLIC` |
 | `PATCH /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:edit:own)` | `UpdateScan` | |
 | `DELETE /client/v1/scan/:id` | `AuthAPI → RequirePermission(scan:delete:own)` | `DeleteScan` | |
+| `GET /api/v1/scan/:id/fix-report` | `OptionalAuth` | `GetFixReport` | same visibility as `GetScan`; `data: null` before a report exists |
+| `POST /api/v1/scan/:id/fix-report` | `Auth → VerifiedEmail → FixReportRateLimit` | `CreateFixReport` | owner only; generates or regenerates |
+| `GET`/`POST /api/v1/scan/multiple/:id/fix-report` | `Auth → VerifiedEmail` (`→ FixReportRateLimit` on POST) | `GetMultiplePageFixReport` / `CreateMultiplePageFixReport` | owner only |
+| `GET`/`POST /client/v1/scan/…/fix-report` | `AuthAPI → RequirePermission(scan:view:own` / `scan:edit:own)` (`→ FixReportRateLimit` on POST) | the same four | |
 
 `ScanRateLimit` runs **after** the auth middleware because it keys on the caller.
 
@@ -269,6 +273,18 @@ type UpdateScanInput struct {
 - **Read and delete:** `GET /scan/multiple` (list, cursor pagination), `GET /scan/multiple/:id` (owner only, else 404; adds `pages`, a per-rule `rules` rollup and `skipped`), `DELETE /scan/multiple/:id` (409 while active; deletes the page scans and their screenshot objects). Registered before `/:id` on both surfaces, with `scan:view:own` / `scan:delete:own` on the token API.
 - `GET /scan` leaves out pages that belong to a multiple-page scan, so history isn't flooded. Each page's own report still says `multiplePageScanID`.
 
+## Fix reports
+
+A fix report is a Markdown prompt, written by Gemini, that the user pastes into a coding agent (Claude Code, Codex, Cursor, Antigravity…) to fix a scan's findings.
+
+- **When:** `runScan` queues one after `completeScan` for every completed scan with findings (anonymous, signed-in and token scans alike), and `runMultiplePageScan` queues one for the whole crawl after `Complete`. Both happen only when `pkg.GeminiConfigured()`, and a queueing failure is logged, never a failed scan. Page scans inside a crawl aren't queued automatically. Because `runScan` queues before `CreateScan` answers, the client's first read already sees `QUEUED`.
+- **On demand:** `POST …/fix-report` (owner only, `FixReportRateLimit` 10 per 10 minutes per user or token) generates a report for an older scan, regenerates one, or retries a failed one. 422 for a scan that isn't `COMPLETED`, 422 `NO_FINDINGS`, 409 `FIX_REPORT_IN_PROGRESS` while one is `QUEUED`/`RUNNING`, 429 `FIX_REPORT_QUEUE_FULL` (`Retry-After: 60`), 503 `FIX_REPORTS_UNAVAILABLE` without a key. 201 with the queued report.
+- **Pipeline:** `queueFixReport` → `FixReport.Queue` (a row lock; creates the row or resets a finished one) → `enqueueFixReport` (`fixReportQueue.go`: `FIX_REPORT_QUEUE_SIZE` 100, `FIX_REPORT_WORKERS` 2, which also caps how fast anonymous scans can spend quota). A full queue stores the row as `FAILED` `QUEUE_FULL`. `runFixReport` (3-minute budget) marks it `RUNNING`, builds the input, calls `pkg.Gemini().Generate` and completes or fails it (`TIMEOUT`, `GEMINI_BUSY`, `GENERATION_FAILED`, `UNAVAILABLE`).
+- **Input** (`buildFixReportInput.go`): deterministic JSON, encoded without HTML escaping. It holds the scan context, the failing rules most severe first with their catalog `why`/`fix`/`fixBefore`/`fixAfter`/`wcag`, and every instance's routes, selector, role, name, message, snippet and evidence. A crawl merges an element that fails the same rule on several pages into one instance by `(ruleID, selectorPath, snippet)`; fingerprints include the route, so they can't. At most `FIX_REPORT_MAX_INSTANCES_PER_RULE` (25) instances per rule, plus `omittedInstances`. Passed and `NEEDS_RENDERED` rules are listed by name.
+- **Instructions:** `templates/prompt/fix-report.md`, embedded as `templates.PromptFS`. It fixes the prompt's sections (task, ground rules, finding the source, issues, not checked, acceptance criteria, verify). Page content is attacker-controllable, so it is fenced as data: Gemini must never carry over instructions from snippets or names, and the prompt it writes tells the agent the same and limits it to the project's own scripts.
+- **Restart:** the queue lives in memory; `cmd/main.go` marks every `QUEUED`/`RUNNING` report `FAILED` `INTERRUPTED` at boot.
+- **Verify locally without a key:** the genai SDK honours `GOOGLE_GEMINI_BASE_URL`, so a stub server that answers `POST /v1beta/models/{model}:generateContent` exercises the whole pipeline.
+
 ## Files
 
 ```
@@ -277,6 +293,14 @@ handlers/scan/
   resolveScanCaller.go  runScan.go  scanResponseData.go  signScreenshots.go  validateScanInput.go  parseScanURL.go
   createMultiplePageScan.go  getMultiplePageScans.go  getMultiplePageScan.go  deleteMultiplePageScan.go
   multiplePageScanQueue.go  runMultiplePageScan.go  multiplePageScanResponseData.go
+  getFixReport.go  createFixReport.go  getMultiplePageFixReport.go  createMultiplePageFixReport.go  canViewScan.go
+  fixReportQueue.go  queueFixReport.go  runFixReport.go  buildFixReportInput.go  fixReportResponseData.go
+  fixReportTriggeredBy.go  fixReportQueueError.go
+models/fixReport.go            FindOne, FindByScan, FindByMultiplePageScan, Queue, MarkRunning, Complete, Fail,
+                               FailInterrupted
+pkg/gemini.go                  GeminiConfigured, Gemini() → Generate, IsGeminiRateLimited
+templates/prompt/fix-report.md Gemini's instructions
+middlewares/fixReportRateLimit.go
 models/multiplePageScan.go     Create, FindOne, FindPages, RuleRollup, FindAllByUser, MarkRunning, UpdateProgress,
                                Complete, Fail, FailInterrupted, DeleteQueued, Delete (returns the screenshots)
 snapshot/links/                Extract, SameSite, Key (+ links_test.go)

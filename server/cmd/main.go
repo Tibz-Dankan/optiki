@@ -79,18 +79,27 @@ func warnMissingFeatures() {
 	if os.Getenv("RESEND_API_KEY") == "" {
 		log.Println("RESEND_API_KEY isn't set: emails are logged in local development and fail when deployed")
 	}
+	if !pkg.GeminiConfigured() {
+		log.Println("GEMINI_API_KEY isn't set: scans won't get fix reports")
+	}
 }
 
-// failInterruptedScans fails the multiple-page scans a previous process left queued or running; their
-// background work died with it
+// failInterruptedScans fails the multiple-page scans and fix reports a previous process left queued or
+// running; their background work died with it
 func failInterruptedScans() {
 	multiplePageScan := models.MultiplePageScan{}
 	count, err := multiplePageScan.FailInterrupted()
 	if err != nil {
 		log.Println("failing interrupted multiple-page scans:", err)
-		return
-	}
-	if count > 0 {
+	} else if count > 0 {
 		log.Printf("Marked %d interrupted multiple-page scans as failed", count)
+	}
+
+	fixReport := models.FixReport{}
+	count, err = fixReport.FailInterrupted()
+	if err != nil {
+		log.Println("failing interrupted fix reports:", err)
+	} else if count > 0 {
+		log.Printf("Marked %d interrupted fix reports as failed", count)
 	}
 }

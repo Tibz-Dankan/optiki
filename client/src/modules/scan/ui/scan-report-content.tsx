@@ -10,6 +10,7 @@ import { Badge } from '@shared/ui/badge'
 import { Button } from '@shared/ui/button'
 import { Skeleton } from '@shared/ui/skeleton'
 import { NotFoundError } from '@shared/pages/not-found-error'
+import { FixReportSection } from '@modules/scan/ui/fix-report-section'
 import { RuleResults } from '@modules/scan/ui/rule-results'
 import { RuleSetBanner } from '@modules/scan/ui/rule-set-banner'
 import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
@@ -121,6 +122,11 @@ export const ScanReportContent: React.FC<ScanReportContentProps> = ({
           ) : (
             <>
               <ScoreSummary scores={data.data.scores} rules={data.data.rules} />
+              <FixReportSection
+                scanID={data.data.id}
+                canGenerate={data.data.isOwner}
+                hasFindings={data.data.counts.findings > 0}
+              />
               {data.data.screenshot && (
                 <ScanScreenshot
                   screenshot={data.data.screenshot}

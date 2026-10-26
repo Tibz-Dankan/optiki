@@ -34,8 +34,10 @@ api_tokens  ─< scans       (SET NULL: deleting a token keeps its scans)
 attachments ─< scans       (scans.screenshotAttachmentID, SET NULL; the scan delete removes it explicitly)
 projects    ─< scans       (SET NULL)                        — not built yet
 multiple_page_scans ─< scans (CASCADE: deleting the parent deletes its page scans)
+multiple_page_scans ── fix_reports (CASCADE, at most one per multiple-page scan)
 scans ─┬─< scan_rule_results (CASCADE)
-       └─< scan_findings     (CASCADE)
+       ├─< scan_findings     (CASCADE)
+       └── fix_reports       (CASCADE, at most one per scan)
 ```
 
 Anonymous scans have `userID NULL` and belong to nobody until `anony-reconcile` claims them by their `anonymousID`.
@@ -457,6 +459,38 @@ type ScanFinding struct {
 | OPT-302 | `{"cls":0.23}` |
 | any rendered finding | adds `"box":{"x":0,"y":0,"width":0,"height":0}` |
 
+## Fix reports
+
+A Gemini-written prompt for a coding agent, one per scan or multiple-page scan (`references/scans.md` § Fix reports). Exactly one of `scanID` and `multiplePageScanID` is set; each is a unique index, so generating again resets the same row.
+
+```go
+type FixReport struct {
+	ID                 string     `gorm:"column:id;type:uuid;primaryKey" json:"id"`
+	ScanID             *string    `gorm:"column:scanID;type:uuid;default:null;uniqueIndex" json:"scanID"`
+	MultiplePageScanID *string    `gorm:"column:multiplePageScanID;type:uuid;default:null;uniqueIndex" json:"multiplePageScanID"`
+	TriggeredBy        string     `gorm:"column:triggeredBy;not null" json:"triggeredBy"` // SCAN_COMPLETION, USER, API_TOKEN
+	Status             string     `gorm:"column:status;not null;index" json:"status"`     // QUEUED, RUNNING, COMPLETED, FAILED
+	Model              *string    `gorm:"column:model;size:64;default:null" json:"model"`
+	Content            *string    `gorm:"column:content;type:text;default:null" json:"content"`
+	FindingsCovered    int        `gorm:"column:findingsCovered;not null;default:0" json:"findingsCovered"`
+	InputTokens        *int       `gorm:"column:inputTokens;default:null" json:"inputTokens"`
+	OutputTokens       *int       `gorm:"column:outputTokens;default:null" json:"outputTokens"`
+	ErrorCode          *string    `gorm:"column:errorCode;size:64;default:null" json:"errorCode"`
+	ErrorMessage       *string    `gorm:"column:errorMessage;size:512;default:null" json:"errorMessage"`
+	StartedAt          *time.Time `gorm:"column:startedAt;default:null" json:"startedAt"`
+	CompletedAt        *time.Time `gorm:"column:completedAt;default:null" json:"completedAt"`
+	DurationMs         *int       `gorm:"column:durationMs;default:null" json:"durationMs"`
+	CreatedAt          time.Time  `gorm:"column:createdAt;index" json:"createdAt"`
+	UpdatedAt          time.Time  `gorm:"column:updatedAt;index" json:"updatedAt"`
+
+	// Relationships
+	Scan             *Scan             `gorm:"foreignKey:ScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	MultiplePageScan *MultiplePageScan `gorm:"foreignKey:MultiplePageScanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+}
+```
+
+`Scan` and `MultiplePageScan` each declare the has-one side, `FixReport *FixReport` (cascade). Token counts stay server-side; `fixReportData` leaves them out.
+
 ## AutoMigrate order and seeding
 
 ```go
@@ -466,6 +500,7 @@ err = gormDB.AutoMigrate(
 	&Permission{}, &APIToken{}, &APITokenPermission{},
 	&Attachment{},
 	&MultiplePageScan{}, &Scan{}, &ScanRuleResult{}, &ScanFinding{},
+	&FixReport{},
 )
 ```
 

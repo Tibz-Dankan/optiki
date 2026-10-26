@@ -46,8 +46,8 @@ type snapshotOutcome struct {
 }
 
 // runScan validates the target, records the scan as RUNNING, takes a snapshot (static, fetched or
-// rendered), runs the engine, stores the screenshot, and completes the row. Failures after the row exists
-// are stored as FAILED, except a busy renderer, whose row is dropped.
+// rendered), runs the engine, stores the screenshot, completes the row, and queues the fix report of a scan
+// with findings. Failures after the row exists are stored as FAILED, except a busy renderer, whose row is dropped.
 func runScan(ctx context.Context, caller scanCaller, request scanRequest) (models.Scan, error) {
 	if request.inputType == constants.SCAN_INPUT_URL {
 		if _, err := pkg.ValidatePublicURL(ctx, request.url); err != nil {
@@ -104,7 +104,18 @@ func runScan(ctx context.Context, caller scanCaller, request scanRequest) (model
 		return models.Scan{}, failure.err
 	}
 
-	return completeScan(ctx, saved.ID, caller.userID(), set, outcome, started)
+	completed, err := completeScan(ctx, saved.ID, caller.userID(), set, outcome, started)
+	if err != nil {
+		return models.Scan{}, err
+	}
+	if completed.FindingsCount > 0 && pkg.GeminiConfigured() {
+		if _, err := queueFixReport(models.FixReport{
+			ScanID: &completed.ID, TriggeredBy: constants.FIX_REPORT_TRIGGERED_BY_SCAN_COMPLETION,
+		}); err != nil {
+			log.Printf("queueing the fix report of scan %s: %v", completed.ID, err)
+		}
+	}
+	return completed, nil
 }
 
 // completeScan analyses a scan's snapshot, stores its screenshot, and writes the finished scan

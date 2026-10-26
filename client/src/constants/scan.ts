@@ -74,6 +74,8 @@ export const triggeredByLabels: Record<TScanTriggeredBy, string> = {
   API_TOKEN: 'API token',
 }
 
+export const fixReportPollInterval = 3000
+
 export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
   SSRF_BLOCKED: "This address isn't allowed",
   TOO_LARGE: 'That page is over 2 MB',
@@ -86,6 +88,9 @@ export const scanErrorMessages: Partial<Record<TServerErrorName, string>> = {
     "You've used your 3 free scans. Sign in to scan more pages",
   SCAN_QUEUE_FULL:
     'Too many multiple-page scans are waiting — try again in a minute',
+  FIX_REPORTS_UNAVAILABLE: "Fix reports aren't available right now",
+  FIX_REPORT_QUEUE_FULL:
+    'Too many fix reports are being generated — try again in a minute',
 }
 
 export const multiplePageScanMaxPages = 25

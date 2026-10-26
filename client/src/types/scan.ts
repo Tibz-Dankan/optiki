@@ -251,3 +251,33 @@ export type TMultiplePageScanListResponse = TServerResponseStatus & {
   data: TMultiplePageScanSummary[]
   pagination: TPagination
 }
+
+export type TFixReportStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+export type TFixReportTriggeredBy = 'SCAN_COMPLETION' | 'USER' | 'API_TOKEN'
+
+export type TFixReport = {
+  id: string
+  scanID: string | null
+  multiplePageScanID: string | null
+  status: TFixReportStatus
+  triggeredBy: TFixReportTriggeredBy
+  model: string | null
+  content: string | null
+  findingsCovered: number
+  error: { code: string; message: string } | null
+  timing: {
+    startedAt: string | null
+    completedAt: string | null
+    durationMs: number | null
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export type TFixReportResponse = TServerResponseStatus & {
+  data: TFixReport | null
+}
+
+export type TCreateFixReportResponse = TServerResponseStatus & {
+  data: TFixReport
+}

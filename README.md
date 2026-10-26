@@ -45,6 +45,7 @@ UI tests only, built in the TestSprite portal. They run on every ready (non-draf
 | U10 Deleting a scan from its report returns to the Scans page | UI | The owner can delete a scan | — |
 | U11 A signed-out scan's report asks the visitor to sign in to keep their history | UI | Signed-out scans are kept in the browser, with a prompt to sign in | — |
 | U12 A signed-in multiple-page scan lists the pages it scanned | UI | `multiplePageScan` crawls a site's public pages in the background and reports each one | — |
+| U13 A scan with findings gets a fix report for coding agents | UI | A completed scan with findings queues its Gemini fix report and shows it on the report | — |
 
 ## Run it locally
 

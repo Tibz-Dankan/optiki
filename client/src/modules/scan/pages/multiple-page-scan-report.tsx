@@ -19,6 +19,7 @@ import { ThemeSwitch } from '@shared/ui/theme-switch'
 import { Header } from '@shared/layout/header'
 import { Main } from '@shared/layout/main'
 import { NotFoundError } from '@shared/pages/not-found-error'
+import { FixReportSection } from '@modules/scan/ui/fix-report-section'
 import { MultiplePageRuleSummary } from '@modules/scan/ui/multiple-page-rule-summary'
 import { MultiplePageScanActions } from '@modules/scan/ui/multiple-page-scan-actions'
 import { MultiplePageScanPages } from '@modules/scan/ui/multiple-page-scan-pages'
@@ -118,6 +119,15 @@ export const MultiplePageScanReport: React.FC = () => {
                     {scan.progress.pagesScanned === 1 ? 'page' : 'pages'}.
                   </p>
                 </div>
+              )}
+
+              {scan.status === 'COMPLETED' && (
+                <FixReportSection
+                  scanID={scan.id}
+                  multiplePage
+                  canGenerate
+                  hasFindings={scan.counts.findings > 0}
+                />
               )}
 
               <MultiplePageRuleSummary rules={scan.rules} />

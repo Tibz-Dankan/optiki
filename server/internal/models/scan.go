@@ -60,6 +60,16 @@ func (s *Scan) FindOne(id string) (Scan, error) {
 	return scan, nil
 }
 
+// FindSummary loads a scan's own row, without its rule results, findings or screenshot
+func (s *Scan) FindSummary(id string) (Scan, error) {
+	var scan Scan
+	err := db.First(&scan, "id = ?", id).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return scan, err
+	}
+	return scan, nil
+}
+
 func (s *Scan) FindAllByUser(userID string, filters ScanFilters, limit float64, cursor string) ([]Scan, error) {
 	var scans []Scan
 	query := db.Model(&Scan{}).Preload("Screenshot").Where("\"userID\" = ? AND \"multiplePageScanID\" IS NULL", userID)

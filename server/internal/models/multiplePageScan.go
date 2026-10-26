@@ -48,6 +48,18 @@ func (m *MultiplePageScan) FindPages(id string) ([]Scan, error) {
 	return scans, err
 }
 
+// FindPagesWithFindings returns the page scans in crawl order with their rule results and findings in report order
+func (m *MultiplePageScan) FindPagesWithFindings(id string) ([]Scan, error) {
+	var scans []Scan
+	err := db.
+		Preload("RuleResults", func(tx *gorm.DB) *gorm.DB { return tx.Order("position") }).
+		Preload("Findings", func(tx *gorm.DB) *gorm.DB { return tx.Order("position") }).
+		Where("\"multiplePageScanID\" = ?", id).
+		Order("\"createdAt\" ASC").
+		Find(&scans).Error
+	return scans, err
+}
+
 // RuleRollup counts, per rule, how many completed pages failed or passed it and how many findings it raised
 func (m *MultiplePageScan) RuleRollup(id string) ([]MultiplePageRuleRollup, error) {
 	var rows []MultiplePageRuleRollup

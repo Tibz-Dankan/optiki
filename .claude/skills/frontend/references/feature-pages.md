@@ -27,7 +27,7 @@ Public pages render for everyone, and the server decides what each visitor gets.
 
 | File | Class · singleton | Keys | Types file |
 |---|---|---|---|
-| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update({id, title?, visibility?})`, `delete({id})`; for multiple-page scans `createMultiplePage` (the same `POST /scan` with `multiplePageScan: true`), `getAllMultiplePage(limit, cursor)`, `getOneMultiplePage(id)`, `deleteMultiplePage({id})` | `scanKeys = { all, list(filters), detail(id), multipleList(), multipleDetail(id) }` | `types/scan.ts` |
+| `api/scan.ts` | `ScanAPI` · `scanAPI`: `create`, `getAll(limit, cursor, filters)`, `getOne(id)`, `update({id, title?, visibility?})`, `delete({id})`; for multiple-page scans `createMultiplePage` (the same `POST /scan` with `multiplePageScan: true`), `getAllMultiplePage(limit, cursor)`, `getOneMultiplePage(id)`, `deleteMultiplePage({id})`; fix reports `getFixReport(id)`, `createFixReport({id})`, `getMultiplePageFixReport(id)`, `createMultiplePageFixReport({id})` | `scanKeys = { all, list(filters), detail(id), multipleList(), multipleDetail(id), fixReport(id), multipleFixReport(id) }` | `types/scan.ts` |
 | `api/api-token.ts` | `APITokenAPI` · `apiTokenAPI`: `create`, `getAll(limit, cursor)`, `getPermissions`, `update`, `revoke`, `delete` | `apiTokenKeys = { all, list(), permissions() }` | `types/api-token.ts` |
 | `api/rules.ts` | `RulesAPI` · `rulesAPI`: `getAll()` (FULL), `getOne(id)` | `rulesKeys = { all, list(), detail(id) }` | `types/rules.ts` |
 | `api/gym.ts` | `GymAPI` · `gymAPI`: `getAll` | `gymKeys = { all, list() }` | `types/gym.ts` |
@@ -82,6 +82,10 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - The overall score and the four category scores **as visible text**, with each category's question.
   - The gauge is a decorative SVG with `aria-hidden`.
   - `null` shows "—", or "Needs rendered scan" when every rule in that category is `NEEDS_RENDERED`.
+- **`fix-report-section.tsx`** → `FixReportSection` (`{ scanID, multiplePage?, canGenerate, hasFindings }`), right after the scores and hidden on a `FAILED` scan:
+  - A "Fix report" section with the Gemini-written prompt for a coding agent. `useQuery` on `scanKeys.fixReport(id)` refetches every 3 s while the report is `QUEUED`/`RUNNING` (`isFixReportActive`).
+  - No report yet: a "Generate report" button for the owner when the scan has findings; nothing otherwise. Queued or running: a `role='status'` "Generating your fix report with Gemini…". Completed: "Copy prompt" (visible text, "Copied" after), "Download .md", "Regenerate report" (owner), and the prompt **as text in `<pre><code>`**, never rendered. Failed: the error and "Try again" (owner).
+  - The generate mutation writes its answer into the query cache, and on a 409 invalidates the query. Reason codes map to `scanErrorMessages`.
 - **`scan-screenshot.tsx`**:
   - When `screenshot` is set: a "Page" heading followed by the scan's `target.route` in muted text (e.g. "Page /pricing"), and an `<img alt="Screenshot of … as the scanner rendered it">` from the presigned URL, in a scroll box.
   - The report query uses `staleTime` and `refetchInterval` of 25 minutes, so the 30-minute link is replaced before it expires.
@@ -100,6 +104,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 - Header: the start URL, status / mode / rule-set / Private badges, "Scan another page", and `multiple-page-scan-actions.tsx` → `MultiplePageScanActions`: the single-page report's ⋮ "Scan actions" menu with one "Delete scan" item (disabled while active), which opens `delete-multiple-page-scan-dialog.tsx` and redirects to `/u/scans`. There is no visibility or copy link; multiple-page scans are always private.
 - `multiple-page-scan-progress.tsx`: a `role='status'` sentence ("Scanning… 7 of up to 25 pages done, 23 found so far."), a decorative bar, the failure alert, and how many found pages were left after the 25-page cap.
 - `ScoreSummary` with `rules={[]}`, captioned as the average across the scanned pages. It is shown once the scan completes.
+- `FixReportSection` with `multiplePage` once the scan completes: one prompt for the whole crawl.
 - `multiple-page-rule-summary.tsx`: "Issues across the pages", the failing rules by pages failed ("Fails on 12 of 25 pages · 48 findings"), each linking `/rules/:id`.
 - `multiple-page-scan-pages.tsx`: "Scanned pages", one row per page (worst first once completed), each linking "Open report for <route>" to `/u/scans/:id`.
 - `multiple-page-scan-skipped.tsx`: a `<details>` "N pages not scanned" with each URL and its reason (`skipReasonLabels`).

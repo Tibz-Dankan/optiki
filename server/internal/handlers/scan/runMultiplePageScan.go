@@ -43,7 +43,7 @@ type crawl struct {
 }
 
 // runMultiplePageScan crawls a queued multiple-page scan breadth-first from its start URL, scanning each
-// public same-site page as an ordinary scan, then stores the averaged scores
+// public same-site page as an ordinary scan, then stores the averaged scores and queues the fix report
 func runMultiplePageScan(id string) {
 	parentModel := models.MultiplePageScan{}
 	started := time.Now()
@@ -114,6 +114,14 @@ func runMultiplePageScan(id string) {
 	updates["durationMs"] = int(completedAt.Sub(started).Milliseconds())
 	if err := parentModel.Complete(id, updates); err != nil {
 		log.Printf("completing multiple-page scan %s: %v", id, err)
+		return
+	}
+	if findings, _ := updates["findingsCount"].(int); findings > 0 && pkg.GeminiConfigured() {
+		if _, err := queueFixReport(models.FixReport{
+			MultiplePageScanID: &id, TriggeredBy: constants.FIX_REPORT_TRIGGERED_BY_SCAN_COMPLETION,
+		}); err != nil {
+			log.Printf("queueing the fix report of multiple-page scan %s: %v", id, err)
+		}
 	}
 }
 
