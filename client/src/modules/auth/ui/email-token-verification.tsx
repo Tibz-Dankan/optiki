@@ -77,8 +77,8 @@ export const EmailTokenVerification: React.FC<EmailTokenVerificationProps> = ({
         </CardHeader>
         <CardFooter>
           <Button asChild className='w-full'>
-            <Link to={isLoggedIn ? '/u/home' : '/auth/signin'} replace>
-              {isLoggedIn ? 'Continue to home' : 'Sign in'}
+            <Link to={isLoggedIn ? '/u/scan' : '/auth/signin'} replace>
+              {isLoggedIn ? 'Start scanning' : 'Sign in'}
             </Link>
           </Button>
         </CardFooter>

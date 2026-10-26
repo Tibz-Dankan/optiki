@@ -7,7 +7,7 @@ var QUERY_MAXIMUM_LIMIT float64 = 25
 var QUERY_DEFAULT_LIMIT float64 = 12
 
 var LOCAL_CLIENT_ORIGIN = "http://localhost:5173"
-var USER_HOME_PATH = "/u/home"
+var USER_HOME_PATH = "/u/scan"
 
 var ACCESS_TOKEN_COOKIE = "accessToken"
 var REFRESH_TOKEN_COOKIE = "refreshToken"

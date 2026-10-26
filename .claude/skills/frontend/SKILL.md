@@ -55,7 +55,7 @@ client/src/
 ├── types/        T-prefixed aliases, one file per domain  (alias @typings)
 ├── utils/        one function per file — classname.ts, cookies.ts, end-session.ts, refresh-session.ts,
 │                 get-redirect-path.ts, format-date-time.ts, get-initials.ts, get-browser-label.ts
-└── modules/      feature modules: auth, home (public landing + signed-in UserHome), settings, shared
+└── modules/      feature modules: auth, home (the public landing), settings, shared
     └── <module>/
         ├── pages/   route-level screens
         ├── layout/  shells for that area

@@ -13,13 +13,12 @@ Projects are designed (backend `references/projects.md`) but not built. There is
 | `/scans/:id` | all three | `scan/pages/scan-report.tsx` → `ScanReport` | one report in `HomeLayout`; the share link |
 | `/rules`, `/rules/:id` | all three | `rules/pages/rules.tsx` → `Rules`, `rule.tsx` → `Rule` | catalog |
 | `/gym` | all three | `gym/pages/gym.tsx` → `Gym` | fixture index; links open `API_ORIGIN` + `/gym/pages/<id>.html` |
-| `/u/home` | user | `home/pages/user-home.tsx` → `UserHome` | "Welcome, {name}", "Scan a page", `RecentScans` |
-| `/u/scan` | user | `scan/pages/user-scan.tsx` → `UserScan` | `ScanPanel` + `RecentScans` |
+| `/u/scan` | user | `scan/pages/user-scan.tsx` → `UserScan` | the signed-in default (`homePath`, sign-in redirect): `ScanPanel` + `RecentScans` |
 | `/u/scans` | user | `scan/pages/scans.tsx` → `Scans` | history, a `TPage` under "General" |
 | `/u/scans/:id` | user | `scan/pages/user-scan-report.tsx` → `UserScanReport` | the report inside the app shell (hidden `TPage`) |
 | `/u/settings/api-tokens` | user | `api-token/pages/api-tokens.tsx` → `APITokens` | a Settings child, plus an entry in `settings/ui/settings-nav.tsx` |
 
-Every public page wraps itself in **`HomeLayout`** (`home/layout/home-layout.tsx`): the logo, the Scan / Rules / Gym nav, the theme switch, sign-in or "Open home", `<main id='content'>`, and the footer.
+Every public page wraps itself in **`HomeLayout`** (`home/layout/home-layout.tsx`): the logo, the Scan / Rules / Gym nav, the theme switch, sign-in or "Open app" (to `/u/scan`), `<main id='content'>`, and the footer.
 
 Public pages render for everyone, and the server decides what each visitor gets. The page reads `ruleSet`, `mode` and `isOwner` from the response; it never infers them from the route tree.
 
@@ -56,7 +55,7 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
   - at `guestScanLimit` (3) stored scans, or on a server `ANONYMOUS_SCAN_LIMIT`, `guest-scan-limit-notice.tsx` replaces the form: "Sign in to scan more" (`?redirectTo=/u/scan`) and "Create an account", or "Verify your email" when unverified
   - below the panel: a "Recent scans" section with `guest-history-banner.tsx` ("Your scans are saved in this browser only. Sign in to keep your scan history…") and `recent-scan-list.tsx` over the store
   - `reconcileAnonymousUser` claims them on the server (they become private) and empties the store
-- **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans". `UserHome` uses it too.
+- **Signed in**: `recent-scans.tsx` → `RecentScans`, the 5 latest from `scanAPI.getAll`, rendered with `RecentScanList` and "See all scans".
 - A local `onError` replaces the global toast with an inline `role='alert'`, keyed on `error.error` through `scanErrorMessages`:
 
 | Reason | Message |
@@ -93,12 +92,12 @@ The scan types are string unions (`TScanRuleSet`, `TScanMode`, `TScanStatus`, `T
 - A 400 or 404 renders `NotFoundError`. That covers missing scans and other users' private ones alike.
 - Report grids use `grid-cols-[minmax(0,1fr)]`. A plain `1fr` track grows to fit a long snippet and the page scrolls sideways.
 
-## Scan history (`/u/scans`) and home
+## Scan history (`/u/scans`)
 
 - `useInfiniteQuery` over `scanKeys.list(filters)`, with "Load more scans" and status and source filters (shadcn `Select` with `aria-label`s).
 - Row actions are named per row: "Open scan of <target>" (to `/u/scans/:id`), "Delete scan of <target>".
 - No screenshots in lists; screenshots appear on the report only.
-- Home (`/u/home`) shows "Welcome, {name}", "Scan a page" (to `/u/scan`) and `RecentScans`. Claimed guest scans appear there with source "Anonymous", private.
+- Claimed guest scans appear in `/u/scan`'s Recent scans and here, with source "Anonymous", private.
 
 ## API tokens (`/u/settings/api-tokens`)
 
@@ -125,4 +124,4 @@ Ported from the GradeScript console's API-key page.
 ## Checked against optikí itself
 
 - Rendered through optikí's own engine (`FULL`, all 17 rules), `/`, `/scan`, `/rules`, `/rules/OPT-201`, `/gym` and `/auth/signin` all score 100.
-- A headless walkthrough found every control by its visible name: URL scan, SSRF error, the guest limit and history banner, sign-in, rendered report with screenshot, share, token create → shown once → revoke, history, home.
+- A headless walkthrough found every control by its visible name: URL scan, SSRF error, the guest limit and history banner, sign-in, rendered report with screenshot, share, token create → shown once → revoke, history.

@@ -85,7 +85,7 @@ export const App: React.FC = () => {
           <Route path='/rules' element={<Rules />} />
           <Route path='/rules/:id' element={<Rule />} />
           <Route path='/gym' element={<Gym />} />
-          <Route path='/auth/*' element={<Navigate to='/u/home' replace />} />
+          <Route path='/auth/*' element={<Navigate to='/u/scan' replace />} />
           <Route path='/*' element={<RenderUserRoutes />} />
         </Routes>
       )}

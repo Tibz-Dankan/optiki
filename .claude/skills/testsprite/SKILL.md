@@ -90,7 +90,7 @@ The steps for every case live in **`testsprite/ui-test-plan.md`**, the reviewed 
 | U4 | A signed-out URL scan of docease-v2 runs statically with the 9 core rules | Anonymous tier, real fetch |
 | U5 | Scanning a private address shows "This address isn't allowed" | SSRF blocking in the UI |
 | U6 | An address without https:// is rejected before scanning | Form validation |
-| U7 | Signing in with the demo account opens the home page | Session flow |
+| U7 | Signing in with the demo account opens the scan page | Session flow |
 | U8 | A signed-in URL scan of docease-v2 renders in a real browser | Signed-in tier: rendered + screenshot |
 | U9 | Making a signed-in scan public updates its visibility | Private by default; sharing |
 | U10 | Deleting a scan from its report returns to the Scans page | Owner delete |

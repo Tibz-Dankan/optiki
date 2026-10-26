@@ -63,7 +63,7 @@ components:
         status: { type: string, const: success }
         message: { type: string }
         session: { $ref: '#/components/schemas/SessionData' }
-        redirectToPath: { type: string, example: /u/home }
+        redirectToPath: { type: string, example: /u/scan }
     User:
       type: object
       required: [id, name, email, role, emailVerified]

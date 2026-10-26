@@ -388,7 +388,7 @@ There are no frontend unit tests (gradescript's convention). The checks Vitest w
 
 Built in the **portal**, UI tests only. The TestSprite GitHub App runs them on every ready (non-draft) PR against its Netlify preview (`https://deploy-preview-{pr}--optikii.netlify.app`) and blocks the merge on red. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
 
-The cases and their steps are in [`testsprite/ui-test-plan.md`](testsprite/ui-test-plan.md): U1–U6 and U11 scan signed out (Gym pages by URL, a static URL scan of `https://docease-v2.netlify.app`, SSRF and form errors, the sign-in prompt for guest history), and U7–U10 sign in with the demo account (home, a rendered URL scan with a screenshot, making a scan public, deleting one). There are no API, sign-up or password-reset tests.
+The cases and their steps are in [`testsprite/ui-test-plan.md`](testsprite/ui-test-plan.md): U1–U6 and U11 scan signed out (Gym pages by URL, a static URL scan of `https://docease-v2.netlify.app`, SSRF and form errors, the sign-in prompt for guest history), and U7–U10 sign in with the demo account (the scan page, a rendered URL scan with a screenshot, making a scan public, deleting one). There are no API, sign-up or password-reset tests.
 
 **Authoring rules (the S3 lessons):**
 - One verb per step, and one decisive assertion.
@@ -455,7 +455,7 @@ The README's "Deploying" section has the exact commands.
 >    - URLs that resolve to private or loopback addresses (or redirect to them) are rejected with "This address isn't allowed".
 >    - Inputs over 2 MB are rejected.
 >    - Too many scans return a "slow down" message.
-> 5. **History and sharing.** Signed-in users see their scans on Home and under Scans. A scan is private until its owner shares it from the report's "Scan actions" menu; a shared link reopens the same report. A signed-out visitor's scans are listed under the scan form, kept in that browser with a banner asking them to sign in, and move to their account (as private scans) when they sign in.
+> 5. **History and sharing.** Signed-in users see their scans on the Scan page and under Scans. A scan is private until its owner shares it from the report's "Scan actions" menu; a shared link reopens the same report. A signed-out visitor's scans are listed under the scan form, kept in that browser with a banner asking them to sign in, and move to their account (as private scans) when they sign in.
 > 6. **Rules catalog.** `/rules` lists every rule; each rule page shows why agents fail, the fix and the WCAG reference.
 > 7. **Gym.** `/gym` lists broken/fixed example pairs. Broken pages display a banner naming their rule.
 > 8. **Accounts.**
@@ -463,7 +463,7 @@ The README's "Deploying" section has the exact commands.
 >    - Sign in and out. "Forgot password" emails a 6-digit code; the answer is the same whether or not the email has an account. A wrong code is rejected, and five wrong codes invalidate it.
 >    - Settings let the user change their name, password and theme, and list and revoke their active sessions.
 > 9. **API tokens.** In Settings → API tokens, a user creates a named token with chosen permissions and an optional expiry. The token is shown once; afterwards only its prefix is visible. Tokens can be edited, revoked and deleted.
-> 10. **Projects** *(if shipped)*. Users can group scans into projects from the home page or with a token. Deleting a project keeps its scans. Users never see each other's projects or scans.
+> 10. **Projects** *(if shipped)*. Users can group scans into projects in the app or with a token. Deleting a project keeps its scans. Users never see each other's projects or scans.
 >
 > **Out of scope:** WebMCP and `llms.txt` checks; mobile viewports; scanning pages behind a login.
 

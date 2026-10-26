@@ -14,7 +14,6 @@ var SiteVisitPageNames = map[string]string{
 	"/auth/verify-otp":       "Verify OTP",
 	"/auth/reset-password":   "Reset Password",
 	"/auth/verify-email":     "Verify Email",
-	"/u/home":                "User Home",
 	"/u/scan":                "Scan",
 	"/u/scans":               "Scans",
 	"/u/scans/:id":           "Scan Report",

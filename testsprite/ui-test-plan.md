@@ -104,16 +104,16 @@ Every case asserts on the scan it just created, never on history order or counts
 
 Each case signs in itself, with the test account's credentials from the portal.
 
-### U7 · Signing in with the demo account opens the home page
+### U7 · Signing in with the demo account opens the scan page
 
 - **Priority:** High
-- **Description:** The seeded, verified demo account signs in and lands on its home page.
+- **Description:** The seeded, verified demo account signs in and lands on the signed-in scan page, which renders URLs in a real browser.
 - **Steps:**
   1. Action: Navigate to /auth/signin
   2. Action: Type the test account's email into the "Email" field
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
-  5. Assertion: A heading starting with "Welcome," is shown
+  5. Assertion: The text "The page is loaded in a real browser, so all 17 rules run and a screenshot is saved." is shown
 
 ### U8 · A signed-in URL scan of docease-v2 renders in a real browser
 
@@ -124,11 +124,10 @@ Each case signs in itself, with the test account's credentials from the portal.
   2. Action: Type the test account's email into the "Email" field
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
-  5. Action: Click the "Scan a page" link
-  6. Action: Type https://docease-v2.netlify.app into the "Page address" field
-  7. Action: Click the "Scan URL" button
-  8. Assertion: The report shows a "Rendered" badge
-  9. Assertion: The report has a "Page screenshot" section
+  5. Action: Type https://docease-v2.netlify.app into the "Page address" field
+  6. Action: Click the "Scan URL" button
+  7. Assertion: The report shows a "Rendered" badge
+  8. Assertion: The report has a "Page screenshot" section
 
 ### U9 · Making a signed-in scan public updates its visibility
 
@@ -139,14 +138,13 @@ Each case signs in itself, with the test account's credentials from the portal.
   2. Action: Type the test account's email into the "Email" field
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
-  5. Action: Click the "Scan a page" link
-  6. Action: Type https://optikiapi.tuliime.com/gym/pages/perfect.html into the "Page address" field
-  7. Action: Click the "Scan URL" button
-  8. Assertion: The report's visibility badge reads "Private"
-  9. Action: Click the "Scan actions" button
-  10. Action: Click the "Make scan public" menu item
-  11. Action: Click the "Make scan public" button in the confirmation dialog
-  12. Assertion: The report's visibility badge reads "Public"
+  5. Action: Type https://optikiapi.tuliime.com/gym/pages/perfect.html into the "Page address" field
+  6. Action: Click the "Scan URL" button
+  7. Assertion: The report's visibility badge reads "Private"
+  8. Action: Click the "Scan actions" button
+  9. Action: Click the "Make scan public" menu item
+  10. Action: Click the "Make scan public" button in the confirmation dialog
+  11. Assertion: The report's visibility badge reads "Public"
 
 ### U10 · Deleting a scan from its report returns to the Scans page
 
@@ -157,10 +155,9 @@ Each case signs in itself, with the test account's credentials from the portal.
   2. Action: Type the test account's email into the "Email" field
   3. Action: Type the test account's password into the "Password" field
   4. Action: Click the "Sign in" button
-  5. Action: Click the "Scan a page" link
-  6. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-101-fixed.html into the "Page address" field
-  7. Action: Click the "Scan URL" button
-  8. Action: Click the "Scan actions" button
-  9. Action: Click the "Delete scan" menu item
-  10. Action: Click the "Delete scan" button in the confirmation dialog
-  11. Assertion: The page heading reads "Scans"
+  5. Action: Type https://optikiapi.tuliime.com/gym/pages/opt-101-fixed.html into the "Page address" field
+  6. Action: Click the "Scan URL" button
+  7. Action: Click the "Scan actions" button
+  8. Action: Click the "Delete scan" menu item
+  9. Action: Click the "Delete scan" button in the confirmation dialog
+  10. Assertion: The page heading reads "Scans"

@@ -39,7 +39,7 @@ UI tests only, built in the TestSprite portal. They run on every ready (non-draf
 | U4 A signed-out URL scan of docease-v2 runs statically with the 9 core rules | UI | The anonymous tier, and a real fetch of a public site | — |
 | U5 Scanning a private address shows "This address isn't allowed" | UI | SSRF blocking, surfaced in the UI | — |
 | U6 An address without https:// is rejected before scanning | UI | URL validation in the form | — |
-| U7 Signing in with the demo account opens the home page | UI | The session flow for the seeded account | — |
+| U7 Signing in with the demo account opens the scan page | UI | The session flow for the seeded account | — |
 | U8 A signed-in URL scan of docease-v2 renders in a real browser | UI | The signed-in tier: rendered scans with a screenshot | — |
 | U9 Making a signed-in scan public updates its visibility | UI | Signed-in scans start private; the owner can share them | — |
 | U10 Deleting a scan from its report returns to the Scans page | UI | The owner can delete a scan | — |
