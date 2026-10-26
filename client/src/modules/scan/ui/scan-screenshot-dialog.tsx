@@ -32,7 +32,7 @@ export const ScanScreenshotDialog: React.FC<ScanScreenshotDialogProps> = ({
             {heading}{' '}
             <span className='font-normal text-muted-foreground'>{path}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className='wrap-anywhere'>
             Full-size screenshot of {label} as the scanner rendered it.
           </DialogDescription>
         </DialogHeader>

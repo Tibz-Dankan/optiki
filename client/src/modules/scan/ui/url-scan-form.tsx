@@ -49,10 +49,10 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
         onSubmit={formik.handleSubmit}
         noValidate
         className={cn(
-          'relative overflow-hidden rounded-lg border bg-card shadow-[0_24px_48px_-24px_rgb(0_0_0/0.15)] ring-4 transition-[border-color,box-shadow] dark:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.7)]',
+          'group relative overflow-hidden rounded-lg border bg-card shadow-[0_24px_48px_-24px_rgb(0_0_0/0.15)] ring-4 transition-[border-color,box-shadow] dark:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.7)]',
           isInvalid
             ? 'border-destructive ring-destructive/14 focus-within:ring-destructive/20'
-            : 'border-primary/45 ring-primary/8 focus-within:border-primary focus-within:ring-primary/22'
+            : 'border-input ring-transparent focus-within:border-primary focus-within:ring-primary/22'
         )}
       >
         <FormField
@@ -62,10 +62,13 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
               Page address
             </span>
           }
-          className='gap-1 ps-5 pe-2 pt-4 pb-3'
+          className='ps-5 pe-3 pt-4 pb-3'
         >
           <div className='flex flex-wrap items-center gap-3'>
-            <Globe className='size-5.5 shrink-0 text-primary' aria-hidden />
+            <Globe
+              className='size-5.5 shrink-0 text-muted-foreground transition-colors group-focus-within:text-primary'
+              aria-hidden
+            />
             <Input
               id='url'
               name='url'
@@ -73,7 +76,7 @@ export const UrlScanForm: React.FC<UrlScanFormProps> = ({
               inputMode='url'
               autoComplete='url'
               placeholder='https://example.com/pricing'
-              className='h-13 min-w-0 flex-[999_1_15rem] border-0 bg-transparent px-0 text-xl font-medium tracking-[-0.01em] shadow-none placeholder:text-muted-foreground focus-visible:ring-0 aria-invalid:ring-0 md:text-xl dark:bg-transparent'
+              className='h-12 min-w-0 flex-[999_1_15rem] border-0 bg-transparent px-0 pe-2 text-xl font-medium tracking-[-0.01em] shadow-none placeholder:text-muted-foreground focus-visible:ring-0 aria-invalid:ring-0 md:text-xl dark:bg-transparent'
               value={formik.values.url}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
