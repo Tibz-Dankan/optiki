@@ -11,7 +11,7 @@ export type AppearanceStore = TAppearanceState & TAppearanceActions
 const initialAppearanceValues: TAppearance = {
   id: '',
   userID: '',
-  theme: 'system',
+  theme: 'dark',
   createdAt: '',
   updatedAt: '',
 }

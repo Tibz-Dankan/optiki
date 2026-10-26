@@ -65,7 +65,7 @@ type OTP struct {
 type Appearance struct {
 	ID        string    `gorm:"column:id;type:uuid;primaryKey" json:"id"`
 	UserID    string    `gorm:"column:userID;type:uuid;not null;index" json:"userID"`
-	Theme     string    `gorm:"column:theme;default:'system';not null" json:"theme"` // light, dark, system
+	Theme     string    `gorm:"column:theme;default:'dark';not null" json:"theme"` // light, dark, system
 	CreatedAt time.Time `gorm:"column:createdAt;index" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updatedAt;index" json:"updatedAt"`
 
