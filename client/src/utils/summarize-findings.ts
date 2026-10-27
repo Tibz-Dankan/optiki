@@ -1,10 +1,14 @@
-import type { TPageCounts, TScanStatus } from '@typings/scan'
+import type {
+  TMultiplePageScanStatus,
+  TPageCounts,
+  TScanStatus,
+} from '@typings/scan'
 
 export function summarizeFindings(
-  status: TScanStatus,
+  status: TScanStatus | TMultiplePageScanStatus,
   counts: TPageCounts
 ): { text: string; detail?: string; tone?: string } {
-  if (status === 'RUNNING') return { text: 'Scanning…' }
+  if (status === 'RUNNING' || status === 'QUEUED') return { text: 'Scanning…' }
   if (status === 'FAILED') return { text: '—' }
 
   const { findings, critical, serious } = counts

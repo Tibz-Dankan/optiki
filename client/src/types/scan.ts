@@ -256,6 +256,8 @@ export type TMultiplePageScanListResponse = TServerResponseStatus & {
   pagination: TPagination
 }
 
+export type TScanListItem = TScanSummary | TMultiplePageScanSummary
+
 export type TFixReportStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
 export type TFixReportTriggeredBy = 'SCAN_COMPLETION' | 'USER' | 'API_TOKEN'
 
