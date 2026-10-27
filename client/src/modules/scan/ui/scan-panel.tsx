@@ -1,9 +1,21 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ListChecks, Network } from 'lucide-react'
-import { guestScanLimit, multiplePageScanMaxPages } from '@constants/scan'
+import {
+  guestScanLimit,
+  multiplePageScanMaxPages,
+  scanErrorMessages,
+} from '@constants/scan'
+import type {
+  TMultiplePageScanSummaryResponse,
+  TScanReportResponse,
+} from '@typings/scan'
+import { isHttpError } from '@api/http-error'
+import { scanAPI, scanKeys } from '@api/scan'
 import { useGuestScanStore } from '@stores/guest-scan'
-import { useCreateScan } from '@hooks/use-create-scan'
+import { getAnonymousID } from '@utils/get-anonymous-id'
+import { toRecentScan } from '@utils/to-recent-scan'
 import { Checkbox } from '@shared/ui/checkbox'
 import { Label } from '@shared/ui/label'
 import { GuestScanLimitNotice } from '@modules/scan/ui/guest-scan-limit-notice'
@@ -14,20 +26,58 @@ type ScanPanelProps = {
 }
 
 export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [discoverPages, setDiscoverPages] = useState(false)
   const guestScanCount = useGuestScanStore((state) => state.scans.length)
-  const { scan, isPending, isLimitError, errorMessage, reset } =
-    useCreateScan(isGuest)
+  const addGuestScan = useGuestScanStore((state) => state.addScan)
   const isMultiple = !isGuest && discoverPages
+
+  const { mutate, isPending, error, reset } = useMutation({
+    mutationFn: ({
+      url,
+      multiple,
+    }: {
+      url: string
+      multiple: boolean
+    }): Promise<TScanReportResponse | TMultiplePageScanSummaryResponse> =>
+      multiple
+        ? scanAPI.createMultiplePage({ url })
+        : scanAPI.create(
+            isGuest ? { url, anonymousID: getAnonymousID() } : { url }
+          ),
+    onSuccess: (response) => {
+      const scan = response.data
+      queryClient.invalidateQueries({ queryKey: scanKeys.all })
+      if (scan.multiplePageScan) {
+        navigate(`/u/scans/multiple/${scan.id}`)
+        return
+      }
+      if (isGuest) addGuestScan(toRecentScan(scan))
+      navigate(isGuest ? `/scans/${scan.id}` : `/u/scans/${scan.id}`)
+    },
+    onError: () => {},
+  })
+
+  const scan = (url: string) => {
+    reset()
+    mutate({ url, multiple: isMultiple })
+  }
 
   const changeDiscoverPages = (checked: boolean) => {
     reset()
     setDiscoverPages(checked)
   }
 
+  const isLimitError =
+    isHttpError(error) && error.error === 'ANONYMOUS_SCAN_LIMIT'
   const isAtLimit =
     isGuest && (guestScanCount >= guestScanLimit || isLimitError)
   const scansLeft = Math.max(guestScanLimit - guestScanCount, 0)
+  const errorMessage =
+    error &&
+    !isLimitError &&
+    ((isHttpError(error) && scanErrorMessages[error.error]) || error.message)
   const pendingMessage = isGuest
     ? 'Scanning…'
     : isMultiple
@@ -44,8 +94,8 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
         <UrlScanForm
           isPending={isPending}
           pendingMessage={pendingMessage}
-          error={errorMessage}
-          onScan={(url) => scan(url, isMultiple)}
+          error={errorMessage || undefined}
+          onScan={scan}
           hint={
             <>
               {isMultiple && (

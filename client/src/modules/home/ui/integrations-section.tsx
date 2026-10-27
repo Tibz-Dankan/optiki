@@ -1,28 +1,17 @@
 import { Link } from 'react-router-dom'
-import {
-  CircleGauge,
-  GitBranch,
-  Globe,
-  Server,
-  SquareTerminal,
-  Workflow,
-} from 'lucide-react'
-import { API_URL } from '@constants/urls'
+import { SquareTerminal, Workflow } from 'lucide-react'
+import { PRODUCTION_API_URL } from '@constants/urls'
 import { CodeBlock } from '@shared/ui/code-block'
 import { LandingSection } from '@modules/home/ui/landing-section'
 import { SectionHeading } from '@modules/home/ui/section-heading'
 
 const integrations = [
   { icon: Workflow, name: 'GitHub Actions' },
-  { icon: GitBranch, name: 'GitLab CI' },
-  { icon: CircleGauge, name: 'CircleCI' },
-  { icon: Server, name: 'Jenkins' },
-  { icon: Globe, name: 'Netlify & Vercel previews' },
   { icon: SquareTerminal, name: 'Anything with curl' },
 ]
 
 const scanCommand = `# Scan the preview of this pull request
-curl -sX POST ${API_URL}/scan \\
+curl -sX POST ${PRODUCTION_API_URL}/scan \\
   -H "Authorization: Bearer $OPTIKI_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"url": "'"$PREVIEW_URL"'"}'

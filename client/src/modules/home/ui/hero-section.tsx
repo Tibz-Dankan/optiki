@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react'
-import { LandingScanForm } from '@modules/home/ui/landing-scan-form'
+import { LandingScanLink } from '@modules/home/ui/landing-scan-link'
 import { ScanDemo } from '@modules/home/ui/scan-demo'
 
 export const HeroSection: React.FC = () => {
@@ -43,10 +43,7 @@ export const HeroSection: React.FC = () => {
           to 100, and hands you the exact fix for everything in the way.
         </p>
 
-        <LandingScanForm
-          id='hero-url'
-          className='mx-auto mt-9 max-w-160 text-left'
-        />
+        <LandingScanLink className='mx-auto mt-9 max-w-160 text-left' />
 
         <div className='relative mx-auto mt-[clamp(48px,7vw,72px)] max-w-250 text-left'>
           <div

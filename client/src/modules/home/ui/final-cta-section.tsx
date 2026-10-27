@@ -1,4 +1,4 @@
-import { LandingScanForm } from '@modules/home/ui/landing-scan-form'
+import { LandingScanLink } from '@modules/home/ui/landing-scan-link'
 import { LandingSection } from '@modules/home/ui/landing-section'
 
 export const FinalCtaSection: React.FC = () => {
@@ -21,16 +21,7 @@ export const FinalCtaSection: React.FC = () => {
       <p className='relative mx-auto mt-5 max-w-140 text-[clamp(16px,1.6vw,19px)] leading-[1.6] text-muted-foreground'>
         Paste an address. Get your score in seconds. Fix what it finds.
       </p>
-      <LandingScanForm
-        id='final-url'
-        label="Your page's address"
-        submitLabel={
-          <>
-            Scan<span className='sr-only'> your page</span>
-          </>
-        }
-        className='relative mx-auto mt-9 max-w-160 text-left'
-      />
+      <LandingScanLink className='relative mx-auto mt-9 max-w-160 text-left' />
     </LandingSection>
   )
 }
