@@ -96,6 +96,9 @@ The steps for every case live in **`testsprite/ui-test-plan.md`**, the reviewed 
 | U10 | Deleting a scan from its report returns to the Scans page | Owner delete |
 | U11 | A signed-out scan's report asks the visitor to sign in to keep their history | Guest history prompt |
 | U12 | A signed-in multiple-page scan lists the pages it scanned | `multiplePageScan`: crawl, background queue, live report |
+| U13 | A scan with findings gets a fix report for coding agents | Gemini fix report queued on completion |
+| U14 | Editing an API token renames it and changes its permissions | Token edit; a case acts only on the token it creates |
+| U15 | A signed-in rendered scan shows its progress until the report opens | In-progress state: disabled Scan button + status |
 
 ## Credit hygiene
 

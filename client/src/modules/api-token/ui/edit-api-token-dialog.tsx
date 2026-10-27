@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { apiTokenMaxNameLength } from '@constants/api-token'
 import type { TAPIToken, TAPITokenPermission } from '@typings/api-token'
 import { apiTokenAPI, apiTokenKeys } from '@api/api-token'
+import { isHttpError } from '@api/http-error'
 import { Button } from '@shared/ui/button'
 import {
   Dialog,
@@ -48,6 +49,11 @@ export const EditAPITokenDialog: React.FC<EditAPITokenDialogProps> = ({
     onError: () => {},
   })
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) reset()
+    onOpenChange(nextOpen)
+  }
+
   const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
@@ -57,18 +63,23 @@ export const EditAPITokenDialog: React.FC<EditAPITokenDialogProps> = ({
     validationSchema: editAPITokenSchema,
     onSubmit: (values) => {
       if (!token) return
-      mutate({
-        id: token.id,
-        name: values.name.trim(),
-        permissions: values.permissions,
-      })
+      mutate(
+        {
+          id: token.id,
+          name: values.name.trim(),
+          permissions: values.permissions,
+        },
+        {
+          onError: (error) => {
+            if (!isHttpError(error) || error.status !== 404) return
+            toast.error('This token no longer exists.')
+            queryClient.invalidateQueries({ queryKey: apiTokenKeys.all })
+            handleOpenChange(false)
+          },
+        }
+      )
     },
   })
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) reset()
-    onOpenChange(nextOpen)
-  }
 
   return (
     <Dialog open={!!token} onOpenChange={handleOpenChange}>

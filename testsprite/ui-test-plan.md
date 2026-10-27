@@ -185,3 +185,43 @@ Each case signs in itself, with the test account's credentials from the portal.
   6. Action: Click the "Automatically discover other pages of the host and scan them too" checkbox
   7. Action: Click the "Scan" button
   8. Assertion: The "Scanned pages" table lists the page "/"
+
+The portal's generated case "Scan a page with multi-page discovery enabled" is this case. Keep its steps the same as these: its start page must answer 200. `https://optikiapi.tuliime.com/` and `https://optikiapi.tuliime.com/gym/pages/` answer 404, so a scan from either stops after 0 pages.
+
+### U14 · Editing an API token renames it and changes its permissions
+
+- **Priority:** Medium
+- **Description:** The owner renames an API token and grants it another permission. The table shows the new name and permission. The case creates its own token and deletes it at the end. The account is shared by cases that run at the same time, so the case acts only on the token it named, and the deletion keeps leftovers under the 25-active-token limit. Other token cases must likewise touch only the tokens they create.
+- **Steps:**
+  1. Action: Navigate to /auth/signin?redirectTo=/u/settings/api-tokens
+  2. Action: Type the test account's email into the "Email" field
+  3. Action: Type the test account's password into the "Password" field
+  4. Action: Click the "Sign in" button
+  5. Action: Click the "Create API token" button
+  6. Action: Type QA edit test into the "Token name" field
+  7. Action: Click the "Create token" button
+  8. Action: Click the "I've saved my token" button
+  9. Action: Click the "Actions for token QA edit test" button
+  10. Action: Click the "Edit token QA edit test" menu item
+  11. Action: Clear the "Token name" field
+  12. Action: Type QA edit test updated into the "Token name" field
+  13. Action: Tick the "Edit scans" checkbox
+  14. Action: Click the "Save token" button
+  15. Assertion: The API tokens table has a row named "QA edit test updated" that shows an "Edit scans" badge
+  16. Action: Click the "Actions for token QA edit test updated" button
+  17. Action: Click the "Delete token QA edit test updated" menu item
+  18. Action: Click the "Delete token" button in the confirmation dialog
+
+### U15 · A signed-in rendered scan shows its progress until the report opens
+
+- **Priority:** Low
+- **Description:** While a scan runs, the Scan button is disabled and a status line says it's scanning. A static Gym scan finishes in milliseconds, too fast to see, so this case scans docease-v2 signed in. That rendered scan takes several seconds. Step 7 is the only assertion on a passing state; step 8 asserts the settled report.
+- **Steps:**
+  1. Action: Navigate to /auth/signin
+  2. Action: Type the test account's email into the "Email" field
+  3. Action: Type the test account's password into the "Password" field
+  4. Action: Click the "Sign in" button
+  5. Action: Type https://docease-v2.netlify.app into the "Page address" field
+  6. Action: Click the "Scan" button
+  7. Assertion: A status reads "Scanning… rendered scans take a few seconds." and the "Scan" button is disabled
+  8. Assertion: The report shows a "Rendered" badge
