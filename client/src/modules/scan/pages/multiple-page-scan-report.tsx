@@ -137,6 +137,7 @@ export const MultiplePageScanReport: React.FC = () => {
               <MultiplePageScanPages
                 pages={scan.pages}
                 worstFirst={scan.status === 'COMPLETED'}
+                isActive={isMultiplePageScanActive(scan)}
               />
               <MultiplePageScanSkipped skipped={scan.skipped} />
             </>

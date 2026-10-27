@@ -33,11 +33,13 @@ const byScoreAscending = (
 type MultiplePageScanPagesProps = {
   pages: TMultiplePageScanPage[]
   worstFirst: boolean
+  isActive: boolean
 }
 
 export const MultiplePageScanPages: React.FC<MultiplePageScanPagesProps> = ({
   pages,
   worstFirst,
+  isActive,
 }) => {
   const [filter, setFilter] = useState<TPageFilter>('ALL')
   const ordered = worstFirst ? [...pages].sort(byScoreAscending) : pages
@@ -79,7 +81,9 @@ export const MultiplePageScanPages: React.FC<MultiplePageScanPagesProps> = ({
       </div>
       {pages.length === 0 ? (
         <p className='rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground'>
-          Pages appear here as soon as each one is scanned.
+          {isActive
+            ? 'Pages appear here as soon as each one is scanned.'
+            : 'No pages were scanned.'}
         </p>
       ) : (
         <div className='overflow-hidden rounded-lg border border-border'>

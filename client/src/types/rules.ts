@@ -20,6 +20,16 @@ export type TRule = {
   origin: string
 }
 
+export type TRuleModes = 'STATIC_AND_RENDERED' | 'STATIC_ONLY' | 'RENDERED_ONLY'
+
+export type TRuleSetFilter = 'ALL' | 'CORE'
+
+export type TRuleFilters = {
+  query: string
+  ruleSet: TRuleSetFilter
+  severity: 'ALL' | TSeverity
+}
+
 export type TRulesResponse = TServerResponseStatus & { data: TRule[] }
 
 export type TRuleResponse = TServerResponseStatus & { data: TRule }

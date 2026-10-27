@@ -388,7 +388,7 @@ There are no frontend unit tests (gradescript's convention). The checks Vitest w
 
 Built in the **portal**, UI tests only. The TestSprite GitHub App runs them on every ready (non-draft) PR against its Netlify preview (`https://deploy-preview-{pr}--optikii.netlify.app`) and blocks the merge on red. The production URLs are `https://optikii.netlify.app` and `https://optikiapi.tuliime.com`.
 
-The cases and their steps are in [`testsprite/ui-test-plan.md`](testsprite/ui-test-plan.md): U1–U6 and U11 scan signed out (Gym pages by URL, a static URL scan of `https://docease-v2.netlify.app`, SSRF and form errors, the sign-in prompt for guest history), and U7–U10 and U12 sign in with the demo account (the scan page, a rendered URL scan with a screenshot, making a scan public, deleting one, and a multiple-page scan that lists the pages it scanned). There are no API, sign-up or password-reset tests.
+The cases and their steps are in [`testsprite/ui-test-plan.md`](testsprite/ui-test-plan.md): U1–U6, U11 and U13 scan signed out (Gym pages by URL, a static URL scan of `https://docease-v2.netlify.app`, SSRF and form errors, the sign-in prompt for guest history, the fix report). U7–U10, U12, U14 and U15 sign in with the demo account (the scan page, a rendered URL scan with a screenshot, making a scan public, deleting one, a multiple-page scan that lists the pages it scanned, editing an API token, and a scan's in-progress state). There are no API, sign-up or password-reset tests.
 
 **Authoring rules (the S3 lessons):**
 - One verb per step, and one decisive assertion.

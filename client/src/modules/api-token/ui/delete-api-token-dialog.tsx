@@ -17,11 +17,11 @@ export const DeleteAPITokenDialog: React.FC<DeleteAPITokenDialogProps> = ({
 
   const { mutate, isPending } = useMutation({
     mutationFn: apiTokenAPI.delete,
-    onSuccess: () => {
-      toast.success('API token deleted')
+    onSuccess: () => toast.success('API token deleted'),
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: apiTokenKeys.all })
+      onOpenChange(false)
     },
-    onSettled: () => onOpenChange(false),
   })
 
   return (

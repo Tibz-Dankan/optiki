@@ -183,6 +183,20 @@ export const HomeLayout: React.FC<HomeLayoutProps> = ({ children }) => {
                       Scan a page
                     </Link>
                   </li>
+                  <li>
+                    <NavLink
+                      to='/rules'
+                      end
+                      className={({ isActive }) =>
+                        cn(
+                          'transition-colors hover:text-primary',
+                          isActive && 'text-primary'
+                        )
+                      }
+                    >
+                      Rules
+                    </NavLink>
+                  </li>
                 </ul>
               </div>
               <div className='flex flex-col gap-3'>

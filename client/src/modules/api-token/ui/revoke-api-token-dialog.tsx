@@ -17,11 +17,11 @@ export const RevokeAPITokenDialog: React.FC<RevokeAPITokenDialogProps> = ({
 
   const { mutate, isPending } = useMutation({
     mutationFn: apiTokenAPI.revoke,
-    onSuccess: () => {
-      toast.success('API token revoked')
+    onSuccess: () => toast.success('API token revoked'),
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: apiTokenKeys.all })
+      onOpenChange(false)
     },
-    onSettled: () => onOpenChange(false),
   })
 
   return (
