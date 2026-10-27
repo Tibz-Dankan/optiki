@@ -1,3 +1,4 @@
+import { useNavigationScroll } from '@hooks/use-navigation-scroll'
 import { HomeLayout } from '@modules/home/layout/home-layout'
 import { ChecksSection } from '@modules/home/ui/checks-section'
 import { CiSection } from '@modules/home/ui/ci-section'
@@ -10,6 +11,8 @@ import { ReportSection } from '@modules/home/ui/report-section'
 import { ShiftSection } from '@modules/home/ui/shift-section'
 
 export const Home: React.FC = () => {
+  useNavigationScroll(true)
+
   return (
     <HomeLayout>
       <div className='[--glow:color-mix(in_oklab,var(--primary)_12%,transparent)] dark:[--glow:color-mix(in_oklab,var(--primary)_16%,transparent)]'>

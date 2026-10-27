@@ -139,8 +139,21 @@ Ported from the GradeScript console's API-key page.
 
 ## Rules (`/rules`, `/rules/:id`) and Gym (`/gym`)
 
-- `/rules` lists the 17 rules by category, with ID and name (a link), severity, a Core/Full badge, and "Rendered only".
-- `/rules/:id` shows the summary, badges, "Why agents fail", "How to fix" with before/after (as text), WCAG and origin.
+- `/rules` (`rules/ui/`, built from `client/mockup/Rules · rules-html.zip`):
+  - A hero with stats counted from the data, plus `rule-sets-card.tsx` (Core vs Full, and the category weights from `categoryWeights`).
+  - A sticky (`md+`) `role='search'` bar: a search field, plus two `ScanFilterGroup`s with `isLabelHidden` (Rule set, and Severity with dots). Matching is done by `utils/filter-rules.ts`.
+  - A `role='status'` count, then a `rule-category-section.tsx` per category (`id='rules-<category>'`, with `scroll-mt` clearing the header and the bar).
+  - Each `rule-row.tsx` is a stretched link whose name is "OPT-xxx Name". Below `lg`, an aside of category anchors is hidden.
+  - Filters live in local state. There is an empty state with "Clear filters".
+- `/rules/:id` (`Rule · rules id-html.zip`):
+  - The hero: breadcrumb, id chip, facts pills.
+  - Why agents fail, and How to fix with two `rule-example.tsx` figures (`HighlightedCode showLineNumbers`, a "Copy the before/after example" button).
+  - "More {Category} rules" and the prev/next pager, both from the cached list query.
+  - An aside with `rule-details.tsx` (WCAG split by `utils/parse-wcag.ts`) and `rule-try-card.tsx`. Signed-out visitors also get "Sign in for all 17 rules" on Full-only rules.
+- Severity pills use `severityAccents` (`constants/rules.ts`). In light mode the text stays foreground and the hue is in the dot and tint, because coloured text on a 10% tint misses AA.
+- `useNavigationScroll(isReady)` (`hooks/`) is used on `Home`, `Rules` and `Rule`:
+  - On a PUSH without a hash, it scrolls to the top.
+  - With a hash, it scrolls to that element once `isReady`. This is what makes `/rules#rules-operable` and `/#ci` land on their sections.
 - `/gym` shows a card per pair: "Open OPT-xxx broken page" / "Open OPT-xxx fixed page" (new tab, on the API origin) and "Scan OPT-xxx broken page", which runs the scan and opens the report.
 
 ## Checked against optikí itself

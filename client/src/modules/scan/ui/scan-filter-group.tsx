@@ -3,27 +3,40 @@ import { cn } from '@utils/classname'
 type ScanFilterGroupProps = {
   id: string
   label: string
+  isLabelHidden?: boolean
   value: string
-  options: { value: string; label: string; count?: number }[]
+  options: {
+    value: string
+    label: string
+    count?: number
+    dotClassName?: string
+  }[]
   onChange: (value: string) => void
 }
 
 export const ScanFilterGroup: React.FC<ScanFilterGroupProps> = ({
   id,
   label,
+  isLabelHidden = false,
   value,
   options,
   onChange,
 }) => {
   return (
     <div className='flex items-center gap-2.5'>
-      <span id={id} className='text-[13px] text-muted-foreground'>
+      <span
+        id={id}
+        className={cn(
+          'text-[13px] text-muted-foreground',
+          isLabelHidden && 'sr-only'
+        )}
+      >
         {label}
       </span>
       <div
         role='group'
         aria-labelledby={id}
-        className='inline-flex gap-0.5 rounded-lg border border-border bg-card p-0.75'
+        className='inline-flex flex-wrap gap-0.5 rounded-lg border border-border bg-card p-0.75'
       >
         {options.map((option) => {
           const isSelected = option.value === value
@@ -40,6 +53,12 @@ export const ScanFilterGroup: React.FC<ScanFilterGroupProps> = ({
                   : 'text-muted-foreground'
               )}
             >
+              {option.dotClassName && (
+                <span
+                  aria-hidden
+                  className={cn('size-1.75 rounded-full', option.dotClassName)}
+                />
+              )}
               {option.label}
               {option.count !== undefined && (
                 <span className='text-xs text-muted-foreground'>

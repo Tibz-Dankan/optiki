@@ -36,6 +36,13 @@ export const categoryQuestions: Record<TRuleCategory, string> = {
   DISCOVERABLE: 'Can an agent orient itself?',
 }
 
+export const categoryWeights: Record<TRuleCategory, number> = {
+  OPERABLE: 40,
+  PERCEIVABLE: 30,
+  STABLE: 15,
+  DISCOVERABLE: 15,
+}
+
 export const severityLabels: Record<TSeverity, string> = {
   CRITICAL: 'Critical',
   SERIOUS: 'Serious',
