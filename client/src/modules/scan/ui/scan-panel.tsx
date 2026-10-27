@@ -148,8 +148,7 @@ export const ScanPanel: React.FC<ScanPanelProps> = ({ isGuest }) => {
                   htmlFor='discover-pages'
                   className='leading-[1.4] font-normal'
                 >
-                  Automatically discover other pages of the host and scan them
-                  too
+                  Automatically discover and scan other pages on this site
                 </Label>
                 <p
                   id='discover-pages-hint'
