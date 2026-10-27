@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react'
+import { githubActionHref } from '@constants/links'
 import { LandingSection } from '@modules/home/ui/landing-section'
 import { SectionHeading } from '@modules/home/ui/section-heading'
 
@@ -30,8 +31,22 @@ const faqs = [
   },
   {
     question: 'How does the pull request integration work?',
-    answer:
-      'Create an API token with scan permissions and call the scan API from your CI on each pull request, pointed at its preview URL. optikí returns the score and findings, so your pipeline can fail the check when the score drops. A GitHub Action that posts the result as a comment is coming next.',
+    answer: (
+      <>
+        Create an API token, save it as the <code>OPTIKI_API_TOKEN</code>{' '}
+        secret, and add the{' '}
+        <a
+          href={githubActionHref}
+          className='font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary'
+        >
+          optikí GitHub Action
+        </a>{' '}
+        to your workflow, pointed at the pull request's preview URL. It writes
+        the scores and findings to the run summary and can fail the job when the
+        score is below your <code>minScore</code>. Any other CI can call the
+        scan API with the same token.
+      </>
+    ),
   },
 ]
 

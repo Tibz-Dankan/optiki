@@ -1,5 +1,7 @@
 import { Check, ChevronUp } from 'lucide-react'
+import { githubActionHref } from '@constants/links'
 import { AppLogo } from '@shared/ui/app-logo'
+import { GitHubIcon } from '@shared/ui/github-icon'
 import { LandingSection } from '@modules/home/ui/landing-section'
 import { SampleChip } from '@modules/home/ui/sample-chip'
 import { SectionHeading } from '@modules/home/ui/section-heading'
@@ -65,10 +67,13 @@ export const CiSection: React.FC = () => {
         the change against main, and the findings that caused it. Fail the check
         when the score drops.
       </SectionHeading>
-      <span className='relative mt-4 inline-flex items-center gap-2 rounded-md border border-dashed border-input px-2.5 py-1.25 font-mono text-xs text-muted-foreground'>
-        <span aria-hidden='true' className='size-1.5 rounded-full bg-warning' />
-        GitHub Action that posts this comment: coming next
-      </span>
+      <a
+        href={githubActionHref}
+        className='relative mt-4 inline-flex max-w-full items-center gap-2 rounded-md border border-input px-2.5 py-1.25 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+      >
+        <GitHubIcon className='size-3.5' />
+        Run it in GitHub Actions: Tibz-Dankan/optiki-gh-action
+      </a>
 
       <div className='relative mt-12 flex flex-wrap items-start gap-4'>
         <article

@@ -22,7 +22,7 @@ export const APITokenCreatedDialog: React.FC<APITokenCreatedDialogProps> = ({
   onClose,
 }) => {
   const curlSample = `curl -X POST "${API_URL}/scan" \\
-  -H "Authorization: Bearer $OPTIKI_TOKEN" \\
+  -H "Authorization: Bearer $OPTIKI_API_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"url":"https://example.com"}'`
 
@@ -48,7 +48,7 @@ export const APITokenCreatedDialog: React.FC<APITokenCreatedDialogProps> = ({
           <DialogTitle>Copy your new API token</DialogTitle>
           <DialogDescription>
             You won't see this token again. Store it as a secret, such as{' '}
-            <code>OPTIKI_TOKEN</code> in your CI.
+            <code>OPTIKI_API_TOKEN</code> in your CI.
           </DialogDescription>
         </DialogHeader>
 
