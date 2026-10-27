@@ -74,7 +74,7 @@ export const HomeLayout: React.FC<HomeLayoutProps> = ({ children }) => {
                   Sign in
                 </Link>
                 <Button asChild className='h-10 px-4 font-semibold'>
-                  <Link to='/scan'>Scan your site free</Link>
+                  <Link to='/scan'>Scan your site</Link>
                 </Button>
               </>
             )}

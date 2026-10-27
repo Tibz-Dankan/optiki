@@ -26,7 +26,7 @@ export const HeroSection: React.FC = () => {
             NEW
           </span>
           <span className='min-w-0 text-left'>
-            Scan every pull request from CI with an API token
+            Scan every pull request from your CI
           </span>
           <ArrowUpRight className='size-3.5 shrink-0' aria-hidden />
         </a>
