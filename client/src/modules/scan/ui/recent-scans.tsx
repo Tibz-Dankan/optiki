@@ -1,18 +1,37 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { History, ScanSearch } from 'lucide-react'
+import { multiplePageScanPollInterval } from '@constants/scan'
+import type { TScanListItem } from '@typings/scan'
 import { scanAPI, scanKeys } from '@api/scan'
+import { isMultiplePageScanActive } from '@utils/is-multiple-page-scan-active'
 import { Skeleton } from '@shared/ui/skeleton'
-import { SinglePageScanTable } from '@modules/scan/ui/single-page-scan-table'
+import { ScanTable } from '@modules/scan/ui/scan-table'
 
 const recentScanCount = 5
 
 export const RecentScans: React.FC = () => {
-  const { data, isPending, isError, error } = useQuery({
+  const singlePage = useQuery({
     queryKey: [...scanKeys.list({}), 'recent'],
     queryFn: () => scanAPI.getAll(recentScanCount, '', {}),
   })
-  const scans = data?.data ?? []
+  const multiplePage = useQuery({
+    queryKey: [...scanKeys.multipleList(), 'recent'],
+    queryFn: () => scanAPI.getAllMultiplePage(recentScanCount, ''),
+    refetchInterval: (query) =>
+      query.state.data?.data.some(isMultiplePageScanActive)
+        ? multiplePageScanPollInterval
+        : false,
+  })
+
+  const isPending = singlePage.isPending || multiplePage.isPending
+  const error = singlePage.error ?? multiplePage.error
+  const scans: TScanListItem[] = [
+    ...(singlePage.data?.data ?? []),
+    ...(multiplePage.data?.data ?? []),
+  ]
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, recentScanCount)
 
   return (
     <section aria-labelledby='recent-scans' className='grid gap-3'>
@@ -35,13 +54,13 @@ export const RecentScans: React.FC = () => {
       </div>
 
       {isPending && <Skeleton className='h-80 w-full rounded-lg' />}
-      {isError && (
+      {error && (
         <p role='alert' className='text-sm text-destructive'>
           {error.message}
         </p>
       )}
 
-      {!isPending && !isError && scans.length === 0 && (
+      {!isPending && !error && scans.length === 0 && (
         <div className='flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 py-10 text-center'>
           <ScanSearch className='size-7 text-muted-foreground' aria-hidden />
           <p className='text-[15px] font-semibold'>No scans yet</p>
@@ -52,7 +71,9 @@ export const RecentScans: React.FC = () => {
         </div>
       )}
 
-      {scans.length > 0 && <SinglePageScanTable scans={scans} isCompact />}
+      {!isPending && scans.length > 0 && (
+        <ScanTable scans={scans} isCompact hasTypeColumn />
+      )}
     </section>
   )
 }

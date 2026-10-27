@@ -14,7 +14,7 @@ import { Header } from '@shared/layout/header'
 import { Main } from '@shared/layout/main'
 import { MultiplePageScanList } from '@modules/scan/ui/multiple-page-scan-list'
 import { ScanFilterGroup } from '@modules/scan/ui/scan-filter-group'
-import { SinglePageScanTable } from '@modules/scan/ui/single-page-scan-table'
+import { ScanTable } from '@modules/scan/ui/scan-table'
 
 const allValue = 'ALL'
 
@@ -150,7 +150,7 @@ export const Scans: React.FC = () => {
 
           {!isPending && !isError && scans.length > 0 && (
             <>
-              <SinglePageScanTable scans={scans} />
+              <ScanTable scans={scans} />
               <div className='flex flex-wrap items-center justify-between gap-3'>
                 <p className='text-[13px] text-muted-foreground'>
                   Showing {scans.length} {scans.length === 1 ? 'scan' : 'scans'}

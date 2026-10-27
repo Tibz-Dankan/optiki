@@ -1,11 +1,19 @@
 import { Link } from 'react-router-dom'
-import { scanSources, statusLabels } from '@constants/scan'
-import type { TScanSummary } from '@typings/scan'
+import { Layers } from 'lucide-react'
+import {
+  multiplePageScanStatusLabels,
+  scanSources,
+  statusLabels,
+} from '@constants/scan'
+import type { TScanListItem } from '@typings/scan'
 import { cn } from '@utils/classname'
+import { describeMultiplePageScan } from '@utils/describe-multiple-page-scan'
 import { describeScanHeading } from '@utils/describe-scan-heading'
 import { describeScanTarget } from '@utils/describe-scan-target'
+import { formatAddress } from '@utils/format-address'
 import { formatDateTime } from '@utils/format-date-time'
 import { formatRelativeTime } from '@utils/format-relative-time'
+import { isMultiplePageScanActive } from '@utils/is-multiple-page-scan-active'
 import { summarizeFindings } from '@utils/summarize-findings'
 import {
   Table,
@@ -15,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@shared/ui/table'
+import { MultiplePageScanActions } from '@modules/scan/ui/multiple-page-scan-actions'
 import { ScanInputTypeIcon } from '@modules/scan/ui/scan-input-type-icon'
 import { ScanOwnerActions } from '@modules/scan/ui/scan-owner-actions'
 import { ScanStatusBadge } from '@modules/scan/ui/scan-status-badge'
@@ -24,23 +33,50 @@ const headClassName =
   'h-10 bg-card px-3 text-xs text-muted-foreground first:ps-4'
 const cellClassName = 'px-3 py-3 first:ps-4'
 
-type SinglePageScanTableProps = {
-  scans: TScanSummary[]
-  isCompact?: boolean
+const describeRow = (scan: TScanListItem) => {
+  if (scan.multiplePageScan) {
+    return {
+      href: `/u/scans/multiple/${scan.id}`,
+      title: scan.title || formatAddress(scan.target.startURL),
+      subtitle: scan.target.origin ?? scan.target.startURL,
+      score: isMultiplePageScanActive(scan) ? null : scan.scores.overall,
+      statusLabel: multiplePageScanStatusLabels[scan.status],
+    }
+  }
+  return {
+    href: `/u/scans/${scan.id}`,
+    ...describeScanHeading(scan),
+    score: scan.scores.overall,
+    statusLabel: statusLabels[scan.status],
+  }
 }
 
-export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
+type ScanTableProps = {
+  scans: TScanListItem[]
+  isCompact?: boolean
+  hasTypeColumn?: boolean
+}
+
+export const ScanTable: React.FC<ScanTableProps> = ({
   scans,
   isCompact,
+  hasTypeColumn,
 }) => {
+  const minWidth = !isCompact
+    ? 'min-w-240'
+    : hasTypeColumn
+      ? 'min-w-178'
+      : 'min-w-150'
+
   return (
     <div className='overflow-hidden rounded-lg border border-border'>
-      <Table
-        className={cn('table-fixed', isCompact ? 'min-w-150' : 'min-w-240')}
-      >
+      <Table className={cn('table-fixed', minWidth)}>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
             <TableHead className={headClassName}>Page</TableHead>
+            {hasTypeColumn && (
+              <TableHead className={cn(headClassName, 'w-28')}>Type</TableHead>
+            )}
             <TableHead className={cn(headClassName, 'w-28')}>Score</TableHead>
             {!isCompact && (
               <TableHead className={cn(headClassName, 'w-[15%]')}>
@@ -61,7 +97,8 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
         </TableHeader>
         <TableBody>
           {scans.map((scan) => {
-            const { title, subtitle } = describeScanHeading(scan)
+            const { href, title, subtitle, score, statusLabel } =
+              describeRow(scan)
             const findings = summarizeFindings(scan.status, scan.counts)
             const source = scanSources[scan.triggeredBy]
             const SourceIcon = source.icon
@@ -69,12 +106,24 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
               <TableRow key={scan.id}>
                 <TableCell className={cellClassName}>
                   <div className='flex min-w-0 items-center gap-3'>
-                    <ScanInputTypeIcon inputType={scan.inputType} />
+                    {scan.multiplePageScan ? (
+                      <span
+                        aria-hidden
+                        className='flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground'
+                      >
+                        <Layers className='size-4' />
+                      </span>
+                    ) : (
+                      <ScanInputTypeIcon inputType={scan.inputType} />
+                    )}
                     <div className='grid min-w-0 gap-0.5'>
                       <Link
-                        to={`/u/scans/${scan.id}`}
+                        to={href}
                         className='truncate font-medium underline-offset-4 hover:underline'
                       >
+                        {scan.multiplePageScan && (
+                          <span className='sr-only'>Multi-page scan of </span>
+                        )}
                         {title}
                       </Link>
                       {subtitle && (
@@ -85,8 +134,13 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
                     </div>
                   </div>
                 </TableCell>
+                {hasTypeColumn && (
+                  <TableCell className={cellClassName}>
+                    {scan.multiplePageScan ? 'Multi-page' : 'Single-page'}
+                  </TableCell>
+                )}
                 <TableCell className={cellClassName}>
-                  <ScoreMeter score={scan.scores.overall} />
+                  <ScoreMeter score={score} />
                 </TableCell>
                 {!isCompact && (
                   <TableCell className={cellClassName}>
@@ -119,7 +173,7 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
                     <div className='flex min-w-0 flex-col items-start gap-1'>
                       <ScanStatusBadge
                         status={scan.status}
-                        label={statusLabels[scan.status]}
+                        label={statusLabel}
                       />
                       {scan.error && (
                         <span
@@ -142,11 +196,19 @@ export const SinglePageScanTable: React.FC<SinglePageScanTableProps> = ({
                   </time>
                 </TableCell>
                 <TableCell className={cn(cellClassName, 'text-right')}>
-                  <ScanOwnerActions
-                    scan={scan}
-                    label={`Actions for scan of ${describeScanTarget(scan)}`}
-                    variant='ghost'
-                  />
+                  {scan.multiplePageScan ? (
+                    <MultiplePageScanActions
+                      scan={scan}
+                      label={`Actions for multiple-page scan of ${describeMultiplePageScan(scan)}`}
+                      variant='ghost'
+                    />
+                  ) : (
+                    <ScanOwnerActions
+                      scan={scan}
+                      label={`Actions for scan of ${describeScanTarget(scan)}`}
+                      variant='ghost'
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )
