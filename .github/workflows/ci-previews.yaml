@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      # - dev
 
 # A new push to the same PR waits for the running deploy instead of racing it
 concurrency:
