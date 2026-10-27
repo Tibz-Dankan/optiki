@@ -1,4 +1,5 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
+import { githubActionHref } from '@constants/links'
 import { LandingScanLink } from '@modules/home/ui/landing-scan-link'
 import { ScanDemo } from '@modules/home/ui/scan-demo'
 
@@ -18,7 +19,7 @@ export const HeroSection: React.FC = () => {
       />
       <div className='relative mx-auto max-w-300 px-[clamp(16px,4vw,32px)] text-center'>
         <a
-          href='#ci'
+          href={githubActionHref}
           className='inline-flex max-w-full items-center gap-2.5 rounded-full border border-input bg-card py-1.25 ps-1.25 pe-3.5 text-[13px] transition-colors hover:bg-muted/60'
         >
           <span className='shrink-0 rounded-full bg-primary px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.06em] text-primary-foreground'>
@@ -27,7 +28,7 @@ export const HeroSection: React.FC = () => {
           <span className='min-w-0 text-left'>
             Scan every pull request from CI with an API token
           </span>
-          <ArrowRight className='size-3.5 shrink-0' aria-hidden />
+          <ArrowUpRight className='size-3.5 shrink-0' aria-hidden />
         </a>
 
         <h1

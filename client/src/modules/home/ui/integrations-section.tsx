@@ -12,7 +12,7 @@ const integrations = [
 
 const scanCommand = `# Scan the preview of this pull request
 curl -sX POST ${PRODUCTION_API_URL}/scan \\
-  -H "Authorization: Bearer $OPTIKI_TOKEN" \\
+  -H "Authorization: Bearer $OPTIKI_API_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"url": "'"$PREVIEW_URL"'"}'
 

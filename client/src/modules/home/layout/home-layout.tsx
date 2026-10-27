@@ -1,17 +1,13 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
+import { docsHref, githubHref } from '@constants/links'
 import { useAuthStore } from '@stores/auth'
 import { cn } from '@utils/classname'
 import { AppLogo } from '@shared/ui/app-logo'
 import { Button } from '@shared/ui/button'
 import { GitHubIcon } from '@shared/ui/github-icon'
 import { ThemeSwitch } from '@shared/ui/theme-switch'
-
-// TODO: point Docs at the docs page once it exists.
-const docsHref = '#'
-
-const githubHref = 'https://github.com/Tibz-Dankan/optiki'
 
 const currentYear = new Date().getFullYear()
 
