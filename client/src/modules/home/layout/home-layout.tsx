@@ -5,6 +5,7 @@ import { useAuthStore } from '@stores/auth'
 import { cn } from '@utils/classname'
 import { AppLogo } from '@shared/ui/app-logo'
 import { Button } from '@shared/ui/button'
+import { GitHubIcon } from '@shared/ui/github-icon'
 import { ThemeSwitch } from '@shared/ui/theme-switch'
 
 // TODO: point Docs at the docs page once it exists.
@@ -161,8 +162,9 @@ export const HomeLayout: React.FC<HomeLayoutProps> = ({ children }) => {
               </p>
               <a
                 href={githubHref}
-                className='mt-1 inline-flex h-9 items-center self-start rounded-lg border border-border px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:border-input hover:bg-muted/60 hover:text-foreground'
+                className='mt-1 inline-flex h-9 items-center gap-2 self-start rounded-lg border border-border px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:border-input hover:bg-muted/60 hover:text-foreground'
               >
+                <GitHubIcon />
                 GitHub
               </a>
             </div>
