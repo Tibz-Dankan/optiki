@@ -1,6 +1,8 @@
 package middlewares
 
 import (
+	"log"
+	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -8,7 +10,13 @@ import (
 
 // Traefik replaces X-Real-IP and X-Forwarded-For from untrusted clients, so behind it the first is the client's address.
 func SetClientIP(c *fiber.Ctx) error {
-	clientIP := strings.TrimSpace(c.Get("X-Real-IP"))
+	var clientIP string = ""
+
+	if os.Getenv("GO_ENV") == "production" {
+		clientIP = c.Get("CF-Connecting-IP")
+		log.Println("IP Cloudflare header: ", clientIP)
+	}
+	clientIP = strings.TrimSpace(c.Get("X-Real-IP"))
 
 	if clientIP == "" {
 		if forwardedFor := c.Get("X-Forwarded-For"); forwardedFor != "" {
