@@ -12,6 +12,15 @@ func (l *Location) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+func (l *Location) Create(location Location) (Location, error) {
+	result := db.Create(&location)
+
+	if result.Error != nil {
+		return location, result.Error
+	}
+	return location, nil
+}
+
 func (l *Location) FindByIP(ip string) (Location, error) {
 	var location Location
 	if err := db.First(&location, "ip = ?", ip).
@@ -40,3 +49,41 @@ func (l *Location) GetOrCreateByIP(ip string) (Location, error) {
 
 	return l.FindByIP(ip)
 }
+
+// func (l *Location) GetOrCreateByIP(ip string) (Location, error) {
+// 	var location Location
+
+// 	savedLocation, err := location.FindByIP(ip)
+// 	if err != nil {
+// 		return location, err
+// 	}
+// 	if savedLocation.ID != "" {
+// 		return savedLocation, nil
+// 	}
+
+// 	resp, err := http.Get(fmt.Sprintf("http://ip-api.com/json/%s", ip))
+// 	if err != nil {
+// 		return location, fmt.Errorf("geolocation lookup failed: %w", err)
+// 	}
+// 	defer resp.Body.Close()
+
+// 	body, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return location, fmt.Errorf("reading geolocation response: %w", err)
+// 	}
+
+// 	if !json.Valid(body) {
+// 		return location, fmt.Errorf("geolocation response is not valid JSON")
+// 	}
+
+// 	location.IP = ip
+// 	// location.Info = datatypes.JSON(body)
+// 	location.Info = json.RawMessage(body)
+
+// 	newLocation, err := location.Create(location)
+// 	if err != nil {
+// 		return location, err
+// 	}
+
+// 	return newLocation, nil
+// }

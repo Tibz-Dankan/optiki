@@ -16,7 +16,10 @@ func SetClientIP(c *fiber.Ctx) error {
 		clientIP = c.Get("CF-Connecting-IP")
 		log.Println("IP Cloudflare header: ", clientIP)
 	}
-	clientIP = strings.TrimSpace(c.Get("X-Real-IP"))
+
+	if clientIP == "" {
+		clientIP = strings.TrimSpace(c.Get("X-Real-IP"))
+	}
 
 	if clientIP == "" {
 		if forwardedFor := c.Get("X-Forwarded-For"); forwardedFor != "" {
@@ -29,6 +32,8 @@ func SetClientIP(c *fiber.Ctx) error {
 	}
 
 	c.Locals("clientIP", clientIP)
+
+	log.Println("clientIP: ", clientIP)
 
 	return c.Next()
 }
